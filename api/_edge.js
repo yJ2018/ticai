@@ -25,7 +25,12 @@ export async function proxyUpstream(target, maxAgeSeconds = 0) {
     const upstream = await fetch(target, {
       headers: {
         accept: 'application/json, text/plain, */*',
-        'user-agent': 'ticai-edge/1.0',
+        'accept-language': 'zh-CN,zh;q=0.9',
+        // 体彩 WAF 会按 UA / Referer 判定，这里伪装成浏览器同源请求
+        'user-agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        referer: 'https://www.sporttery.cn/',
+        origin: 'https://www.sporttery.cn',
       },
       signal: controller.signal,
     })
