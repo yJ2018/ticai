@@ -1,0 +1,29 @@
+{
+  "name": "ticai",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "vite --host",
+    "dev:api": "node server/index.mjs",
+    "build": "tsc && vite build",
+    "start": "node server/index.mjs",
+    "preview": "vite preview --host"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.4"
+  },
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-router-dom": "^6.30.3",
+    "sass": "^1.99.0",
+    "zustand": "^5.0.12"
+  }
+}
