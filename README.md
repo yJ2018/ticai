@@ -123,7 +123,9 @@ Vercel 上没有常驻进程，因此 BFF 在线上以 **Serverless Functions** 
 
    > 不配置前三个也能部署成功，只是天气/星座返回 503，其余功能正常。
 
-   **关于 `VITE_SPORTTERY_DIRECT`**：体彩接口会对云厂商出口 IP 返回 `HTTP 567`（Vercel 无论 `iad1` 还是 `hkg1` 都被拦），因此云端部署时把它设为 `1`，让浏览器直连 `webapi.sporttery.cn`；该接口不需要密钥且允许跨域。不设置时仍走同源 `/api/*`（适合自建服务器 / 境内部署）。
+   **关于 `VITE_SPORTTERY_DIRECT`**：体彩接口会对云厂商出口 IP 返回 `HTTP 567`（Vercel 的 Node 函数 `iad1`/`hkg1` 与 Edge 运行时都会被拦），因此云端部署必须把它设为 `1`，让浏览器直连 `webapi.sporttery.cn`；该接口不需要密钥、返回 `Access-Control-Allow-Origin: *`。不设置时走同源 `/api/*`，适合部署在出口不被拦的环境（例如境内服务器）。
+
+   > ⚠️ 已知限制：浏览器直连时，体彩「开奖历史」接口对**海外出口**会返回不带 CORS 头的 WAF 挑战页。若访问本站走了全局代理，赛事投注正常、开奖历史可能加载失败；把 `*.sporttery.cn` 加入代理白名单（直连）即可。
 
 3. 部署完成后，**Git 集成默认已开启**：推送到 `main` 会自动构建并发布 Production，其它分支生成 Preview 部署；
 4. 如需从外部触发（CI、定时任务、其它仓库），可在 **Settings → Git → Deploy Hooks** 创建 Hook：
