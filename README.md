@@ -3,6 +3,8 @@
 > 中国体彩「排列五」开奖分析 + 竞彩足球赔率投注方案的 Web 应用。
 > 前端 React 19 单页应用，服务端为零依赖 Node BFF；浏览器只与同源 `/api/*` 通信，第三方密钥不出服务端。
 
+🔗 **在线预览**：https://ticai-eight.vercel.app 　（Vercel 部署，推送 `main` 自动发布）
+
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
