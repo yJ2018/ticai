@@ -119,8 +119,11 @@ Vercel 上没有常驻进程，因此 BFF 在线上以 **Serverless Functions** 
    | `JUHE_WEATHER_KEY` | 聚合数据天气密钥 |
    | `JUHE_HOROSCOPE_KEY` | 聚合数据星座密钥 |
    | `JUHE_IP_KEY` | 可选，IP 归属地 |
+   | `VITE_SPORTTERY_DIRECT` | **云端部署建议设为 `1`**，见下方说明 |
 
-   > 不配置也能部署成功，只是天气/星座返回 503，其余功能正常。
+   > 不配置前三个也能部署成功，只是天气/星座返回 503，其余功能正常。
+
+   **关于 `VITE_SPORTTERY_DIRECT`**：体彩接口会对云厂商出口 IP 返回 `HTTP 567`（Vercel 无论 `iad1` 还是 `hkg1` 都被拦），因此云端部署时把它设为 `1`，让浏览器直连 `webapi.sporttery.cn`；该接口不需要密钥且允许跨域。不设置时仍走同源 `/api/*`（适合自建服务器 / 境内部署）。
 
 3. 部署完成后，**Git 集成默认已开启**：推送到 `main` 会自动构建并发布 Production，其它分支生成 Preview 部署；
 4. 如需从外部触发（CI、定时任务、其它仓库），可在 **Settings → Git → Deploy Hooks** 创建 Hook：
