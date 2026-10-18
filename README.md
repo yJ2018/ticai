@@ -99,15 +99,54 @@ npm start            # http://127.0.0.1:3000
 
 统一约定：参数白名单校验、上游超时 8s、错误码 `400 / 404 / 405 / 502 / 503 / 504`。
 
+## 部署到 Vercel
+
+Vercel 上没有常驻进程，因此 BFF 在线上以 **Serverless Functions** 运行：`api/*.js` 只是薄适配层，直接复用 `server/handlers.mjs` 的实现，本地与线上逻辑不会分叉。
+
+| 文件 | 作用 |
+| --- | --- |
+| `api/matches.js` 等 6 个 | 每行一个 `createRouteHandler('xxx')`，对应 `/api/*` 路径 |
+| `api/_shared.js` | 复用 handler、解析 URL、方法校验、统一错误出口（`_` 前缀不会被注册成路由） |
+| `vercel.json` | Vite 构建、SPA fallback、`/assets` 长缓存、函数内存与超时 |
+
+部署步骤：
+
+1. 在 Vercel 控制台 **Add New → Project** 导入 `yJ2018/ticai`，框架会自动识别为 Vite；
+2. 在 **Settings → Environment Variables** 添加（Production / Preview 都建议加）：
+
+   | Key | 说明 |
+   | --- | --- |
+   | `JUHE_WEATHER_KEY` | 聚合数据天气密钥 |
+   | `JUHE_HOROSCOPE_KEY` | 聚合数据星座密钥 |
+   | `JUHE_IP_KEY` | 可选，IP 归属地 |
+
+   > 不配置也能部署成功，只是天气/星座返回 503，其余功能正常。
+
+3. 部署完成后，**Git 集成默认已开启**：推送到 `main` 会自动构建并发布 Production，其它分支生成 Preview 部署；
+4. 如需从外部触发（CI、定时任务、其它仓库），可在 **Settings → Git → Deploy Hooks** 创建 Hook：
+
+   ```bash
+   curl -X POST "https://api.vercel.com/v1/integrations/deploy/<hook-id>"
+   ```
+
+本地也可以用 Vercel CLI 预演：
+
+```bash
+npx vercel dev          # 同时跑静态站与 api/*.js，读取 .env
+npx vercel --prod       # 手动发布一次
+```
+
 ## 目录结构
 
 ```text
 .
+├─ api/                     # Vercel Serverless Functions（复用 server/ 的实现）
 ├─ server/                  # 零依赖 Node BFF
 │  ├─ index.mjs             # HTTP 服务、路由分发、静态托管、SPA fallback
 │  ├─ handlers.mjs          # /api/* 实现（白名单、缓存、错误映射）
 │  └─ lib.mjs               # .env 解析、TTL 缓存、超时 fetch、静态文件
 ├─ scripts/dev.mjs          # 并行拉起 BFF + Vite
+├─ vercel.json              # Vercel 构建与路由配置
 ├─ src/
 │  ├─ pages/                # 7 个页面
 │  ├─ features/betting/     # 投注单：useBetSlip + 纯函数 + 4 个组件
