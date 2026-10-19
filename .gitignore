@@ -14,8 +14,18 @@ dist-ssr
 
 # 本地环境变量（含第三方密钥，禁止提交）
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# 本地 Vercel 项目关联信息（含 org/project id）
+.vercel
+
+# 本地私人物料
+resume/
+
+# 证书 / 私钥
+*.pem
+*.key
 
 # Editor directories and files
 .vscode/*

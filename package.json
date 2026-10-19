@@ -12,7 +12,10 @@
     "dev:api": "node server/index.mjs",
     "build": "tsc && vite build",
     "start": "node server/index.mjs",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "ai:check": "node scripts/ai-smoke.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "deploy:local": "node scripts/deploy-local.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

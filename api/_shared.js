@@ -20,11 +20,15 @@ function getHandlers() {
   return cachedHandlers
 }
 
-export function createRouteHandler(routeName) {
+export function createRouteHandler(routeName, { methods = ['GET'] } = {}) {
+  const allow = methods.join(', ')
+
   return async function routeHandler(req, res) {
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.setHeader?.('allow', 'GET')
-      sendError(res, 405, '不支持的方法，仅允许 GET')
+    const method = req.method ?? 'GET'
+    const methodAllowed = methods.includes(method) || (method === 'HEAD' && methods.includes('GET'))
+    if (!methodAllowed) {
+      res.setHeader?.('allow', allow)
+      sendError(res, 405, `不支持的方法，仅允许 ${allow}`)
       return
     }
 

@@ -21,7 +21,7 @@
 
 | 路由 | 页面 | 能力 |
 | --- | --- | --- |
-| `/` | 赛事投注 | 5 种玩法池（胜平负/比分/进球数/半全场/混合过关）、赔率勾选、串关注数与金额、最高奖金与彩票税、方案截图 |
+| `/` | 赛事投注 | 5 种玩法池（胜平负/比分/进球数/半全场/混合过关）、赔率勾选、串关注数与金额、最高奖金与彩票税、方案截图、**每场比赛的 AI 赛前分析浮层** |
 | `/history` | 开奖历史 | 排列五开奖列表、号码走势、基于本地数据的预测摘要 |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐，权重与马尔可夫阶数可调 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测 |
@@ -52,10 +52,14 @@ npm install
 cp .env.example .env
 #   Windows: copy .env.example .env
 #   然后填入聚合数据的 JUHE_WEATHER_KEY / JUHE_HOROSCOPE_KEY
+#   如需大模型能力，再填入 DEEPSEEK_API_KEY（见「接入 DeepSeek 大模型」）
 
 # 3. 启动开发环境（BFF:3000 + Vite:5173，/api 走代理）
 npm run dev
 ```
+
+> 修改 `server/` 下的代码后必须重启 `npm run dev`（BFF 没有热重载）；只刷新浏览器不会加载新的接口。
+> 如果页面提示「接口不存在」，先确认当前 BFF 的启动日志里是否列出了对应路由，并重启开发进程。
 
 打开 http://localhost:5173
 
@@ -73,6 +77,7 @@ npm start            # http://127.0.0.1:3000
 | `npm run dev:web` | 只启动前端（需 BFF 已在 3000 端口） |
 | `npm run build` | `tsc` 类型检查 + 产物构建 |
 | `npm start` | 生产启动（BFF + 静态托管） |
+| `npm run ai:check` | 直连 DeepSeek 自检密钥与模型连通性 |
 
 ## 环境变量
 
@@ -84,6 +89,14 @@ npm start            # http://127.0.0.1:3000
 | `JUHE_WEATHER_KEY` | — | 缺失时 `/api/weather` 返回 503 |
 | `JUHE_HOROSCOPE_KEY` | — | 缺失时 `/api/horoscope` 返回 503 |
 | `JUHE_IP_KEY` | — | 缺失时 `/api/ip` 返回空归属地，前端回退默认城市 |
+| `DEEPSEEK_API_KEY` | — | 缺失时 `/api/ai-chat` 返回 503；**不要加 `VITE_` 前缀** |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | OpenAI 兼容接口地址，可指向代理/网关 |
+| `DEEPSEEK_MODEL` | `deepseek-flash` | 也可用 `deepseek-v4-pro` |
+| `DEEPSEEK_TIMEOUT_MS` | `60000` | 大模型上游超时 |
+| `DEEPSEEK_MAX_TOKENS` | `1024` | 默认输出上限（单次请求最大 8192） |
+| `DEEPSEEK_THINKING` | `0` | `1` = 默认开启思考模式（更慢更贵） |
+| `AI_RATE_LIMIT_PER_MIN` | `10` | `/api/ai-chat` 每 IP 每分钟次数，`0` = 不限 |
+| `VENUE_RATE_LIMIT_PER_MIN` | `20` | `/api/venue-weather` 每 IP 每分钟次数，`0` = 不限 |
 | `SPORTTERY_BASE` 等 | 官方地址 | 上游地址，可指向 mock 服务离线联调 |
 
 > 未配置聚合数据密钥时，赛事与开奖功能仍可正常使用，仅天气/星座接口不可用。
@@ -97,23 +110,162 @@ npm start            # http://127.0.0.1:3000
 | GET | `/api/horoscope` | 聚合数据星座 | `consName` / `type` 白名单，缓存 10min |
 | GET | `/api/weather` | 聚合数据天气 | 城市名白名单校验，缓存 10min |
 | GET | `/api/ip` | 聚合数据 IP | 取连接 IP，未配置密钥时降级 |
+| POST | `/api/ai-chat` | DeepSeek `chat/completions` | `messages` 必填；`stream` 为 SSE；其余选项见下文 |
+| GET | `/api/venue-weather` | DeepSeek 解析城市 + Open-Meteo | 参数 `homeTeam` / `league` / `kickoff` / `teamId`，结果按球队缓存 |
 | GET | `/api/health` | — | 运行状态、密钥配置情况、缓存命中数 |
 
-统一约定：参数白名单校验、上游超时 8s、错误码 `400 / 404 / 405 / 502 / 503 / 504`。
+统一约定：参数白名单校验、上游超时 8s、错误码 `400 / 404 / 405 / 413 / 429 / 502 / 503 / 504`。
 
-## 部署到 Vercel
+## 接入 DeepSeek 大模型
+
+项目没有引入任何模型 SDK：`server/llm.mjs` 用 Node 原生 `fetch` 直连 DeepSeek 的
+[OpenAI 兼容接口](https://api-docs.deepseek.com/)，浏览器只访问同源 `POST /api/ai-chat`。
+密钥始终留在服务端进程里，前端 bundle 中不会出现。
+
+> ⚠️ 不要使用 `VITE_DEEPSEEK_API_KEY` 之类的变量直连模型：`VITE_` 前缀的变量会被 Vite
+> 打进浏览器代码，任何人打开 DevTools 都能拿到密钥并盗刷余额。
+
+### 1. 配置密钥
+
+在 `.env`（已被 `.gitignore` 忽略）中填写：
+
+```bash
+DEEPSEEK_API_KEY=sk-xxxxxxxx
+```
+
+其余可选配置见上方[环境变量](#环境变量)。默认模型为 `deepseek-flash`，并**关闭思考模式**
+（DeepSeek 默认开启思考，交互式场景会明显更慢、更贵；需要深度分析时设置 `DEEPSEEK_THINKING=1`
+或在单次请求里传 `thinking: true`。开启思考且未指定 `maxTokens` 时，服务端会把默认上限提高到 4096，
+因为推理 token 也计入 `max_tokens`）。
+
+### 2. 验证密钥
+
+```bash
+npm run ai:check                 # 直接用默认提示词试一次
+npm run ai:check 用一句话介绍竞彩足球
+```
+
+脚本会打印模型回复、耗时和 token 用量；密钥错误、余额不足、超时都会给出明确提示。
+
+### 3. 前端调用
+
+```ts
+// 以 src/pages 下的页面为例
+import { askAi, askAiText } from '../api/aiApi'
+
+// 单轮：适合"AI 解读""生成摘要"
+const summary = await askAiText('用 200 字解读这场比赛的赔率变化', {
+  system: '你是竞彩足球分析师，只做客观解读，不给出投注建议。',
+  maxTokens: 512,
+})
+
+// 多轮：自己维护 messages 数组
+const { content, usage } = await askAi({
+  messages: [
+    { role: 'system', content: '你是一个简洁的中文助手。' },
+    { role: 'user', content: '排列五的号码可以预测吗？' },
+  ],
+  temperature: 0.3,
+})
+```
+
+返回值：`{ content, reasoning, model, finishReason, truncated, usage, elapsedMs }`。
+请求失败会抛 `ApiError`（状态码见 `httpClient.ts`），可直接在页面里提示。
+
+### 4. HTTP 调用
+
+```bat
+:: Windows 自带的 curl.exe（PowerShell 里 curl 是 Invoke-WebRequest 的别名）
+curl.exe -X POST http://127.0.0.1:3000/api/ai-chat ^
+  -H "content-type: application/json" ^
+  -d "{\"messages\":[{\"role\":\"user\",\"content\":\"用一句话介绍你自己\"}]}"
+```
+
+```powershell
+# PowerShell 原生写法
+Invoke-RestMethod -Uri http://127.0.0.1:3000/api/ai-chat -Method Post `
+  -ContentType 'application/json' `
+  -Body (@{ messages = @(@{ role = 'user'; content = '用一句话介绍你自己' }) } | ConvertTo-Json -Depth 5)
+```
+
+请求字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `messages` | `{ role, content }[]` | 必填，`role` ∈ `system` / `user` / `assistant`，最多 40 条 |
+| `temperature` | `number` | 可选，`0 ~ 2` |
+| `maxTokens` | `number` | 可选，`1 ~ 8192`；默认取 `DEEPSEEK_MAX_TOKENS`（开启思考时至少 4096） |
+| `json` | `boolean` | 可选，要求只输出 JSON；提示词中必须包含 "json" 字样 |
+| `thinking` | `boolean` | 可选，覆盖服务端默认的思考模式开关 |
+| `reasoningEffort` | `'none' \| 'low' \| 'high' \| 'max'` | 可选，思考强度；`none` 等价于关闭 |
+| `stream` | `boolean` | 可选，`true` 时以 SSE 返回思考过程与正文增量 |
+
+响应沿用 BFF 信封：`{ success: true, data: { content, ... } }`；失败为 `{ success: false, errorMessage }`。
+`stream: true` 时改为 SSE，事件为 `reasoning` / `content`（`data: { delta }`）、`done`（用量与耗时）和 `error`。
+
+### 5. 比赛 AI 分析（页面功能）
+
+赛事投注页每场比赛右上角都有「AI 分析」按钮：
+
+- 按**当前玩法**（胜平负/比分/进球数/半全场/混合）生成针对性预测，而不是泛泛而谈；
+- 分析维度固定为状态与风格、阵容与伤停、主客场与赛程、天气、赔率，最后给出推荐选项、比分参考与信心等级；
+- 浮层内先展示「分析过程」，再展示「预测结果」，支持复制、重新分析；桌面端浮在按钮左侧，移动端为底部抽屉；
+- 同一玩法 + 同一场比赛的结果会在当前页面会话内缓存，重复打开不重复扣费；
+- 关闭浮层会立即中断 SSE 与上游 DeepSeek 请求；比赛地天气最多等待 15s，超时则跳过天气直接分析。
+
+实现上，前端通过 `POST /api/ai-chat`（`stream: true`）消费 SSE，服务端边收 DeepSeek 增量边转发；
+提示词明确要求「无法确认阵容/伤情时必须写暂无可靠信息」，避免模型编造首发和伤病名单。
+
+天气取的是**比赛地天气**：先由 `GET /api/venue-weather` 让 DeepSeek 根据「主队 + 联赛」解析主场城市，
+再用免费的 [Open-Meteo](https://open-meteo.com/) 取当地当前天气与开赛时段预报（无需额外密钥）。
+城市解析按球队缓存 7 天，天气按坐标缓存 20 分钟；无法确认城市时返回 `available: false`，
+界面显示「比赛地天气未获取」，提示词要求模型直接说明缺失，不会拿其它城市的数据凑数。
+
+### 6. 限制与注意事项
+
+- **限流**：`/api/ai-chat` 默认每 IP 每分钟 10 次，`/api/venue-weather` 默认 20 次（均为进程内内存实现），可分别通过 `AI_RATE_LIMIT_PER_MIN` / `VENUE_RATE_LIMIT_PER_MIN` 调整；
+- **长度**：单条消息 ≤ 15000 字符，整段对话 ≤ 30000 字符，请求体 ≤ 256 KB；
+- **超时**：服务端默认 60s，前端 70s；Vercel 函数已在 `vercel.json` 单独放开到 60s；
+- **公网部署**：`/api/ai-chat` 没有登录鉴权，任何人都能借你的密钥消耗余额。公开前请加登录、
+  网关限流或改用带鉴权的后端；本项目的默认监听地址 `127.0.0.1` 只适合本机使用；
+- **流式输出**：`stream: true` 已支持，BFF 用 SSE 转发 DeepSeek 的增量；比赛 AI 分析默认走这条链路。
+  注意 Vercel 函数需保持在 `maxDuration` 以内，且反向代理不能缓冲 `text/event-stream`。
+
+## 密钥与本地文件
+
+真实密钥只放在项目根目录的 `.env`（已被 `.gitignore` 忽略，不会进入 Git）：
+
+```bash
+DEEPSEEK_API_KEY=sk-...
+JUHE_WEATHER_KEY=...
+JUHE_HOROSCOPE_KEY=...
+```
+
+> 当前仓库的工作区、全部 Git 历史与不可达对象均已扫描，没有真实密钥；`.env` 从未被 Git 跟踪。
+
+- `.env.example` 只保留空占位，可安全提交；
+- `npm run check:secrets` 会扫描暂存区，发现 `sk-`、32 位聚合密钥、GitHub/Vercel token 时阻止提交；
+- `.git/hooks/pre-commit` 已安装该检查（本地 hook，不进入仓库）；
+- `.vercelignore` 排除了 `.env`、`.vercel`、`resume/`，本地部署不会上传这些文件；
+- 密钥如果曾出现在提交、截图或聊天记录中，请到对应平台轮换。
+
+## 部署到 Vercel（本地构建）
 
 Vercel 上没有常驻进程，因此 BFF 在线上以 **Serverless Functions** 运行：`api/*.js` 只是薄适配层，直接复用 `server/handlers.mjs` 的实现，本地与线上逻辑不会分叉。
 
+项目已经关闭 Vercel 的 Git 自动构建：`vercel.json` 中 `git.deploymentEnabled` 为 `false`。
+发布改为 **本地构建 + 上传预构建产物**，云端只托管、不构建，也不会上传源码和 `.env`。
+
 | 文件 | 作用 |
 | --- | --- |
-| `api/matches.js` 等 6 个 | 每行一个 `createRouteHandler('xxx')`，对应 `/api/*` 路径 |
+| `api/matches.js` 等 8 个 | 每行一个 `createRouteHandler('xxx')`，对应 `/api/*` 路径 |
 | `api/_shared.js` | 复用 handler、解析 URL、方法校验、统一错误出口（`_` 前缀不会被注册成路由） |
-| `vercel.json` | Vite 构建、SPA fallback、`/assets` 长缓存、函数内存与超时 |
+| `vercel.json` | Vite 构建、SPA fallback、`/assets` 长缓存、函数内存与超时、关闭 Git 自动部署 |
+| `.vercelignore` | 本地部署时排除 `.env`、`resume/` 等文件 |
 
-部署步骤：
+### 第一次配置
 
-1. 在 Vercel 控制台 **Add New → Project** 导入 `yJ2018/ticai`，框架会自动识别为 Vite；
+1. 在 Vercel 控制台 **Add New → Project** 导入 `yJ2018/ticai`（如果还没导入）；
 2. 在 **Settings → Environment Variables** 添加（Production / Preview 都建议加）：
 
    | Key | 说明 |
@@ -121,6 +273,7 @@ Vercel 上没有常驻进程，因此 BFF 在线上以 **Serverless Functions** 
    | `JUHE_WEATHER_KEY` | 聚合数据天气密钥 |
    | `JUHE_HOROSCOPE_KEY` | 聚合数据星座密钥 |
    | `JUHE_IP_KEY` | 可选，IP 归属地 |
+   | `DEEPSEEK_API_KEY` | 可选，`/api/ai-chat` 与比赛地城市解析的大模型密钥（不要加 `VITE_` 前缀） |
    | `VITE_SPORTTERY_DIRECT` | **云端部署建议设为 `1`**，见下方说明 |
 
    > 不配置前三个也能部署成功，只是天气/星座返回 503，其余功能正常。
@@ -129,18 +282,45 @@ Vercel 上没有常驻进程，因此 BFF 在线上以 **Serverless Functions** 
 
    > ⚠️ 已知限制：浏览器直连时，体彩「开奖历史」接口对**海外出口**会返回不带 CORS 头的 WAF 挑战页。若访问本站走了全局代理，赛事投注正常、开奖历史可能加载失败；把 `*.sporttery.cn` 加入代理白名单（直连）即可。
 
-3. 部署完成后，**Git 集成默认已开启**：推送到 `main` 会自动构建并发布 Production，其它分支生成 Preview 部署；
-4. 如需从外部触发（CI、定时任务、其它仓库），可在 **Settings → Git → Deploy Hooks** 创建 Hook：
+3. 本地登录并关联项目（只需一次）：
 
    ```bash
-   curl -X POST "https://api.vercel.com/v1/integrations/deploy/<hook-id>"
+   npx vercel login
+   npx vercel link
    ```
 
-本地也可以用 Vercel CLI 预演：
+   关联信息写入 `.vercel/project.json`，该目录已被 `.gitignore` 和 `.vercelignore` 排除。
+
+### 发布
 
 ```bash
-npx vercel dev          # 同时跑静态站与 api/*.js，读取 .env
-npx vercel --prod       # 手动发布一次
+npm run deploy:local
+```
+
+脚本依次执行：
+
+1. `vercel pull --environment=production`：拉取线上环境变量到本地 `.vercel`；
+2. `vercel build --prod`：在本地完成 Vite 与 `api/*` 函数的构建；
+3. `vercel deploy --prebuilt --prod`：只上传 `.vercel/output`，不上传源码与 `.env`。
+
+### 推送自动发布
+
+本地 `.git/hooks/pre-push` 已安装（只在本机，不进入仓库）：推送到 `main` 时先本地构建并发布，默认发布失败**不阻止**推送。
+
+```bash
+git push                    # 自动本地构建 + 发布
+SKIP_DEPLOY=1 git push      # 本次跳过发布
+DEPLOY_STRICT=1 git push    # 发布失败则阻止推送
+```
+
+Hook 只对 `main` 生效；工作区有未提交改动时会跳过，避免发布内容和提交内容不一致。
+由于是 `pre-push`，发布发生在推送之前；如果推送被拒绝（例如 non-fast-forward），生产可能已经更新，重试推送即可。
+如果 Vercel 控制台的 Git 集成仍在触发构建，请在 **Settings → Git** 断开集成，或确认 `git.deploymentEnabled: false` 已生效。
+
+本地预览（不发布）：
+
+```bash
+npx vercel dev
 ```
 
 ## 目录结构
@@ -151,17 +331,27 @@ npx vercel --prod       # 手动发布一次
 ├─ server/                  # 零依赖 Node BFF
 │  ├─ index.mjs             # HTTP 服务、路由分发、静态托管、SPA fallback
 │  ├─ handlers.mjs          # /api/* 实现（白名单、缓存、错误映射）
-│  └─ lib.mjs               # .env 解析、TTL 缓存、超时 fetch、静态文件
-├─ scripts/dev.mjs          # 并行拉起 BFF + Vite
-├─ vercel.json              # Vercel 构建与路由配置
+│  ├─ llm.mjs               # DeepSeek 客户端（OpenAI 兼容，原生 fetch）
+│  ├─ venue.mjs             # 主队城市解析 + Open-Meteo 比赛地天气
+│  └─ lib.mjs               # .env 解析、TTL 缓存、超时 fetch、JSON body、静态文件
+├─ scripts/
+│  ├─ dev.mjs               # 并行拉起 BFF + Vite
+│  ├─ ai-smoke.mjs          # npm run ai:check 密钥连通性自检
+│  ├─ check-secrets.mjs     # 提交前扫描暂存区密钥
+│  └─ deploy-local.mjs      # 本地构建 + Vercel 预构建产物部署
+├─ vercel.json              # Vercel 构建、路由与关闭云端自动部署
 ├─ src/
 │  ├─ pages/                # 7 个页面
-│  ├─ features/betting/     # 投注单：useBetSlip + 纯函数 + 4 个组件
+│  ├─ features/betting/     # 投注单：useBetSlip + 纯函数 + 组件 + AI 分析
+│  │  ├─ AiAnalysisPanel.tsx    # AI 分析浮层 / 移动端抽屉
+│  │  ├─ useMatchAiAnalysis.ts  # SSE 状态机、结果缓存、比赛地天气
+│  │  └─ aiAnalysis.ts          # 提示词构建、推荐摘要解析
+│  ├─ components/           # 通用控件（如自绘下拉 MarkovOrderSelect）
 │  ├─ router/               # 自研 Keep-Alive 路由
 │  ├─ service/              # 业务服务（历史缓存状态机、赔率映射等）
 │  ├─ storage/historyDb.ts  # IndexedDB 仓储（增量写、按序裁剪）
 │  ├─ domain/               # 纯类型与纯函数算法（含 1064 行预测算法）
-│  ├─ api/                  # 传输层（超时、统一错误）
+│  ├─ api/                  # 传输层（aiApi、venueWeatherApi、统一错误）
 │  └─ workers/              # 2 个预测计算 Worker
 └─ docs/                    # 架构文档与架构图
 ```
@@ -169,14 +359,17 @@ npx vercel --prod       # 手动发布一次
 ## 数据与缓存
 
 - **IndexedDB**（`ticai` 库）：`history_meta` 存同步元数据，`history_draws` 每条开奖一条记录；只写新增条目，超过 2 万条按开奖期号裁剪最旧记录；旧版 `localStorage` 缓存会自动迁移。IndexedDB 不可用时降级为纯内存。
-- **BFF 内存缓存**：按接口设置 TTL（20s ~ 30min），降低上游压力。
+- **BFF 内存缓存**：按接口设置 TTL（20s ~ 30min；比赛地城市解析缓存 7 天、天气 20min），降低上游压力。
 - **前端请求**：统一 15s 超时 + `AbortController`，切换页面时自动取消。
 
 ## 已知限制
 
-- BFF **没有鉴权与限流**，默认只监听 `127.0.0.1`；对外暴露前请置于网关之后或自行加限流。
+- BFF **没有鉴权**，默认只监听 `127.0.0.1`；`/api/ai-chat` 有单实例内存限流，但对外暴露前仍应置于网关之后或自行加鉴权。
 - 聚合数据接口需要自行申请密钥，免费额度有限。
+- AI 分析的阵容/伤停来自模型自身知识，可能滞后或缺失；提示词要求无法确认时明确说明，但仍应以官方赛前名单为准。
+- 比赛地城市由模型解析（冷门球队可能解析失败或出错），失败时接口返回 `available: false`，分析会注明天气缺失；天气为 Open-Meteo 预报，开赛时段按小时对齐，存在一定误差。
 - 两个分析页（`HistoryAnalysisPage`、`MathTrendAnalysisPage`）仍未拆分，且 `HistoryPage` 的算法在主线程同步执行。
+- 本地自动发布依赖 Vercel CLI 登录与 `vercel link`；`.git/hooks/pre-push` 只存在于当前机器，换机器克隆后需要重新安装或手动执行 `npm run deploy:local`。
 - 移动端在 430px 以下存在轻微横向溢出。
 - 项目暂无单元测试与 ESLint 配置。
 

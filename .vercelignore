@@ -1,0 +1,11 @@
+# 部署上传时排除本地密钥与个人文件
+.env
+.env.*
+!.env.example
+
+# 本地与构建产物
+node_modules
+dist
+
+# 个人文件
+resume

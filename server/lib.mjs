@@ -91,6 +91,53 @@ export function sendError(res, status, message) {
   sendJson(res, status, { success: false, errorMessage: message })
 }
 
+function parseJsonText(text) {
+  if (!text) {
+    throw new HttpError(400, '请求体不能为空')
+  }
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new HttpError(400, '请求体必须是合法 JSON')
+  }
+}
+
+/**
+ * 读取并解析 JSON 请求体。
+ *
+ * 同时兼容两种运行环境：
+ * - 本地 / Vercel Node 函数：req 是可读流，按块读取并限制大小；
+ * - 平台已预解析时：直接复用 req.body（对象 / 字符串 / Buffer）。
+ */
+export async function readJsonBody(req, { maxBytes = 256 * 1024 } = {}) {
+  const preParsed = req.body
+  if (preParsed !== undefined && preParsed !== null) {
+    if (Buffer.isBuffer(preParsed)) {
+      return parseJsonText(preParsed.toString('utf8'))
+    }
+    if (typeof preParsed === 'string') {
+      return parseJsonText(preParsed)
+    }
+    if (typeof preParsed === 'object') {
+      return preParsed
+    }
+  }
+
+  const chunks = []
+  let size = 0
+
+  for await (const chunk of req) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    size += buffer.length
+    if (size > maxBytes) {
+      throw new HttpError(413, `请求体过大（上限 ${Math.floor(maxBytes / 1024)} KB）`)
+    }
+    chunks.push(buffer)
+  }
+
+  return parseJsonText(Buffer.concat(chunks).toString('utf8'))
+}
+
 /**
  * 简单的 TTL + LRU 缓存：够用于"降低上游压力"，不追求精确统计。
  */

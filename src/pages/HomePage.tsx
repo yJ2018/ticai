@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type TouchEvent } from 'react'
 import html2canvas from 'html2canvas'
 import { useMatchStore } from '../store/matchStore'
-import { type MatchPoolType } from '../service/matchService'
+import { type MatchCard, type MatchPoolType } from '../service/matchService'
 import { BetSlipFooter } from '../features/betting/BetSlipFooter'
 import { MatchPoolList } from '../features/betting/MatchPoolList'
 import { PlanModal } from '../features/betting/PlanModal'
 import { SnapshotOverlay } from '../features/betting/SnapshotOverlay'
+import { AiAnalysisPanel } from '../features/betting/AiAnalysisPanel'
+import { useMatchAiAnalysis } from '../features/betting/useMatchAiAnalysis'
 import { useBetSlip } from '../features/betting/useBetSlip'
 import { PLAN_MODAL_ANIMATION_MS, formatMoney, getSportteryTaxInfo } from '../features/betting/betSlipMath'
 
@@ -47,6 +49,7 @@ export function HomePage() {
   )
 
   const betSlip = useBetSlip(items, activePool)
+  const aiAnalysis = useMatchAiAnalysis(activePool)
 
   useEffect(() => {
     loadMatches()
@@ -128,6 +131,7 @@ export function HomePage() {
     setActivePool(nextPool)
     setIsPassPanelOpen(false)
     setIsMultiplePanelOpen(false)
+    aiAnalysis.close()
     closePlanModal()
   }
 
@@ -191,6 +195,7 @@ export function HomePage() {
     setMultipleDraft('')
     closePlanModal()
     closeAllPanels()
+    aiAnalysis.close()
   }
 
   function closePlanModal() {
@@ -211,6 +216,7 @@ export function HomePage() {
       return
     }
     closeAllPanels()
+    aiAnalysis.close()
     if (planModalTimerRef.current) {
       window.clearTimeout(planModalTimerRef.current)
       planModalTimerRef.current = null
@@ -219,6 +225,15 @@ export function HomePage() {
     window.requestAnimationFrame(() => {
       setIsPlanModalOpen(true)
     })
+  }
+
+  function openAiAnalysis(item: MatchCard, anchor: HTMLButtonElement) {
+    if (aiAnalysis.analysis?.key === `${activePool}:${item.id}`) {
+      aiAnalysis.close()
+      return
+    }
+    closeAllPanels()
+    aiAnalysis.open(item, anchor)
   }
 
   function openMultiplePanel() {
@@ -354,9 +369,17 @@ export function HomePage() {
             expandedMixedIds={betSlip.expandedMixedIds}
             onToggleOption={betSlip.toggleOption}
             onToggleMixed={betSlip.toggleMixedExpand}
+            onAnalyze={openAiAnalysis}
           />
         </div>
       </div>
+
+      <AiAnalysisPanel
+        analysis={aiAnalysis.analysis}
+        anchor={aiAnalysis.anchor}
+        onClose={aiAnalysis.close}
+        onRetry={aiAnalysis.retry}
+      />
 
       {(isPassPanelOpen || isMultiplePanelOpen) && (
         <div

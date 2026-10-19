@@ -176,10 +176,13 @@ D:\ticai
 ├─ public/                     # favicon.svg、icons.svg
 ├─ server/                     # ★ 零依赖 Node BFF
 │  ├─ index.mjs                # HTTP 服务、路由分发、静态托管、SPA fallback、优雅退出
-│  ├─ handlers.mjs             # /api/matches|history|horoscope|weather|ip|health
-│  └─ lib.mjs                  # .env 解析、TTL/LRU 缓存、超时 fetch、静态文件
+│  ├─ handlers.mjs             # /api/matches|history|horoscope|weather|ip|ai-chat|venue-weather|health
+│  ├─ llm.mjs                  # DeepSeek 客户端（OpenAI 兼容 /chat/completions）
+│  ├─ venue.mjs                # 主队城市解析（DeepSeek）+ Open-Meteo 比赛地天气
+│  └─ lib.mjs                  # .env 解析、TTL/LRU 缓存、超时 fetch、JSON body、静态文件
 ├─ scripts/
-│  └─ dev.mjs                  # 并行拉起 BFF + Vite，任一退出则联动关闭
+│  ├─ dev.mjs                  # 并行拉起 BFF + Vite，任一退出则联动关闭
+│  └─ ai-smoke.mjs             # npm run ai:check 密钥连通性自检
 └─ src
    ├─ main.tsx                 # createRoot + BrowserRouter + 全局样式
    ├─ App.tsx                  # 顶栏 + 导航 + <AppRouter/>
@@ -193,10 +196,13 @@ D:\ticai
    │  ├─ HistoryAnalysisPage   # 720 行（仍未拆分）
    │  ├─ MathTrendAnalysisPage # 437 行（仍未拆分）
    │  └─ HoroscopePage / AboutPage / ProfilePage
-   ├─ features/betting         # ★ 从 HomePage 拆出的投注模块（6 文件 859 行）
+   ├─ features/betting
+   │  ├─ AiAnalysisPanel.tsx   # AI 分析浮层 / 移动端底部抽屉
+   │  ├─ useMatchAiAnalysis.ts # SSE 状态机、天气、结果缓存
+   │  ├─ aiAnalysis.ts         # 提示词构建、推荐摘要解析
    │  ├─ useBetSlip.ts         # 选择态、串关、注数/金额/最高奖金
    │  ├─ betSlipMath.ts        # 纯函数：组合乘积、税率、过关上限、标签格式化
-   │  ├─ MatchPoolList.tsx     # 赛事卡片 + 赔率选项 + 混合过关展开
+   │  ├─ MatchPoolList.tsx     # 赛事卡片 + 赔率选项 + 混合过关展开 + AI 按钮
    │  ├─ BetSlipFooter.tsx     # 底部投注栏（过关/倍数/金额）
    │  ├─ PlanModal.tsx         # 方案弹层（含截图入口）
    │  └─ SnapshotOverlay.tsx   # 截图悬浮窗 + 大图预览
@@ -216,6 +222,8 @@ D:\ticai
    ├─ api
    │  ├─ httpClient.ts         # 超时 + AbortSignal + 统一 ApiError
    │  ├─ sportteryApi.ts       # /api/matches、/api/history
+   │  ├─ aiApi.ts              # POST /api/ai-chat（askAi / askAiText / askAiStream）
+   │  ├─ venueWeatherApi.ts    # GET /api/venue-weather
    │  └─ types.ts              # BffEnvelope<T>
    ├─ styles/global.scss
    └─ assets/                  # 未被引用的图片（可删）
@@ -373,21 +381,31 @@ sequenceDiagram
 | `GET /api/horoscope` | 聚合 `constellation/getAll` | `consName` ∈ 12 星座、`type` ∈ 5 种 | 10 min |
 | `GET /api/weather` | 聚合 `weather/index` | `cityname`(≤64 字符，去控制字符)、`dtype`、`format` | 10 min |
 | `GET /api/ip` | 聚合 `ip/ipNewV3`（可选） | 无（取连接 IP / `x-forwarded-for`） | 30 min |
+| `POST /api/ai-chat` | DeepSeek `chat/completions` | JSON body：`messages`（≤40 条、单条 ≤15000 字符、合计 ≤30000 字符）、`temperature`、`maxTokens`、`json`、`thinking`、`reasoningEffort`、`stream` | 无 |
+| `GET /api/venue-weather` | DeepSeek 城市解析 + Open-Meteo | `homeTeam`、`league`、`kickoff`、`teamId` | 城市 7 天；天气 20 min |
 | `GET /api/health` | — | 无 | 无 |
 
-响应形态两类：
+响应形态三类：
 
 - **体彩信封原样透传**：`{ success, errorCode, errorMessage, value }`（前端 `sportteryApi` 逻辑不变）。
-- **BFF 统一信封**：`{ success, data }` 或 `{ success:false, errorMessage }`（天气/星座/IP）。
+- **BFF 统一信封**：`{ success, data }` 或 `{ success:false, errorMessage }`（天气/星座/IP/AI）。
+- **SSE**：`/api/ai-chat` 传 `stream: true` 时返回 `text/event-stream`，事件为 `reasoning`/`content`/`done`/`error`。
 
-错误约定：参数非法 `400`、方法不允许 `405`、未知接口 `404`、上游失败 `502`、上游超时 `504`、缺密钥 `503`。
+比赛 AI 分析链路：`MatchPoolList` → `useMatchAiAnalysis` → `GET /api/venue-weather`（DeepSeek 解析主队城市 + Open-Meteo 天气）
+→ `askAiStream` → `POST /api/ai-chat`（SSE）→ DeepSeek。城市解析失败时返回 `available:false`，分析继续但注明天气缺失。
+服务端在首个增量前不写响应头，因此参数/鉴权/限流错误仍按普通 JSON 错误返回；结果按 `pool:matchId` 缓存在页面内存。
+关闭浮层时前端 `AbortController` 取消请求，BFF 在 `res` 的 `close` 事件里同步中止 DeepSeek 上游；天气查询最多等 15s，超时按缺失处理。
+
+错误约定：参数非法 `400`、请求体过大 `413`、方法不允许 `405`、未知接口 `404`、上游失败 `502`、上游超时 `504`、缺密钥 `503`、AI 限流 `429`。
 
 安全姿态：
 
 - 密钥仅存在于服务端 `.env`；构建产物中**已确认不含任何密钥或上游域名**。
 - 默认只监听 `127.0.0.1`，且无 CORS 头（仅同源可用）。
 - 入参全部白名单/类型校验，不透传任意 query。
-- ⚠️ **没有鉴权与限流**：一旦对外暴露，配额仍可能被刷；对外部署需前置网关鉴权或在 BFF 增加限流。
+- `/api/ai-chat` 有单实例内存限流（默认 10 次/分钟/IP），但**没有鉴权**：公网部署前仍需登录或网关限流，否则密钥额度会被他人消耗。
+- `/api/venue-weather` 另有限流（默认 20 次/分钟/IP），且城市解析结果与天气均缓存，避免重复调用模型与上游。
+- ⚠️ 其余接口**没有鉴权与限流**：一旦对外暴露，配额仍可能被刷；对外部署需前置网关鉴权或在 BFF 增加限流。
 
 ---
 

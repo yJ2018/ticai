@@ -31,6 +31,7 @@ export type MatchCard = {
   oddsSummary: string
   homeTeam?: string
   awayTeam?: string
+  homeTeamId?: number
   matchNo?: string
   optionGroups?: MatchCardOptionGroup[]
   mixedSections?: MatchCardMixedSection[]
@@ -60,6 +61,7 @@ function toMatchCard(match: MatchItem, businessDate: string, poolType: MatchPool
     oddsSummary: formatSummaryByPool(match, poolType),
     homeTeam: home,
     awayTeam: away,
+    homeTeamId: match.homeTeamId,
     matchNo: match.matchNumStr,
     optionGroups: toOptionGroups(match, poolType),
     mixedSections: toMixedSections(match, poolType),

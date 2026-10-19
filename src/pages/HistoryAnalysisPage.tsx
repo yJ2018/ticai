@@ -10,6 +10,7 @@ import {
   type PredictionScoreWeights,
 } from '../domain/historyPrediction'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
+import { MarkovOrderSelect } from '../components/MarkovOrderSelect'
 
 type AnalysisState = {
   loading: boolean
@@ -22,6 +23,8 @@ const initialState: AnalysisState = {
   error: '',
   analysisItems: [],
 }
+
+const MARKOV_ORDER_OPTIONS = [1, 2, 3, 4, 5] as const
 
 const SCORE_WEIGHT_FIELDS: Array<{
   key: keyof PredictionScoreWeights
@@ -163,16 +166,11 @@ export function HistoryAnalysisPage() {
         </div>
         <div className="history-analysis-page__actions">
           {isAnalysisPending && <span className="history-analysis-page__pending">正在重新计算...</span>}
-          <label>
-            马尔科夫阶数
-            <select value={markovOrder} onChange={(event) => setMarkovOrder(Number(event.target.value))}>
-              {[1, 2, 3, 4, 5].map((order) => (
-                <option key={order} value={order}>
-                  {order} 阶
-                </option>
-              ))}
-            </select>
-          </label>
+          <MarkovOrderSelect
+            value={markovOrder}
+            options={MARKOV_ORDER_OPTIONS}
+            onChange={setMarkovOrder}
+          />
           <button type="button" onClick={() => setScoreWeights(DEFAULT_PREDICTION_SCORE_WEIGHTS)}>
             重置权重
           </button>

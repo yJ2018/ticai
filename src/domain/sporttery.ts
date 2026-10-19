@@ -109,6 +109,8 @@ export type MatchItem = {
   leagueAllName?: string
   homeTeamAbbName?: string
   awayTeamAbbName?: string
+  homeTeamId?: number
+  awayTeamId?: number
   matchTime?: string
   ttg?: TtgOdds
   crs?: CrsOdds

@@ -11,6 +11,7 @@ type MatchPoolListProps = {
   expandedMixedIds: number[]
   onToggleOption: (matchId: number, optionKey: string) => void
   onToggleMixed: (matchId: number) => void
+  onAnalyze: (item: MatchCard, anchor: HTMLButtonElement) => void
 }
 
 /** 赛事列表：普通玩法卡片 + 混合过关（可展开更多玩法） */
@@ -24,6 +25,7 @@ export function MatchPoolList({
   expandedMixedIds,
   onToggleOption,
   onToggleMixed,
+  onAnalyze,
 }: MatchPoolListProps) {
   function renderOptionGroups(item: MatchCard, wrapGroups = false, groups?: MatchCardOptionGroup[]) {
     const groupList = groups ?? item.optionGroups ?? []
@@ -83,6 +85,30 @@ export function MatchPoolList({
             <span>{item.awayTeam || '客队'}</span>
           </div>
         </div>
+        <button
+          type="button"
+          className="pool-card__ai-btn"
+          aria-label={`AI 分析：${item.homeTeam || '主队'} 对 ${item.awayTeam || '客队'}`}
+          title="AI 分析这场比赛"
+          onClick={(event) => {
+            event.stopPropagation()
+            onAnalyze(item, event.currentTarget)
+          }}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M12 2.6l1.9 5.5 5.5 1.9-5.5 1.9L12 17.4l-1.9-5.5L4.6 10l5.5-1.9L12 2.6z"
+              fill="currentColor"
+            />
+            <path
+              d="M18.6 15.4l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6z"
+              fill="currentColor"
+              opacity="0.75"
+            />
+          </svg>
+          <span className="pool-card__ai-btn-label">AI 分析</span>
+          <span className="pool-card__ai-btn-short">AI</span>
+        </button>
       </div>
     )
   }
