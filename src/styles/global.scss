@@ -3731,3 +3731,273 @@ button:focus-visible,
   transform: scale(0.97);
   filter: brightness(0.96);
 }
+
+/* ── 「仅供娱乐」免责提示 ─────────────────────────────────
+   进入红框内的页面时出现，沿用全局圆角 / 阴影 / 弹层缓动，
+   避免和已有的方案弹层、抽屉风格脱节。                      */
+.entertainment-disclaimer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  background: rgba(15, 23, 42, 0.36);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--popup-fade-duration) ease,
+    visibility 0s linear var(--popup-fade-duration);
+}
+
+.entertainment-disclaimer.is-open {
+  opacity: 1;
+  visibility: visible;
+  animation: entertainment-disclaimer-fade var(--popup-fade-duration) ease;
+  transition:
+    opacity var(--popup-fade-duration) ease,
+    visibility 0s linear 0s;
+}
+
+.entertainment-disclaimer__card {
+  width: min(100%, 25rem);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.2rem 1.15rem 1.05rem;
+  border-radius: 1.1rem;
+  background: #fff;
+  box-shadow: 0 1.2rem 2.8rem rgba(15, 23, 42, 0.24);
+  opacity: 0;
+  transform: translateY(1rem) scale(0.96);
+  transition:
+    opacity 0.18s ease,
+    transform var(--popup-panel-duration) var(--popup-ease-out);
+  will-change: transform, opacity;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.entertainment-disclaimer.is-open .entertainment-disclaimer__card {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  animation: entertainment-disclaimer-in var(--popup-bounce-duration) var(--popup-ease-bounce) both;
+}
+
+@keyframes entertainment-disclaimer-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes entertainment-disclaimer-in {
+  0% {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.96);
+  }
+
+  62% {
+    opacity: 1;
+    transform: translateY(-0.12rem) scale(1.006);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.entertainment-disclaimer__head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.entertainment-disclaimer__badge {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  background: #fff7ed;
+  color: #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+.entertainment-disclaimer__heading {
+  min-width: 0;
+}
+
+.entertainment-disclaimer__eyebrow {
+  margin: 0;
+  color: #b45309;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.entertainment-disclaimer__heading h3 {
+  margin: 0.14rem 0 0;
+  color: #0f172a;
+  font-size: 1.22rem;
+  line-height: 1.2;
+}
+
+.entertainment-disclaimer__desc {
+  margin: 0.9rem 0 0;
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.entertainment-disclaimer__note {
+  margin: 0.65rem 0 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.65rem;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.entertainment-disclaimer__check {
+  position: relative;
+  margin-top: 0.95rem;
+  padding: 0.58rem 0.68rem;
+  border-radius: 0.7rem;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.entertainment-disclaimer__check-box {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 0.35rem;
+  border: 1.5px solid #cbd5e1;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+
+  svg {
+    width: 0.78rem;
+    height: 0.78rem;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0;
+    transform: scale(0.72);
+    transition:
+      opacity 0.16s ease,
+      transform 0.16s var(--popup-ease-out);
+  }
+}
+
+.entertainment-disclaimer__check input:checked + .entertainment-disclaimer__check-box {
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 0.16rem 0.4rem rgba(37, 99, 235, 0.28);
+
+  svg {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.entertainment-disclaimer__check input:focus-visible + .entertainment-disclaimer__check-box {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.entertainment-disclaimer__check-text {
+  color: #334155;
+  font-size: 0.84rem;
+  line-height: 1.3;
+}
+
+.entertainment-disclaimer__confirm {
+  margin-top: 0.8rem;
+  width: 100%;
+  height: 2.6rem;
+  border: none;
+  border-radius: 0.7rem;
+  background: linear-gradient(180deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0.45rem 0.95rem rgba(37, 99, 235, 0.26);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+
+.entertainment-disclaimer__confirm:active {
+  transform: scale(0.985);
+  box-shadow: 0 0.25rem 0.55rem rgba(37, 99, 235, 0.24);
+  filter: brightness(0.98);
+}
+
+@media (max-width: 40rem) {
+  .entertainment-disclaimer {
+    align-items: flex-end;
+    padding: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  .entertainment-disclaimer__card {
+    width: 100%;
+    padding: 1.1rem 1rem 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entertainment-disclaimer,
+  .entertainment-disclaimer.is-open,
+  .entertainment-disclaimer__card,
+  .entertainment-disclaimer.is-open .entertainment-disclaimer__card {
+    animation: none;
+    transition: none;
+  }
+}
