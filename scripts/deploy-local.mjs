@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -87,6 +87,18 @@ try {
     '打包预构建产物（本地，不上云）',
     `${vercel} build --prod --yes --local-config .vercel/vercel.build.json`,
   )
+
+  // buildCommand 为空时 Vercel 会把项目根目录当成静态输出；用真正的 dist 替换掉，
+  // 避免把 src/server 源码发布到线上，也保证 index.html 指向 hashed assets。
+  const builtIndex = readFileSync(resolve(root, 'dist/index.html'), 'utf8')
+  if (!builtIndex.includes('/assets/')) {
+    fail('dist/index.html 没有指向 hashed assets，请先执行 npm run build。')
+  }
+
+  const staticDir = resolve(root, '.vercel/output/static')
+  rmSync(staticDir, { recursive: true, force: true })
+  cpSync(resolve(root, 'dist'), staticDir, { recursive: true })
+
   run('上传预构建产物并发布生产', `${vercel} deploy --prebuilt --prod --yes`)
 } catch {
   fail('本地构建或发布失败，请查看上方 Vercel CLI 输出。')
