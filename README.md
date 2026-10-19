@@ -300,8 +300,12 @@ npm run deploy:local
 脚本依次执行：
 
 1. `vercel pull --environment=production`：拉取线上环境变量到本地 `.vercel`；
-2. `vercel build --prod`：在本地完成 Vite 与 `api/*` 函数的构建；
-3. `vercel deploy --prebuilt --prod`：只上传 `.vercel/output`，不上传源码与 `.env`。
+2. 加载生产环境变量后执行 `npm run build`：本地构建 Vite 静态资源；
+3. 生成一个 `buildCommand` 为空的临时配置，执行 `vercel build --local-config ...`：只打包 `dist` 与 `api/*` 函数，避免重复构建和 Windows 下的 spawn 问题；
+4. `vercel deploy --prebuilt --prod`：只上传 `.vercel/output`，不上传源码与 `.env`。
+
+> 如果访问线上站点时要求登录 Vercel，检查项目 **Settings → Deployment Protection**。
+> 当前项目是 `all_except_custom_domains`，`*.vercel.app` 的生产域名也会被保护；需要公开访问时要改成只保护 Preview 或关闭。
 
 ### 推送自动发布
 

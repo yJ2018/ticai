@@ -9,15 +9,7 @@
   "functions": {
     "api/*.js": {
       "memory": 1024,
-      "maxDuration": 15
-    },
-    "api/ai-chat.js": {
-      "memory": 1024,
       "maxDuration": 60
-    },
-    "api/venue-weather.js": {
-      "memory": 1024,
-      "maxDuration": 30
     }
   },
   "rewrites": [
