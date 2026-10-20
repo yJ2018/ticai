@@ -74,6 +74,12 @@ npm run build && npm start   # 生产：单进程，:3000 同时提供 dist 与 
 | `JUHE_WEATHER_KEY` | — | 缺失时 `/api/weather` 返回 503 |
 | `JUHE_HOROSCOPE_KEY` | — | 缺失时 `/api/horoscope` 返回 503 |
 | `JUHE_IP_KEY` | — | 缺失时 `/api/ip` 返回空归属地（前端回退默认城市） |
+| `DEEPSEEK_API_KEY` | — | `/api/ai-chat` 与比赛地城市解析；缺失时 503 / 天气降级 |
+| `DEEPSEEK_MODEL` | `deepseek-flash` | 也可用 `deepseek-v4-pro` |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | OpenAI 兼容接口地址 |
+| `DEEPSEEK_TIMEOUT_MS` | `60000` | 大模型上游超时 |
+| `AI_RATE_LIMIT_PER_MIN` | `10` | `/api/ai-chat` 单实例限流 |
+| `VENUE_RATE_LIMIT_PER_MIN` | `20` | `/api/venue-weather` 单实例限流 |
 | `SPORTTERY_BASE` / `JUHE_*_BASE` | 官方地址 | 指向 mock 服务即可离线联调 |
 
 ### 分层与依赖规则
@@ -90,7 +96,7 @@ flowchart TB
 
   subgraph L2["② 页面层 src/pages"]
     direction LR
-    P1["HomePage"]
+    P1["HomePage + AI 浮层"]
     P2["HistoryPage"]
     P3["HistoryAnalysisPage"]
     P4["MathTrendAnalysisPage"]
@@ -102,16 +108,18 @@ flowchart TB
     direction LR
     S1["useMatchStore"]
     S2["useBetSlip"]
-    S3["historyAnalysisWorker"]
-    S4["mathTrendAnalysisWorker"]
+    S3["useMatchAiAnalysis<br/>SSE / abort / 结果缓存"]
+    S4["historyAnalysisWorker"]
+    S5["mathTrendAnalysisWorker"]
   end
 
-  subgraph L4["④ 服务层 src/service"]
+  subgraph L4["④ 服务层与传输 src/service + src/api"]
     direction LR
     V1["matchService"]
     V2["historyService"]
     V3["weatherService"]
     V4["constellationService"]
+    V5["aiApi / venueWeatherApi"]
   end
 
   subgraph L5["⑤ 领域模型 src/domain"]
@@ -133,14 +141,18 @@ flowchart TB
   subgraph L7["⑦ BFF server/"]
     direction LR
     B1["index.mjs 路由 + 静态托管"]
-    B2["handlers.mjs 5 个接口"]
+    B2["handlers.mjs 8 个接口"]
     B3["lib.mjs 缓存/超时/env"]
+    B4["llm.mjs DeepSeek 客户端"]
+    B5["venue.mjs 城市解析 + 天气"]
   end
 
   subgraph L8["⑧ 外部数据源"]
     direction LR
     E1["webapi.sporttery.cn"]
     E2["聚合数据 juhe.cn"]
+    E3["DeepSeek API"]
+    E4["Open-Meteo"]
   end
 
   L1 --> L2
@@ -364,7 +376,51 @@ sequenceDiagram
 
 > ⚠️ `HistoryPage` 仍在 `useMemo` 里**同步**调用 `analyzeHistoryPrediction`（数据量大时阻塞主线程），与另两页的 Worker 方案不一致，属于遗留项。
 
-### 5.4 星座与天气
+### 5.4 比赛 AI 分析（SSE）
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as 用户
+  participant HP as HomePage
+  participant AI as useMatchAiAnalysis
+  participant VW as venueWeatherApi
+  participant CH as aiApi
+  participant BFF as BFF
+  participant DS as DeepSeek
+  participant OM as Open-Meteo
+
+  U->>HP: 点击「AI 分析」
+  HP->>AI: open(match, anchor)
+  AI->>VW: GET /api/venue-weather
+  VW->>BFF: homeTeam / league / kickoff
+  BFF->>DS: JSON 解析主队城市（缓存 7 天）
+  DS-->>BFF: city / country / stadium
+  BFF->>OM: Geocoding + Forecast
+  OM-->>BFF: 当前 + 开赛时段天气（缓存 20min）
+  BFF-->>VW: available + 天气
+  Note over AI,VW: 天气最多等 15s；失败则跳过
+  AI->>CH: POST /api/ai-chat { stream: true }
+  CH->>BFF: SSE（text/event-stream）
+  BFF->>DS: chat/completions (stream)
+  DS-->>BFF: reasoning / content 增量
+  BFF-->>CH: SSE reasoning / content
+  CH-->>AI: 回调累积
+  AI-->>HP: 浮层流式渲染
+  U->>HP: 关闭浮层
+  HP->>AI: close()
+  AI->>CH: AbortController.abort()
+  CH->>BFF: 连接关闭
+  BFF->>DS: abort 上游请求
+```
+
+要点：
+
+1. 城市解析依赖 DeepSeek，天气来自 Open-Meteo；两者都有缓存，失败时不阻塞分析，只在提示词里标注「天气缺失」。
+2. `aiApi` 解析 SSE 的 `reasoning` / `content` / `done` / `error`，前端只拼接文本；流式请求有 120s 总超时。
+3. 关闭浮层会 abort 客户端请求，BFF 监听 `res` 的 `close` 事件后同步 abort DeepSeek，避免继续生成。
+
+### 5.5 星座与天气
 
 1. `weatherService.getWeatherByLocation()`：`GET /api/ip` 拿城市 → `GET /api/weather?cityname=`；定位失败回退默认城市 `宝山`。
 2. `constellationService.getHoroscope()`：`GET /api/horoscope?consName=&type=`。
@@ -483,7 +539,7 @@ sequenceDiagram
 
 | 项 | 改造前 | 改造后 |
 | --- | --- | --- |
-| 第三方密钥 | 硬编码在 `weatherService` / `constellationService` | 仅在 `.env`，由 BFF 读取；bundle 已扫描确认无泄漏 |
+| 第三方密钥 | 硬编码在 `weatherService` / `constellationService` | 仅在本地 `.env` 与 Vercel 环境变量，由 BFF 读取；bundle 已扫描确认无泄漏 |
 | 生产请求地址 | `http://` 直连（HTTPS 站点必被拦截） | 同源 `/api/*`，由 BFF 转发 |
 | IP 定位 | 依赖仓库外的 `localhost:3000/api/ip`（无实现） | BFF 实现 `/api/ip`，未配置密钥时优雅降级 |
 | 上游治理 | 无缓存、无超时、错误靠文案 | 白名单校验 + TTL 缓存 + 8 s 超时 + 统一错误码 |
@@ -496,7 +552,9 @@ sequenceDiagram
 | 验证项 | 结果 |
 | --- | --- |
 | `tsc --noEmit` / `npm run build` | 通过，退出码 0 |
-| 5 个接口实测（真实上游） | `matches/history/horoscope/weather/ip` 均 200 且返回真实数据；`400/404/405` 分支正确 |
+| 8 个接口实测（真实上游） | `matches/history/horoscope/weather/ip/ai-chat/venue-weather/health` 均正常；`400/404/405/429` 分支正确 |
+| AI 分析链路（真实 DeepSeek） | SSE 增量、关闭 abort、比赛地天气、120s 流式超时均实测 |
+| 本地预构建部署 | `vercel build --prebuilt` 上传，云端仅托管；函数产物已剔除 `.env` |
 | 生产构建 5 个路由（CDP 驱动 Chrome） | 全部渲染出真实数据，**0 exception、0 console error** |
 | 存储层集成测试 | localStorage 3 条 → IDB 迁移成功且旧 key 删除；裁剪 3→2 保留最新；新页面从 IDB 读回 2 条 |
 | 真实应用写入 IDB | 访问 `/history` 后落库 100 条（期号 26177–26276），新页面读回一致 |

@@ -17,7 +17,7 @@
   <rect width="1280" height="1238" fill="#f5f7fa"/>
 
   <text x="40" y="66" font-size="26" font-weight="700" fill="#0f172a">体彩助手 · ticai 全栈架构图</text>
-  <text x="40" y="90" font-size="12.5" fill="#64748b">React 19 · TypeScript 6 · Vite 8 · Zustand 5　＋　零依赖 Node BFF　—　第三方密钥与上游请求已全部收敛到服务端</text>
+  <text x="40" y="90" font-size="12.5" fill="#64748b">React 19 · TypeScript 6 · Vite 8 · Zustand 5　＋　零依赖 Node BFF　—　第三方请求（体彩 / 聚合 / DeepSeek / Open-Meteo）与密钥全部收敛到服务端</text>
   <text x="1240" y="90" font-size="10.5" fill="#94a3b8" text-anchor="end">箭头 = 依赖 / 调用方向　·　方框 = 仓库内代码</text>
   <line x1="40" y1="100" x2="1240" y2="100" stroke="#e2e8f0" stroke-width="1.2"/>
 
@@ -47,10 +47,10 @@
     <rect class="band" x="40" y="250" width="1200" height="114" rx="14"/>
     <rect x="52" y="263" width="4" height="18" rx="2" fill="#10b981"/>
     <text class="lbl" x="66" y="277" fill="#10b981">② 页面层 src/pages</text>
-    <text class="cap" x="1218" y="277" text-anchor="end">每页自管理状态与请求；样式统一由 global.scss 承担</text>
+    <text class="cap" x="1218" y="277" text-anchor="end">每页自管理状态与请求；赛事页 AI 浮层通过 SSE 流式渲染</text>
     <rect class="box" x="62.0" y="294" width="154.9" height="54" rx="8"/>
     <text class="bt" x="74.0" y="316">赛事投注</text>
-    <text class="bs" x="74.0" y="334">HomePage.tsx</text>
+    <text class="bs" x="74.0" y="334">HomePage + AI 浮层</text>
     <rect class="box" x="228.9" y="294" width="154.9" height="54" rx="8"/>
     <text class="bt" x="240.9" y="316">开奖历史</text>
     <text class="bs" x="240.9" y="334">HistoryPage.tsx</text>
@@ -86,8 +86,8 @@
     <text class="bt" x="307.6" y="456">useBetSlip</text>
     <text class="bs" x="307.6" y="474">投注单 · 串关注数与金额</text>
     <rect class="box" x="529.2" y="434" width="221.6" height="54" rx="8"/>
-    <text class="bt" x="541.2" y="456">useCounterStore</text>
-    <text class="bs" x="541.2" y="474">计数持久化（未使用）</text>
+    <text class="bt" x="541.2" y="456">useMatchAiAnalysis</text>
+    <text class="bs" x="541.2" y="474">SSE 状态机 · abort · 结果缓存</text>
     <rect class="box" x="762.8" y="434" width="221.6" height="54" rx="8"/>
     <text class="bt" x="774.8" y="456">historyAnalysisWorker</text>
     <text class="bs" x="774.8" y="474">频率 · 遗漏 · 马尔可夫 · 回测</text>
@@ -102,8 +102,8 @@
   <g>
     <rect class="band" x="40" y="530" width="1200" height="114" rx="14"/>
     <rect x="52" y="543" width="4" height="18" rx="2" fill="#d97706"/>
-    <text class="lbl" x="66" y="557" fill="#d97706">④ 服务层 src/service</text>
-    <text class="cap" x="1218" y="557" text-anchor="end">参数拼装 · 响应归一化 · 缓存策略</text>
+    <text class="lbl" x="66" y="557" fill="#d97706">④ 服务层与传输 src/service + src/api</text>
+    <text class="cap" x="1218" y="557" text-anchor="end">参数拼装 · 响应归一化 · SSE 流式 · 比赛地天气</text>
     <rect class="box" x="62.0" y="574" width="221.6" height="54" rx="8"/>
     <text class="bt" x="74.0" y="596">matchService</text>
     <text class="bs" x="74.0" y="614">赔率 → MatchCard 视图模型</text>
@@ -117,8 +117,8 @@
     <text class="bt" x="774.8" y="596">constellationService</text>
     <text class="bs" x="774.8" y="614">经 BFF 取 12 星座运势</text>
     <rect class="box" x="996.4" y="574" width="221.6" height="54" rx="8"/>
-    <text class="bt" x="1008.4" y="596">counterService</text>
-    <text class="bs" x="1008.4" y="614">localStorage 读写（未使用）</text>
+    <text class="bt" x="1008.4" y="596">aiApi / venueApi</text>
+    <text class="bs" x="1008.4" y="614">SSE 流式 · 比赛地天气</text>
   </g>
   <line class="flow" x1="200" y1="649" x2="200" y2="667" marker-end="url(#ar)"/>
   <line class="flow" x1="640" y1="649" x2="640" y2="667" marker-end="url(#ar)"/>
@@ -178,24 +178,28 @@
     <rect class="band" x="40" y="950" width="1200" height="114" rx="14"/>
     <rect x="52" y="963" width="4" height="18" rx="2" fill="#0ea5e9"/>
     <text class="lbl" x="66" y="977" fill="#0ea5e9">⑦ BFF 服务端 server/</text>
-    <rect x="227.8" y="964" width="34" height="16" rx="8" fill="#0ea5e9" opacity="0.12"/>
-    <text x="244.8" y="975.5" font-size="9.5" fill="#0284c7" text-anchor="middle">新增</text>
-    <text class="cap" x="1218" y="977" text-anchor="end">零依赖 Node HTTP 服务：密钥仅在服务端，同源消除混合内容</text>
-    <rect class="box" x="62.0" y="994" width="221.6" height="54" rx="8"/>
+    <text class="cap" x="1218" y="977" text-anchor="end">零依赖 Node HTTP 服务：密钥仅在服务端；JSON + SSE 统一超时与限流</text>
+    <rect class="box" x="62.0" y="994" width="154.9" height="54" rx="8"/>
     <text class="bt" x="74.0" y="1016">/api/matches</text>
-    <text class="bs" x="74.0" y="1034">竞彩赛程赔率 · 20s 缓存</text>
-    <rect class="box" x="295.6" y="994" width="221.6" height="54" rx="8"/>
-    <text class="bt" x="307.6" y="1016">/api/history</text>
-    <text class="bs" x="307.6" y="1034">开奖历史 · 60s 缓存</text>
-    <rect class="box" x="529.2" y="994" width="221.6" height="54" rx="8"/>
-    <text class="bt" x="541.2" y="1016">/api/horoscope</text>
-    <text class="bs" x="541.2" y="1034">星座 · 白名单 + 10min 缓存</text>
-    <rect class="box" x="762.8" y="994" width="221.6" height="54" rx="8"/>
-    <text class="bt" x="774.8" y="1016">/api/weather</text>
-    <text class="bs" x="774.8" y="1034">天气 · 白名单 + 10min 缓存</text>
-    <rect class="box" x="996.4" y="994" width="221.6" height="54" rx="8"/>
-    <text class="bt" x="1008.4" y="1016">/api/ip</text>
-    <text class="bs" x="1008.4" y="1034">IP 归属地 · 失败可降级</text>
+    <text class="bs" x="74.0" y="1034">竞彩赛程 · 20s</text>
+    <rect class="box" x="228.9" y="994" width="154.9" height="54" rx="8"/>
+    <text class="bt" x="240.9" y="1016">/api/history</text>
+    <text class="bs" x="240.9" y="1034">开奖历史 · 60s</text>
+    <rect class="box" x="395.7" y="994" width="154.9" height="54" rx="8"/>
+    <text class="bt" x="407.7" y="1016">/api/horoscope</text>
+    <text class="bs" x="407.7" y="1034">星座 · 10min</text>
+    <rect class="box" x="562.6" y="994" width="154.9" height="54" rx="8"/>
+    <text class="bt" x="574.6" y="1016">/api/weather</text>
+    <text class="bs" x="574.6" y="1034">天气 · 10min</text>
+    <rect class="box" x="729.4" y="994" width="154.9" height="54" rx="8"/>
+    <text class="bt" x="741.4" y="1016">/api/ip</text>
+    <text class="bs" x="741.4" y="1034">IP 归属地 · 可降级</text>
+    <rect class="box" x="896.3" y="994" width="154.9" height="54" rx="8"/>
+    <text class="bt" x="908.3" y="1016">/api/ai-chat</text>
+    <text class="bs" x="908.3" y="1034">SSE · 10 次/分</text>
+    <rect class="box" x="1063.1" y="994" width="154.9" height="54" rx="8"/>
+    <text class="bt" x="1075.1" y="1016">/api/venue-weather</text>
+    <text class="bs" x="1075.1" y="1034">城市解析 + 天气</text>
   </g>
   <line class="flow" x1="200" y1="1069" x2="200" y2="1087" marker-end="url(#ar)"/>
   <line class="flow" x1="640" y1="1069" x2="640" y2="1087" marker-end="url(#ar)"/>
@@ -205,15 +209,21 @@
     <rect class="band" x="40" y="1090" width="1200" height="114" rx="14"/>
     <rect x="52" y="1103" width="4" height="18" rx="2" fill="#ef4444"/>
     <text class="lbl" x="66" y="1117" fill="#ef4444">⑧ 外部数据源与部署</text>
-    <text class="cap" x="1218" y="1117" text-anchor="end">浏览器不再直连上游；BFF 统一超时与错误映射</text>
-    <rect class="box" x="62.0" y="1134" width="377.3" height="54" rx="8"/>
+    <text class="cap" x="1218" y="1117" text-anchor="end">浏览器不直连上游；BFF 统一超时、缓存与错误映射</text>
+    <rect class="box" x="62.0" y="1134" width="221.6" height="54" rx="8"/>
     <text class="bt" x="74.0" y="1156">webapi.sporttery.cn</text>
-    <text class="bs" x="74.0" y="1174">赛程赔率 · 开奖历史（GET）</text>
-    <rect class="box" x="451.3" y="1134" width="377.3" height="54" rx="8"/>
-    <text class="bt" x="463.3" y="1156">聚合数据 juhe.cn</text>
-    <text class="bs" x="463.3" y="1174">天气 v.juhe.cn · 星座 web.juhe.cn</text>
-    <rect class="box" x="840.7" y="1134" width="377.3" height="54" rx="8"/>
-    <text class="bt" x="852.7" y="1156">dist 静态托管</text>
-    <text class="bs" x="852.7" y="1174">同端口提供页面与 /api，含 SPA fallback</text>
+    <text class="bs" x="74.0" y="1174">赛程赔率 · 开奖历史</text>
+    <rect class="box" x="295.6" y="1134" width="221.6" height="54" rx="8"/>
+    <text class="bt" x="307.6" y="1156">聚合数据 juhe.cn</text>
+    <text class="bs" x="307.6" y="1174">天气 · 星座 · IP</text>
+    <rect class="box" x="529.2" y="1134" width="221.6" height="54" rx="8"/>
+    <text class="bt" x="541.2" y="1156">DeepSeek API</text>
+    <text class="bs" x="541.2" y="1174">chat/completions · SSE</text>
+    <rect class="box" x="762.8" y="1134" width="221.6" height="54" rx="8"/>
+    <text class="bt" x="774.8" y="1156">Open-Meteo</text>
+    <text class="bs" x="774.8" y="1174">Geocoding + Forecast</text>
+    <rect class="box" x="996.4" y="1134" width="221.6" height="54" rx="8"/>
+    <text class="bt" x="1008.4" y="1156">dist 静态托管</text>
+    <text class="bs" x="1008.4" y="1174">同端口页面 + /api</text>
   </g>
 </svg>
