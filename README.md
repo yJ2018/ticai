@@ -247,6 +247,8 @@ JUHE_HOROSCOPE_KEY=...
 - `npm run check:secrets` 会扫描暂存区，发现 `sk-`、32 位聚合密钥、GitHub/Vercel token 时阻止提交；
 - `.git/hooks/pre-commit` 已安装该检查（本地 hook，不进入仓库）；
 - `.vercelignore` 排除了 `.env`、`.vercel`、`resume/`，本地部署不会上传这些文件；
+- 部署脚本设置 `functions.excludeFiles`，并在打包后清理 `.vercel/output/functions/**/.env`，避免密钥被复制进函数产物；
+- `vercel pull` 会把生产变量写到 `.vercel/.env.production.local`（已忽略）；不要分享或打包 `.vercel` 目录；
 - 密钥如果曾出现在提交、截图或聊天记录中，请到对应平台轮换。
 
 ## 部署到 Vercel（本地构建）

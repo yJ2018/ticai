@@ -1,5 +1,12 @@
 import { execSync } from 'node:child_process'
-import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -41,6 +48,24 @@ function run(label, command) {
 function fail(message) {
   console.error(`\n[deploy:local] ${message}`)
   process.exit(1)
+}
+
+function removeEnvFiles(dir) {
+  if (!existsSync(dir)) {
+    return 0
+  }
+
+  let removed = 0
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = resolve(dir, entry.name)
+    if (entry.isDirectory()) {
+      removed += removeEnvFiles(path)
+    } else if (entry.name === '.env' || entry.name.startsWith('.env.')) {
+      rmSync(path, { force: true })
+      removed += 1
+    }
+  }
+  return removed
 }
 
 const whoami = capture(`${vercel} whoami`)
@@ -87,6 +112,13 @@ try {
     '打包预构建产物（本地，不上云）',
     `${vercel} build --prod --yes --local-config .vercel/vercel.build.json`,
   )
+
+  // Vercel 的 Node builder 可能把根目录 .env 复制进每个函数（.func/.env）；
+  // 这些文件会被 --prebuilt 上传，必须在部署前清掉。
+  const removedEnvFiles = removeEnvFiles(resolve(root, '.vercel/output/functions'))
+  if (removedEnvFiles > 0) {
+    console.log(`[deploy:local] 已从函数产物中移除 ${removedEnvFiles} 个 .env 文件`)
+  }
 
   // buildCommand 为空时 Vercel 会把项目根目录当成静态输出；用真正的 dist 替换掉，
   // 避免把 src/server 源码发布到线上，也保证 index.html 指向 hashed assets。
