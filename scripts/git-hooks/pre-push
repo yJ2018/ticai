@@ -1,0 +1,42 @@
+#!/bin/sh
+# 推送到 main 前，本地构建并发布 Vercel 预构建产物。
+# 跳过一次：SKIP_DEPLOY=1 git push
+# 部署失败即阻止推送：DEPLOY_STRICT=1 git push
+
+remote="$1"
+url="$2"
+
+if [ -n "$SKIP_DEPLOY" ]; then
+  echo "[deploy] SKIP_DEPLOY set, skip local deploy."
+  exit 0
+fi
+
+deploy=0
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ] && [ "$local_sha" != "0000000000000000000000000000000000000000" ]; then
+    deploy=1
+  fi
+done
+
+if [ "$deploy" -ne 1 ]; then
+  exit 0
+fi
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "[deploy] Working tree has uncommitted changes; skip local deploy."
+  exit 0
+fi
+
+echo "[deploy] main push detected: building locally and deploying..."
+node "$(git rev-parse --show-toplevel)/scripts/deploy-local.mjs"
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "[deploy] Local deploy failed."
+  if [ "$DEPLOY_STRICT" = "1" ]; then
+    echo "[deploy] DEPLOY_STRICT=1: aborting push."
+    exit 1
+  fi
+  echo "[deploy] Push continues. Retry later with: npm run deploy:local"
+fi
+exit 0

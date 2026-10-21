@@ -2,30 +2,33 @@ import { execSync } from 'node:child_process'
 import {
   cpSync,
   existsSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-import { loadEnvFile } from '../server/lib.mjs'
 
 /**
  * 本地构建 + Vercel 预构建产物部署。
  *
- * 目的：不在 Vercel 云端构建，源码和 .env 也不上传；只上传本地 .vercel/output。
- * 前置：npx vercel login && npx vercel link
+ * 为什么要用临时目录：
+ * - 仓库根目录的 .vercel 可能被安全软件 / Agent 沙箱保护，CLI 无法读写；
+ * - 在系统临时目录创建一次性的 Vercel 项目目录，复制 api/server/dist，
+ *   用 VERCEL_ORG_ID + VERCEL_PROJECT_ID 直接构建预构建产物；
+ * - 部署完成后清理，不污染仓库，也不需要根目录 .vercel。
  *
- * 注意：这里先自己跑 npm run build，再用一个 buildCommand 为空的临时配置让 Vercel CLI
- * 只做“打包”，避免 CLI 再 spawn 一次构建命令（Windows 下容易出 spawn cmd.exe 问题），
- * 也避免重复构建。
+ * 前置：npx vercel login（一次即可）。项目 ID 可通过环境变量覆盖。
  */
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-// 固定 CLI 大版本，避免 npx 每次拉到新的 breaking change
 const vercel = process.env.VERCEL_CLI ?? 'npx --yes vercel@64'
+const defaultOrgId = 'team_WzCWvjcpY00YVeEnkv3Js5Pi'
+const defaultProjectId = 'prj_dnpcabvlaKKhkioBQzFVZHdqJcpc'
+const keepStage = process.env.KEEP_DEPLOY_STAGE === '1'
 
 function capture(command) {
   try {
@@ -40,9 +43,9 @@ function capture(command) {
   }
 }
 
-function run(label, command) {
+function run(label, command, cwd = root) {
   console.log(`\n[deploy:local] ${label}`)
-  execSync(command, { cwd: root, stdio: 'inherit' })
+  execSync(command, { cwd, stdio: 'inherit' })
 }
 
 function fail(message) {
@@ -68,22 +71,77 @@ function removeEnvFiles(dir) {
   return removed
 }
 
+function readLinkedProject() {
+  try {
+    const project = JSON.parse(readFileSync(resolve(root, '.vercel/project.json'), 'utf8'))
+    return {
+      orgId: typeof project.orgId === 'string' ? project.orgId : '',
+      projectId: typeof project.projectId === 'string' ? project.projectId : '',
+    }
+  } catch {
+    return null
+  }
+}
+
+function buildStagingDir() {
+  const linked = readLinkedProject()
+  const orgId =
+    process.env.VERCEL_ORG_ID || linked?.orgId || defaultOrgId
+  const projectId =
+    process.env.VERCEL_PROJECT_ID || linked?.projectId || defaultProjectId
+
+  process.env.VERCEL_ORG_ID = orgId
+  process.env.VERCEL_PROJECT_ID = projectId
+
+  const stage = mkdtempSync(join(tmpdir(), 'ticai-deploy-'))
+
+  for (const entry of ['api', 'server', 'dist']) {
+    cpSync(resolve(root, entry), resolve(stage, entry), { recursive: true })
+  }
+  for (const entry of ['vercel.json', '.vercelignore']) {
+    if (existsSync(resolve(root, entry))) {
+      cpSync(resolve(root, entry), resolve(stage, entry))
+    }
+  }
+
+  // 线上函数只跑 api/ + server/，没有任何第三方运行时依赖；
+  // 使用最小 package.json，避免 Vercel 为前端依赖白装一遍。
+  writeFileSync(
+    resolve(stage, 'package.json'),
+    JSON.stringify(
+      {
+        name: 'ticai-deploy',
+        private: true,
+        version: '0.0.0',
+        type: 'module',
+        engines: { node: '>=20' },
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  )
+
+  const buildConfig = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'))
+  buildConfig.buildCommand = ''
+  writeFileSync(
+    resolve(stage, 'vercel.deploy.json'),
+    JSON.stringify(buildConfig, null, 2),
+    'utf8',
+  )
+
+  return stage
+}
+
 const whoami = capture(`${vercel} whoami`)
 if (!whoami || /logged out/i.test(whoami)) {
   fail(
     'Vercel CLI 未登录。请先执行：\n' +
       '  npx vercel login\n' +
-      '  npx vercel link\n' +
       '然后重新执行 npm run deploy:local。',
   )
 }
 console.log(`[deploy:local] Vercel 账号：${whoami}`)
-
-const hasLink = existsSync(resolve(root, '.vercel/project.json'))
-const hasEnvLink = Boolean(process.env.VERCEL_ORG_ID && process.env.VERCEL_PROJECT_ID)
-if (!hasLink && !hasEnvLink) {
-  fail('当前目录还没有关联 Vercel 项目。请先执行：npx vercel link')
-}
 
 const dirty = capture('git status --porcelain')
 if (dirty) {
@@ -92,48 +150,54 @@ if (dirty) {
   )
 }
 
+let stage = ''
 try {
-  run('拉取生产环境变量与项目配置', `${vercel} pull --yes --environment=production`)
-
-  // 让 Vite 构建使用 Vercel 的生产环境变量（例如 VITE_SPORTTERY_DIRECT）
-  loadEnvFile(resolve(root, '.vercel/.env.production.local'))
-
   run('本地构建静态资源', 'npm run build')
 
-  // Vercel CLI 只负责打包：buildCommand 置空，避免它再 spawn 一次 npm run build
-  const buildConfig = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'))
-  buildConfig.buildCommand = ''
-  writeFileSync(
-    resolve(root, '.vercel/vercel.build.json'),
-    JSON.stringify(buildConfig, null, 2),
-  )
-
-  run(
-    '打包预构建产物（本地，不上云）',
-    `${vercel} build --prod --yes --local-config .vercel/vercel.build.json`,
-  )
-
-  // Vercel 的 Node builder 可能把根目录 .env 复制进每个函数（.func/.env）；
-  // 这些文件会被 --prebuilt 上传，必须在部署前清掉。
-  const removedEnvFiles = removeEnvFiles(resolve(root, '.vercel/output/functions'))
-  if (removedEnvFiles > 0) {
-    console.log(`[deploy:local] 已从函数产物中移除 ${removedEnvFiles} 个 .env 文件`)
-  }
-
-  // buildCommand 为空时 Vercel 会把项目根目录当成静态输出；用真正的 dist 替换掉，
-  // 避免把 src/server 源码发布到线上，也保证 index.html 指向 hashed assets。
   const builtIndex = readFileSync(resolve(root, 'dist/index.html'), 'utf8')
   if (!builtIndex.includes('/assets/')) {
     fail('dist/index.html 没有指向 hashed assets，请先执行 npm run build。')
   }
 
-  const staticDir = resolve(root, '.vercel/output/static')
+  stage = buildStagingDir()
+  console.log(`[deploy:local] 临时构建目录：${stage}`)
+
+  const buildConfig = resolve(stage, 'vercel.deploy.json')
+  run(
+    '生成 Vercel 预构建产物（临时目录，不读写根 .vercel）',
+    `${vercel} build --prod --yes --cwd "${stage}" --local-config "${buildConfig}"`,
+  )
+
+  const staticDir = resolve(stage, '.vercel/output/static')
   rmSync(staticDir, { recursive: true, force: true })
   cpSync(resolve(root, 'dist'), staticDir, { recursive: true })
 
-  run('上传预构建产物并发布生产', `${vercel} deploy --prebuilt --prod --yes`)
+  const removedEnvFiles = removeEnvFiles(resolve(stage, '.vercel/output/functions'))
+  if (removedEnvFiles > 0) {
+    console.log(`[deploy:local] 已从函数产物中移除 ${removedEnvFiles} 个 .env 文件`)
+  }
+
+  run(
+    '上传预构建产物并发布生产',
+    `${vercel} deploy --prebuilt --prod --yes --cwd "${stage}"`,
+  )
 } catch {
   fail('本地构建或发布失败，请查看上方 Vercel CLI 输出。')
+} finally {
+  if (stage && !keepStage) {
+    try {
+      rmSync(stage, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    } catch (error) {
+      // Windows 上 Vercel CLI 偶尔还会短暂占用临时目录，清理失败不应把已成功的部署变成失败。
+      console.warn(
+        `[deploy:local] 临时目录清理失败（部署已成功）：${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+  } else if (stage) {
+    console.log(`[deploy:local] 保留临时目录：${stage}`)
+  }
 }
 
 console.log('\n[deploy:local] 完成：本地构建，预构建产物已发布到生产。')

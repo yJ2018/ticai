@@ -1,0 +1,15 @@
+#!/bin/sh
+# 自动同步架构图，再扫描暂存区密钥。
+set -e
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+node scripts/update-architecture.mjs
+
+git add docs/architecture.svg
+if [ -f docs/architecture.png ]; then
+  git add docs/architecture.png
+fi
+
+node scripts/check-secrets.mjs

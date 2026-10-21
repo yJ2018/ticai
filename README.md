@@ -14,6 +14,7 @@
 ![架构图](docs/architecture.png)
 
 > 矢量版本：[architecture.svg](docs/architecture.svg) · 文字版说明：[architecture.md](docs/architecture.md)
+> 架构图由 `npm run architecture:update` 按当前文件清单生成，`pre-commit` 会自动同步。
 
 ---
 
@@ -21,7 +22,7 @@
 
 | 路由 | 页面 | 能力 |
 | --- | --- | --- |
-| `/` | 赛事投注 | 5 种玩法池（胜平负/比分/进球数/半全场/混合过关）、赔率勾选、串关注数与金额、最高奖金与彩票税、方案截图、**每场比赛的 AI 赛前分析浮层** |
+| `/` | 赛事投注 | 5 种玩法池（胜平负/比分/进球数/半全场/混合过关）、赔率勾选、首屏骨架屏、串关注数与金额、最高奖金与彩票税、方案截图、**每场比赛 / 整个方案两级 AI 分析** |
 | `/history` | 开奖历史 | 排列五开奖列表、号码走势、基于本地数据的预测摘要 |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐，权重与马尔可夫阶数可调 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测 |
@@ -78,6 +79,9 @@ npm start            # http://127.0.0.1:3000
 | `npm run build` | `tsc` 类型检查 + 产物构建 |
 | `npm start` | 生产启动（BFF + 静态托管） |
 | `npm run ai:check` | 直连 DeepSeek 自检密钥与模型连通性 |
+| `npm run architecture:update` | 按当前文件清单重新生成 `docs/architecture.svg/.png` |
+| `npm run hooks:install` | 安装提交前架构图同步 + 推送前自动部署 hooks |
+| `npm run deploy:local` | 本地构建并发布 Vercel 生产环境 |
 
 ## 环境变量
 
@@ -213,6 +217,11 @@ Invoke-RestMethod -Uri http://127.0.0.1:3000/api/ai-chat -Method Post `
 - 同一玩法 + 同一场比赛的结果会在当前页面会话内缓存，重复打开不重复扣费；
 - 关闭浮层会立即中断 SSE 与上游 DeepSeek 请求；比赛地天气最多等待 15s，超时则跳过天气直接分析。
 
+方案弹层右上角还有**方案级 AI 分析**：只把当前方案里已选的场次、选项与赔率发给模型，逐场判断所选选项，
+再评估串关的关联风险、关键短板与整体信心；同样走 SSE，并按「玩法 + 已选场次 + 选项」缓存。
+方案快照支持 3～4 倍高清导出，只截白色弹框；截图副本会隐藏 AI / 截图 / 关闭操作，并额外带上当前玩法、
+倍数、投注金额与最高奖金，正常弹层不展示这些附加信息。
+
 实现上，前端通过 `POST /api/ai-chat`（`stream: true`）消费 SSE，服务端边收 DeepSeek 增量边转发；
 提示词明确要求「无法确认阵容/伤情时必须写暂无可靠信息」，避免模型编造首发和伤病名单。
 
@@ -284,14 +293,15 @@ Vercel 上没有常驻进程，因此 BFF 在线上以 **Serverless Functions** 
 
    > ⚠️ 已知限制：浏览器直连时，体彩「开奖历史」接口对**海外出口**会返回不带 CORS 头的 WAF 挑战页。若访问本站走了全局代理，赛事投注正常、开奖历史可能加载失败；把 `*.sporttery.cn` 加入代理白名单（直连）即可。
 
-3. 本地登录并关联项目（只需一次）：
+3. 本地登录 Vercel（只需一次）：
 
    ```bash
    npx vercel login
-   npx vercel link
+   npm run hooks:install   # 安装提交前架构图同步 + 推送前自动发布 hooks
    ```
 
-   关联信息写入 `.vercel/project.json`，该目录已被 `.gitignore` 和 `.vercelignore` 排除。
+   部署脚本内置本项目的 `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`，通过临时目录构建，
+   不依赖仓库根 `.vercel`；如项目迁移，可用同名环境变量覆盖。
 
 ### 发布
 
@@ -301,18 +311,26 @@ npm run deploy:local
 
 脚本依次执行：
 
-1. `vercel pull --environment=production`：拉取线上环境变量到本地 `.vercel`；
-2. 加载生产环境变量后执行 `npm run build`：本地构建 Vite 静态资源；
-3. 生成一个 `buildCommand` 为空的临时配置，执行 `vercel build --local-config ...`：打包 `api/*` 函数；
+1. `npm run build`：本地构建 Vite 静态资源；
+2. 在系统临时目录创建隔离构建目录，复制 `api/`、`server/`、`dist/` 和最小 `package.json`；
+3. 用 `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` 执行 `vercel build --prod`，生成预构建函数产物；
 4. 用 `dist` 替换 `.vercel/output/static`：避免 Vercel 把 `src/`、`server/` 源码当成静态文件发布，也保证 `index.html` 指向 hashed assets；
-5. `vercel deploy --prebuilt --prod`：只上传 `.vercel/output`，不上传源码与 `.env`。
+5. `vercel deploy --prebuilt --prod`：只上传 `.vercel/output`，不上传源码与 `.env`；
+6. 清理临时目录（Windows 上偶尔被 CLI 短暂占用，清理失败不会影响已完成的部署）。
 
 > 如果访问线上站点时要求登录 Vercel，检查项目 **Settings → Deployment Protection**。
 > 当前项目是 `all_except_custom_domains`，`*.vercel.app` 的生产域名也会被保护；需要公开访问时要改成只保护 Preview 或关闭。
 
-### 推送自动发布
+### 推送自动发布 + 架构图同步
 
-本地 `.git/hooks/pre-push` 已安装（只在本机，不进入仓库）：推送到 `main` 时先本地构建并发布，默认发布失败**不阻止**推送。
+hook 源文件在 `scripts/git-hooks/`（已进入仓库），克隆后执行一次：
+
+```bash
+npm run hooks:install
+```
+
+- `pre-commit`：自动运行 `architecture:update`，生成 `docs/architecture.svg/.png` 并加入本次提交，然后扫描密钥；
+- `pre-push`：推送到 `main` 时先本地构建并发布，默认发布失败**不阻止**推送。
 
 ```bash
 git push                    # 自动本地构建 + 发布
@@ -320,8 +338,9 @@ SKIP_DEPLOY=1 git push      # 本次跳过发布
 DEPLOY_STRICT=1 git push    # 发布失败则阻止推送
 ```
 
-Hook 只对 `main` 生效；工作区有未提交改动时会跳过，避免发布内容和提交内容不一致。
+Hook 只对 `main` 生效；工作区有未提交改动时会跳过部署，避免发布内容和提交内容不一致。
 由于是 `pre-push`，发布发生在推送之前；如果推送被拒绝（例如 non-fast-forward），生产可能已经更新，重试推送即可。
+架构图只自动反映文件清单与分层；涉及数据流/接口职责的改动仍需同步更新 `docs/architecture.md` 的 Mermaid 与文字说明。
 如果 Vercel 控制台的 Git 集成仍在触发构建，请在 **Settings → Git** 断开集成，或确认 `git.deploymentEnabled: false` 已生效。
 
 本地预览（不发布）：
@@ -345,14 +364,20 @@ npx vercel dev
 │  ├─ dev.mjs               # 并行拉起 BFF + Vite
 │  ├─ ai-smoke.mjs          # npm run ai:check 密钥连通性自检
 │  ├─ check-secrets.mjs     # 提交前扫描暂存区密钥
-│  └─ deploy-local.mjs      # 本地构建 + Vercel 预构建产物部署
+│  ├─ update-architecture.mjs # 按文件清单生成架构图 SVG / PNG
+│  ├─ install-git-hooks.mjs # 安装 pre-commit / pre-push hooks
+│  ├─ git-hooks/            # hook 源文件（进仓库）
+│  └─ deploy-local.mjs      # 临时目录构建 + Vercel 预构建部署
+├─ AGENTS.md                # push 前自动流程与 hook 约定
 ├─ vercel.json              # Vercel 构建、路由与关闭云端自动部署
 ├─ src/
 │  ├─ pages/                # 7 个页面
-│  ├─ features/betting/     # 投注单：useBetSlip + 纯函数 + 组件 + AI 分析
-│  │  ├─ AiAnalysisPanel.tsx    # AI 分析浮层 / 移动端抽屉
-│  │  ├─ useMatchAiAnalysis.ts  # SSE 状态机、结果缓存、比赛地天气
-│  │  └─ aiAnalysis.ts          # 提示词构建、推荐摘要解析
+│  ├─ features/betting/     # 投注单：useBetSlip + 纯函数 + 组件 + 两级 AI 分析
+│  │  ├─ MatchListSkeleton.tsx   # 首屏一屏骨架屏
+│  │  ├─ AiAnalysisPanel.tsx     # 单场 AI 浮层 / 移动端抽屉
+│  │  ├─ useMatchAiAnalysis.ts   # 单场 SSE 状态机、天气、结果缓存
+│  │  ├─ ParlayAiAnalysisPanel.tsx # 方案级逐场 / 串关风险面板
+│  │  └─ useParlayAiAnalysis.ts  # 串关 SSE 状态机 + 方案缓存
 │  ├─ components/           # 通用控件（如自绘下拉 MarkovOrderSelect）
 │  ├─ router/               # 自研 Keep-Alive 路由
 │  ├─ service/              # 业务服务（历史缓存状态机、赔率映射等）
@@ -376,7 +401,8 @@ npx vercel dev
 - AI 分析的阵容/伤停来自模型自身知识，可能滞后或缺失；提示词要求无法确认时明确说明，但仍应以官方赛前名单为准。
 - 比赛地城市由模型解析（冷门球队可能解析失败或出错），失败时接口返回 `available: false`，分析会注明天气缺失；天气为 Open-Meteo 预报，开赛时段按小时对齐，存在一定误差。
 - 两个分析页（`HistoryAnalysisPage`、`MathTrendAnalysisPage`）仍未拆分，且 `HistoryPage` 的算法在主线程同步执行。
-- 本地自动发布依赖 Vercel CLI 登录与 `vercel link`；`.git/hooks/pre-push` 只存在于当前机器，换机器克隆后需要重新安装或手动执行 `npm run deploy:local`。
+- 本地自动发布依赖 Vercel CLI 登录；hook 源文件已在仓库中，克隆后执行 `npm run hooks:install` 即可恢复。部署使用临时目录和项目 ID，不需要仓库根 `.vercel`。
+- 架构图由脚本按文件清单自动生成；语义变化（数据流、接口职责）仍需人工补充 `docs/architecture.md`。
 - 移动端在 430px 以下存在轻微横向溢出。
 - 项目暂无单元测试与 ESLint 配置。
 
