@@ -74,6 +74,7 @@ const shellCards = [
 const stateCards = [
   { title: 'Zustand store', subtitle: 'matchStore：5 个玩法池缓存 / 加载态' },
   { title: 'src/service', subtitle: '赛事 · 开奖 · 天气 · 星座服务层' },
+  { title: 'src/components', subtitle: '通用控件 · 分析页一屏骨架屏' },
   { title: 'src/api', subtitle: 'request<T> · 同源 /api · SSE 解析' },
   { title: 'domain + workers', subtitle: '预测纯函数 · 计算下沉 Web Worker' },
   { title: 'storage', subtitle: 'IndexedDB 增量缓存 · 2 万条裁剪' },

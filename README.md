@@ -24,8 +24,8 @@
 | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池（胜平负/比分/进球数/半全场/混合过关）、赔率勾选、首屏骨架屏、串关注数与金额、最高奖金与彩票税、方案截图、**每场比赛 / 整个方案两级 AI 分析** |
 | `/history` | 开奖历史 | 排列五开奖列表、号码走势、基于本地数据的预测摘要 |
-| `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐，权重与马尔可夫阶数可调 |
-| `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测 |
+| `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐，权重与马尔可夫阶数可调，首屏骨架屏 |
+| `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于服务端 IP 定位的天气 |
 
 设计要点：
@@ -382,7 +382,7 @@ npx vercel dev
 │  │  ├─ ParlayAiAnalysisPanel.tsx # 方案级逐场 / 串关风险面板
 │  │  ├─ useParlayAiAnalysis.ts  # 串关 SSE 状态机 + 方案缓存
 │  │  └─ aiAnalysisCache.ts      # AI 结果 localStorage 缓存（3 小时 TTL）
-│  ├─ components/           # 通用控件（如自绘下拉 MarkovOrderSelect）
+│  ├─ components/           # 通用控件与两个分析页的一屏骨架
 │  ├─ router/               # 自研 Keep-Alive 路由
 │  ├─ service/              # 业务服务（历史缓存状态机、赔率映射等）
 │  ├─ storage/historyDb.ts  # IndexedDB 仓储（增量写、按序裁剪）

@@ -19,9 +19,9 @@
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | SPA + 同源 BFF，单端口可部署（BFF 顺带托管 `dist`） |
-| 前端规模 | TS/TSX 54 个文件 ≈ 9 533 行；SCSS 1 个文件 5 104 行 |
+| 前端规模 | TS/TSX 55 个文件 ≈ 9 752 行；SCSS 1 个文件 5 269 行 |
 | BFF 规模 | `server/` 5 个文件 + `api/` 9 个文件，共 1 908 行；`scripts/` 负责构建、部署与架构图生成 |
-| 构建产物 | `dist/assets/index-*.js` ≈ 549 KB（单 chunk）+ 73.7 KB CSS + 2 个 Worker chunk |
+| 构建产物 | `dist/assets/index-*.js` ≈ 555 KB（单 chunk）+ 76.4 KB CSS + 2 个 Worker chunk |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（内置 `fetch` / `AbortSignal.timeout`） |
 | 依赖 | 前端：React 19、React Router 6、Zustand 5、html2canvas、Sass；服务端：**无第三方依赖** |
 | 工程设施 | ❌ 无 ESLint / Prettier / 单元测试 / CI；已有本地 Git hooks（密钥扫描、架构图同步、自动部署） |
@@ -33,8 +33,8 @@
 | --- | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、串关注数/金额/最高奖金/税、首屏骨架屏、方案级 AI 串关分析、高清快照 | `GET /api/matches` |
 | `/history` | 开奖历史 | 排列五开奖列表、走势图、预测摘要 | `GET /api/history` + IndexedDB |
-| `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计 | 本地 IndexedDB 数据 |
-| `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测 | 本地 IndexedDB 数据 |
+| `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏 | 本地 IndexedDB 数据 |
+| `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | 本地 IndexedDB 数据 |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
 | `/about` | 关于页 | Keep-Alive 演示（输入框保留） | 无 |
 | `/profile` | 个人页 | 不缓存演示，**不在导航中** | 无 |
@@ -250,6 +250,7 @@ D:\ticai
    │  ├─ venueWeatherApi.ts    # GET /api/venue-weather
    │  └─ types.ts              # BffEnvelope<T>
    ├─ styles/global.scss
+   ├─ components/AnalysisPageSkeleton.tsx # 分析页一屏骨架
    └─ assets/                  # 未被引用的图片（可删）
 ```
 
@@ -392,6 +393,8 @@ sequenceDiagram
 ```
 
 算法要点：近期/长期频次 + 遗漏补偿 + 一阶/二阶转移加权打分；滚动回测 top1/top3；马尔可夫模式后继分布；组合推荐与冷热/和值/跨度统计；数学趋势页额外做线性回归斜率、预测中心、标准差波动率（240 期窗口、120 期起验证）。
+
+两个分析页在首次拉取历史数据（`state.loading`）时渲染 `AnalysisPageSkeleton`：预测 hero、权重/模型面板、概览和走势卡都有占位块，顶部统计 chips 也换为骨架，避免先闪出一屏 `0 / --` 再跳变。首屏 state 直接初始化为 loading，加载完成后才挂载真实内容。
 
 > ⚠️ `HistoryPage` 仍在 `useMemo` 里**同步**调用 `analyzeHistoryPrediction`（数据量大时阻塞主线程），与另两页的 Worker 方案不一致，属于遗留项。
 
@@ -562,8 +565,8 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | 4 | 分析页仍巨型 | `HistoryAnalysisPage` 720 行、`MathTrendAnalysisPage` 437 行 | 与已拆分的 `HomePage` 风格不一致，复用困难 |
 | 5 | `HistoryPage` 主线程同步跑算法 | `HistoryPage.tsx:81` | 数据量大时切页卡顿 |
-| 6 | 单文件全局样式 5 104 行 | `global.scss` | 无作用域隔离，删除困难 |
-| 7 | 单 chunk 549 KB，无懒加载 | 构建产物 | 首屏体积偏大，超 Vite 500 KB 告警线 |
+| 6 | 单文件全局样式 5 269 行 | `global.scss` | 无作用域隔离，删除困难 |
+| 7 | 单 chunk 555 KB，无懒加载 | 构建产物 | 首屏体积偏大，超 Vite 500 KB 告警线 |
 | 8 | 类型宽松 | 领域类型含 `[key: string]: unknown`；`strict` 未开 | 接口字段漂移无法在编译期发现 |
 | 9 | 截图以 base64 常驻 state | `HomePage.tsx` | 多次截图累积数 MB 内存 |
 | 10 | 缓存无 TTL 过期 | `historyService.ts` | 老数据长期保留（裁剪只按数量） |
@@ -585,7 +588,7 @@ sequenceDiagram
 1. **BFF 加固**：加 IP 维度限流、简单 token 鉴权、`/api/health` 探活接入编排；必要时换 Fastify 以获得成熟中间件。
 2. **测试基线**：给 `betSlipMath.ts`、`historyPrediction.ts`、`historyDb.ts` 加 Vitest（纯函数/仓储，收益最高）；把本次的 CDP 冒烟固化成 `scripts/smoke.mjs`。
 3. **继续拆页面**：`HistoryAnalysisPage` 按「参数面板 / 每位明细 / 统计卡」拆分，复用 `useAnalysisWorker`。
-4. **分包与懒加载**：路由级 `React.lazy` + 手动 chunk（worker 已独立，主 chunk 约 549 KB）。
+4. **分包与懒加载**：路由级 `React.lazy` + 手动 chunk（worker 已独立，主 chunk 约 555 KB）。
 5. **样式模块化**：按页拆 `*.module.scss`，`global.scss` 只留 reset 与设计 token。
 6. **缓存治理**：加 TTL 与"最近访问"策略；超范围分页明确返回空态提示。
 

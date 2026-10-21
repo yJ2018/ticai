@@ -5,6 +5,7 @@ import {
   type MathTrendPredictionAnalysis,
 } from '../domain/historyPrediction'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
+import { AnalysisPageSkeleton, AnalysisSummarySkeleton } from '../components/AnalysisPageSkeleton'
 
 type AnalysisState = {
   loading: boolean
@@ -15,7 +16,7 @@ type AnalysisState = {
 const LARGE_SAMPLE_PAGE_SIZE = 300
 
 const initialState: AnalysisState = {
-  loading: false,
+  loading: true,
   error: '',
   analysisItems: [],
 }
@@ -122,21 +123,29 @@ export function MathTrendAnalysisPage() {
 
       <div className="history-analysis-page__toolbar">
         <div className="history-analysis-page__summary">
-          <span>本地样本 {analysis.sampleSize} 期</span>
-          <span>分析窗口 {analysis.effectiveSampleWindow} 期</span>
-          <span>滚动验证 {validationSamples} 期</span>
-          <span>平均 Top1 {formatRate(analysis.averageTop1Rate)}</span>
-          <span>平均 Top3 {formatRate(analysis.averageTop3Rate)}</span>
+          {state.loading ? (
+            <AnalysisSummarySkeleton count={5} />
+          ) : (
+            <>
+              <span>本地样本 {analysis.sampleSize} 期</span>
+              <span>分析窗口 {analysis.effectiveSampleWindow} 期</span>
+              <span>滚动验证 {validationSamples} 期</span>
+              <span>平均 Top1 {formatRate(analysis.averageTop1Rate)}</span>
+              <span>平均 Top3 {formatRate(analysis.averageTop3Rate)}</span>
+            </>
+          )}
         </div>
         <div className="history-analysis-page__actions">
-          {isWorkerComputing && <span className="history-analysis-page__pending">正在重算大样本走势...</span>}
+          {isWorkerComputing && !state.loading && (
+            <span className="history-analysis-page__pending">正在重算大样本走势...</span>
+          )}
           <button type="button" onClick={() => void loadAnalysisData()}>
             刷新分析
           </button>
         </div>
       </div>
 
-      {state.loading && <div className="history-analysis-page__status">正在拉取更大的历史样本并生成数学走势分析...</div>}
+      {state.loading && <AnalysisPageSkeleton variant="math" />}
 
       {!state.loading && state.error && (
         <div className="history-analysis-page__status history-analysis-page__status--error">

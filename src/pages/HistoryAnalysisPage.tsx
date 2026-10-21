@@ -11,6 +11,7 @@ import {
 } from '../domain/historyPrediction'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
 import { MarkovOrderSelect } from '../components/MarkovOrderSelect'
+import { AnalysisPageSkeleton, AnalysisSummarySkeleton } from '../components/AnalysisPageSkeleton'
 
 type AnalysisState = {
   loading: boolean
@@ -19,7 +20,7 @@ type AnalysisState = {
 }
 
 const initialState: AnalysisState = {
-  loading: false,
+  loading: true,
   error: '',
   analysisItems: [],
 }
@@ -160,12 +161,20 @@ export function HistoryAnalysisPage() {
 
       <div className="history-analysis-page__toolbar">
         <div className="history-analysis-page__summary">
-          <span>本地样本 {analysis.sampleSize} 期</span>
-          <span>平均 Top1 {formatRate(analysis.averageTop1Rate)}</span>
-          <span>平均 Top3 {formatRate(analysis.averageTop3Rate)}</span>
+          {state.loading ? (
+            <AnalysisSummarySkeleton count={3} />
+          ) : (
+            <>
+              <span>本地样本 {analysis.sampleSize} 期</span>
+              <span>平均 Top1 {formatRate(analysis.averageTop1Rate)}</span>
+              <span>平均 Top3 {formatRate(analysis.averageTop3Rate)}</span>
+            </>
+          )}
         </div>
         <div className="history-analysis-page__actions">
-          {isAnalysisPending && <span className="history-analysis-page__pending">正在重新计算...</span>}
+          {isAnalysisPending && !state.loading && (
+            <span className="history-analysis-page__pending">正在重新计算...</span>
+          )}
           <MarkovOrderSelect
             value={markovOrder}
             options={MARKOV_ORDER_OPTIONS}
@@ -180,7 +189,7 @@ export function HistoryAnalysisPage() {
         </div>
       </div>
 
-      {state.loading && <div className="history-analysis-page__status">正在读取本地历史数据并生成分析...</div>}
+      {state.loading && <AnalysisPageSkeleton variant="history" />}
 
       {!state.loading && state.error && (
         <div className="history-analysis-page__status history-analysis-page__status--error">
