@@ -23,7 +23,7 @@
 | 路由 | 页面 | 能力 |
 | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池（胜平负/比分/进球数/半全场/混合过关）、赔率勾选、首屏骨架屏、串关注数与金额、最高奖金与彩票税、方案截图、**每场比赛 / 整个方案两级 AI 分析** |
-| `/history` | 开奖历史 | 排列五开奖列表、号码走势、基于本地数据的预测摘要 |
+| `/history` | 开奖历史 | 排列五开奖列表、号码走势、首屏骨架屏、基于本地数据的预测摘要 |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐，权重与马尔可夫阶数可调，首屏骨架屏 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于服务端 IP 定位的天气 |
@@ -31,7 +31,7 @@
 设计要点：
 
 - **Keep-Alive 路由**：页面切换后保持挂载（`display` 切换），滚动位置与输入状态不丢失。
-- **重计算下沉 Worker**：预测算法在 Web Worker 中执行，主线程不卡顿，并有主线程降级路径。
+- **重计算下沉 Worker**：预测算法在 Web Worker 中执行，主线程不卡顿，并有主线程降级路径；开奖历史页的 7755 期大样本预测也已迁移到 Worker。
 - **本地优先**：开奖历史落 IndexedDB，分析类页面完全本地计算。
 
 ## 技术栈
@@ -382,7 +382,7 @@ npx vercel dev
 │  │  ├─ ParlayAiAnalysisPanel.tsx # 方案级逐场 / 串关风险面板
 │  │  ├─ useParlayAiAnalysis.ts  # 串关 SSE 状态机 + 方案缓存
 │  │  └─ aiAnalysisCache.ts      # AI 结果 localStorage 缓存（3 小时 TTL）
-│  ├─ components/           # 通用控件与两个分析页的一屏骨架
+│  ├─ components/           # 通用控件，以及开奖历史 / 两个分析页的一屏骨架
 │  ├─ router/               # 自研 Keep-Alive 路由
 │  ├─ service/              # 业务服务（历史缓存状态机、赔率映射等）
 │  ├─ storage/historyDb.ts  # IndexedDB 仓储（增量写、按序裁剪）
@@ -404,7 +404,7 @@ npx vercel dev
 - 聚合数据接口需要自行申请密钥，免费额度有限。
 - AI 分析的阵容/伤停来自模型自身知识，可能滞后或缺失；提示词要求无法确认时明确说明，但仍应以官方赛前名单为准。
 - 比赛地城市由模型解析（冷门球队可能解析失败或出错），失败时接口返回 `available: false`，分析会注明天气缺失；天气为 Open-Meteo 预报，开赛时段按小时对齐，存在一定误差。
-- 两个分析页（`HistoryAnalysisPage`、`MathTrendAnalysisPage`）仍未拆分，且 `HistoryPage` 的算法在主线程同步执行。
+- 两个分析页（`HistoryAnalysisPage`、`MathTrendAnalysisPage`）仍未拆分；`HistoryPage` 的大样本预测已迁移 Worker。
 - 本地自动发布依赖 Vercel CLI 登录；hook 源文件已在仓库中，克隆后执行 `npm run hooks:install` 即可恢复。部署使用临时目录和项目 ID，不需要仓库根 `.vercel`。
 - 架构图由脚本按文件清单自动生成；语义变化（数据流、接口职责）仍需人工补充 `docs/architecture.md`。
 - 移动端在 430px 以下存在轻微横向溢出。

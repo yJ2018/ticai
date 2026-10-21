@@ -1,6 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { analyzeHistoryPrediction } from '../domain/historyPrediction'
+import {
+  memo,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
+import {
+  analyzeHistoryPrediction,
+  type HistoryPredictionAnalysis,
+} from '../domain/historyPrediction'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
+import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
 
 const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [{ key: 'pl5', label: '排列五' }]
 const TREND_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -35,7 +48,7 @@ type HistoryState = {
 }
 
 const initialState: HistoryState = {
-  loading: false,
+  loading: true,
   error: '',
   items: [],
   analysisItems: [],
@@ -56,6 +69,15 @@ export function HistoryPage() {
   const lastPageRef = useRef(1)
   // 同步锁：state 更新到 DOM 之间有窗口期，用 ref 挡住同一帧内的重复触发
   const busyRef = useRef(false)
+
+  const [prediction, setPrediction] = useState<HistoryPredictionAnalysis>(() =>
+    analyzeHistoryPrediction([]),
+  )
+  const [predictionLoading, setPredictionLoading] = useState(false)
+  const [predictionReady, setPredictionReady] = useState(false)
+  const predictionWorkerRef = useRef<Worker | null>(null)
+  const predictionRequestRef = useRef(0)
+  const lastPredictionSignatureRef = useRef('')
 
   const loadHistory = useCallback(
     async (pageNo = 1, action: PagerAction = 'next') => {
@@ -115,6 +137,78 @@ export function HistoryPage() {
     void loadHistory(1)
   }, [loadHistory])
 
+  // 7755 期样本的预测会阻塞主线程，这里和另两个分析页一样下沉到 Worker。
+  useEffect(() => {
+    const worker = new Worker(
+      new URL('../workers/historyAnalysisWorker.ts', import.meta.url),
+      { type: 'module' },
+    )
+    predictionWorkerRef.current = worker
+
+    worker.onmessage = (
+      event: MessageEvent<{
+        requestId: number
+        analysis: HistoryPredictionAnalysis
+      }>,
+    ) => {
+      if (event.data.requestId !== predictionRequestRef.current) {
+        return
+      }
+      startTransition(() => {
+        setPrediction(event.data.analysis)
+        setPredictionReady(true)
+        setPredictionLoading(false)
+      })
+    }
+
+    worker.onerror = () => {
+      setPredictionReady(true)
+      setPredictionLoading(false)
+    }
+
+    return () => {
+      worker.terminate()
+      predictionWorkerRef.current = null
+    }
+  }, [])
+
+  const analysisEntries =
+    state.analysisItems.length > 0 ? state.analysisItems : state.items
+  const predictionSignature =
+    analysisEntries.length > 0
+      ? `${analysisEntries.length}:${analysisEntries[0]?.issue ?? ''}:${
+          analysisEntries[analysisEntries.length - 1]?.issue ?? ''
+        }`
+      : ''
+
+  useEffect(() => {
+    if (!predictionSignature || predictionSignature === lastPredictionSignatureRef.current) {
+      return
+    }
+    lastPredictionSignatureRef.current = predictionSignature
+    const requestId = predictionRequestRef.current + 1
+    predictionRequestRef.current = requestId
+    setPredictionLoading(true)
+
+    const worker = predictionWorkerRef.current
+    if (!worker) {
+      startTransition(() => {
+        setPrediction(analyzeHistoryPrediction(analysisEntries))
+        setPredictionReady(true)
+        setPredictionLoading(false)
+      })
+      return
+    }
+
+    worker.postMessage({
+      requestId,
+      entries: analysisEntries,
+      options: {},
+    })
+    // entries 只在这个签名变化时更新，避免翻页时对同一份缓存重复重算。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [predictionSignature])
+
   const pageSummary = useMemo(() => {
     const pageText =
       state.total > 0
@@ -133,13 +227,14 @@ export function HistoryPage() {
       })),
     [state.items],
   )
-  const predictionAnalysis = useMemo(
-    () => analyzeHistoryPrediction(state.analysisItems.length > 0 ? state.analysisItems : state.items),
-    [state.analysisItems, state.items],
+  const trendPredictions = useMemo(
+    () => prediction.positions.map((item) => item.picks),
+    [prediction.positions],
   )
-  const trendPredictions = useMemo(() => predictionAnalysis.positions.map((item) => item.picks), [predictionAnalysis.positions])
 
-  const isInitialLoading = state.loading && state.items.length === 0
+  const isInitialLoading =
+    (state.loading && state.items.length === 0) ||
+    (state.items.length > 0 && !predictionReady)
   const pageAnimClass = pageDirection === 'prev' ? 'is-prev-page' : 'is-next-page'
 
   // 点击即进入 busy：只在按钮上转圈，内容保持原样，避免整块明暗变化被感知成闪烁
@@ -183,8 +278,8 @@ export function HistoryPage() {
         </div>
       </div>
 
-      <div ref={contentRef} className="history-page__content" aria-busy={state.loading}>
-        {isInitialLoading && <div className="history-page__status">正在加载开奖历史...</div>}
+      <div ref={contentRef} className="history-page__content" aria-busy={state.loading || predictionLoading}>
+        {isInitialLoading && !state.error && <HistoryPageSkeleton />}
 
         {!state.loading && state.error && (
           <div className="history-page__status history-page__status--error">
@@ -201,7 +296,7 @@ export function HistoryPage() {
               <div className="history-insight__header">
                 <div>
                   <p className="history-insight__eyebrow">本地数据预测</p>
-                  <h3>基于本地已缓存 {predictionAnalysis.sampleSize} 期历史数据</h3>
+                  <h3>基于本地已缓存 {prediction.sampleSize} 期历史数据</h3>
                 </div>
                 <p className="history-insight__desc">
                   综合频次分布、近期热度、遗漏值、相邻转移关系评分，并用滚动回测验证参考效果。
@@ -211,23 +306,23 @@ export function HistoryPage() {
               <div className="history-insight__metrics">
                 <article className="history-insight__metric">
                   <span>平均 Top1 命中</span>
-                  <strong>{formatRate(predictionAnalysis.averageTop1Rate)}</strong>
+                  <strong>{formatRate(prediction.averageTop1Rate)}</strong>
                 </article>
                 <article className="history-insight__metric">
                   <span>平均 Top3 命中</span>
-                  <strong>{formatRate(predictionAnalysis.averageTop3Rate)}</strong>
+                  <strong>{formatRate(prediction.averageTop3Rate)}</strong>
                 </article>
                 <article className="history-insight__metric">
                   <span>回测样本</span>
-                  <strong>{formatBacktestSamples(predictionAnalysis.positions)}</strong>
+                  <strong>{formatBacktestSamples(prediction.positions)}</strong>
                 </article>
               </div>
 
               <div className="history-insight__numbers">
                 <span className="history-insight__numbers-label">组合参考</span>
                 <div className="history-insight__numbers-list">
-                  {predictionAnalysis.combinations.length > 0 ? (
-                    predictionAnalysis.combinations.map((item) => (
+                  {prediction.combinations.length > 0 ? (
+                    prediction.combinations.map((item) => (
                       <span key={item.value} className="history-insight__number-pill">
                         {item.value}
                       </span>
@@ -257,89 +352,14 @@ export function HistoryPage() {
               </section>
 
               {TREND_POSITIONS.map((label, position) => (
-                <section key={label} className="trend-panel">
-                  <div className="trend-panel__header">
-                    <div>
-                      <div className="trend-panel__eyebrow-row">
-                        <span className="trend-panel__eyebrow">号码走势</span>
-                        <span className="trend-panel__forecast">
-                          参考 {formatPredictionText(trendPredictions[position])}
-                        </span>
-                      </div>
-                      <h3>{label}</h3>
-                    </div>
-                    <span className="trend-panel__caption">
-                      {formatPositionCaption(predictionAnalysis.positions[position])}
-                    </span>
-                  </div>
-
-                  <div className="trend-panel__table">
-                    <div className="trend-panel__table-head">
-                      <div className="trend-panel__digits-head">
-                        {TREND_DIGITS.map((digit) => (
-                          <span key={`${label}-head-${digit}`}>{digit}</span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="trend-panel__table-body">
-                      <div
-                        className="trend-panel__grid-wrap"
-                        style={
-                          {
-                            '--trend-row-count': trendRows.length,
-                          } as CSSProperties
-                        }
-                      >
-                        <svg
-                          className="trend-panel__lines"
-                          viewBox={`0 0 ${TREND_DIGITS.length * TREND_CELL_SIZE} ${Math.max(trendRows.length * TREND_ROW_SIZE, TREND_ROW_SIZE)}`}
-                          preserveAspectRatio="none"
-                          aria-hidden="true"
-                        >
-                          <polyline
-                            points={buildTrendPoints(trendRows, position)}
-                            className="trend-panel__polyline"
-                          />
-                          {trendRows.map((row, rowIndex) => {
-                            const digit = row.digits[position]
-                            if (digit === null) {
-                              return null
-                            }
-
-                            return (
-                              <circle
-                                key={`${label}-${row.item.issue}-dot`}
-                                cx={digit * TREND_CELL_SIZE + TREND_CELL_SIZE / 2}
-                                cy={rowIndex * TREND_ROW_SIZE + TREND_ROW_SIZE / 2}
-                                r={5}
-                                className="trend-panel__line-dot"
-                              />
-                            )
-                          })}
-                        </svg>
-
-                        <div className="trend-panel__grid">
-                          {trendRows.map((row) => (
-                            <div key={`${label}-${row.item.issue}-row`} className="trend-panel__grid-row">
-                              {TREND_DIGITS.map((digit) => {
-                                const active = row.digits[position] === digit
-                                return (
-                                  <span
-                                    key={`${label}-${row.item.issue}-${digit}`}
-                                    className={`trend-panel__cell ${active ? 'is-hit' : ''}`}
-                                  >
-                                    {digit}
-                                  </span>
-                                )
-                              })}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                <TrendPanel
+                  key={label}
+                  label={label}
+                  position={position}
+                  rows={trendRows}
+                  caption={formatPositionCaption(prediction.positions[position])}
+                  forecast={formatPredictionText(trendPredictions[position])}
+                />
               ))}
             </div>
 
@@ -392,7 +412,7 @@ export function HistoryPage() {
         )}
       </div>
 
-      {!state.error && (state.items.length > 0 || !state.loading) && (
+      {!state.error && !isInitialLoading && (state.items.length > 0 || !state.loading) && (
         <div className={`history-page__pager${busyAction ? ' is-busy' : ''}`}>
           <button
             type="button"
@@ -425,6 +445,123 @@ export function HistoryPage() {
     </section>
   )
 }
+
+type TrendRow = {
+  item: LotteryHistoryEntry
+  digits: Array<number | null>
+}
+
+type TrendPanelProps = {
+  label: string
+  position: number
+  rows: TrendRow[]
+  caption: string
+  forecast: string
+}
+
+const TrendPanel = memo(function TrendPanel({
+  label,
+  position,
+  rows,
+  caption,
+  forecast,
+}: TrendPanelProps) {
+  return (
+    <section className="trend-panel">
+      <div className="trend-panel__header">
+        <div>
+          <div className="trend-panel__eyebrow-row">
+            <span className="trend-panel__eyebrow">号码走势</span>
+            <span className="trend-panel__forecast">参考 {forecast}</span>
+          </div>
+          <h3>{label}</h3>
+        </div>
+        <span className="trend-panel__caption">{caption}</span>
+      </div>
+      <TrendGrid label={label} position={position} rows={rows} />
+    </section>
+  )
+})
+
+/**
+ * 走势表格只依赖当期开奖行，不依赖预测结果。
+ * 预测在 Worker 返回后会触发页面更新，但这里可以跳过 5×30×10 个单元格的重建。
+ */
+const TrendGrid = memo(function TrendGrid({
+  label,
+  position,
+  rows,
+}: {
+  label: string
+  position: number
+  rows: TrendRow[]
+}) {
+  return (
+    <div className="trend-panel__table">
+      <div className="trend-panel__table-head">
+        <div className="trend-panel__digits-head">
+          {TREND_DIGITS.map((digit) => (
+            <span key={`${label}-head-${digit}`}>{digit}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="trend-panel__table-body">
+        <div
+          className="trend-panel__grid-wrap"
+          style={
+            {
+              '--trend-row-count': rows.length,
+            } as CSSProperties
+          }
+        >
+          <svg
+            className="trend-panel__lines"
+            viewBox={`0 0 ${TREND_DIGITS.length * TREND_CELL_SIZE} ${Math.max(rows.length * TREND_ROW_SIZE, TREND_ROW_SIZE)}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <polyline points={buildTrendPoints(rows, position)} className="trend-panel__polyline" />
+            {rows.map((row, rowIndex) => {
+              const digit = row.digits[position]
+              if (digit === null) {
+                return null
+              }
+
+              return (
+                <circle
+                  key={`${label}-${row.item.issue}-dot`}
+                  cx={digit * TREND_CELL_SIZE + TREND_CELL_SIZE / 2}
+                  cy={rowIndex * TREND_ROW_SIZE + TREND_ROW_SIZE / 2}
+                  r={5}
+                  className="trend-panel__line-dot"
+                />
+              )
+            })}
+          </svg>
+
+          <div className="trend-panel__grid">
+            {rows.map((row) => (
+              <div key={`${label}-${row.item.issue}-row`} className="trend-panel__grid-row">
+                {TREND_DIGITS.map((digit) => {
+                  const active = row.digits[position] === digit
+                  return (
+                    <span
+                      key={`${label}-${row.item.issue}-${digit}`}
+                      className={`trend-panel__cell ${active ? 'is-hit' : ''}`}
+                    >
+                      {digit}
+                    </span>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+})
 
 function parseDigitValue(item: LotteryHistoryEntry, position: number) {
   const value = item.numbers[position]

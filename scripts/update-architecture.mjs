@@ -55,7 +55,7 @@ const BETTING_DESCRIPTIONS = {
 
 const PAGE_DESCRIPTIONS = {
   'HomePage.tsx': '赛事投注 · 骨架屏 · 方案快照',
-  'HistoryPage.tsx': '开奖历史 / 走势 / 预测摘要',
+  'HistoryPage.tsx': '开奖历史 · 首屏骨架 · Worker 预测',
   'HistoryAnalysisPage.tsx': '频次 · 遗漏 · 马尔可夫 · 回测',
   'MathTrendAnalysisPage.tsx': '回归 · 波动率 · 大样本回测',
   'HoroscopePage.tsx': '12 星座 × 5 周期 + 天气',

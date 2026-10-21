@@ -4124,13 +4124,79 @@ span.analysis-skeleton__pill--light {
   min-width: 0;
 }
 
+.history-page-skeleton {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.history-page-skeleton__desktop {
+  flex: 1;
+  min-height: 0;
+}
+
+.history-page-skeleton__axis-grid {
+  height: 34rem;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 0.75rem 0.75rem;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 29px, #edf2f7 29px 30px),
+    #fcfdff;
+}
+
+.history-page-skeleton__digits {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+
+  span {
+    height: 2.125rem;
+    border-left: 1px solid #e2e8f0;
+    background: #eef2f7;
+  }
+}
+
+.history-page-skeleton__trend-grid {
+  height: 34rem;
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0 calc(10% - 1px),
+      #edf2f7 calc(10% - 1px) 10%
+    ),
+    repeating-linear-gradient(to bottom, transparent 0 29px, #edf2f7 29px 30px),
+    #fcfdff;
+}
+
+.history-page-skeleton__balls {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.55rem;
+
+  span {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #e9eef6 20%, #f8fafc 40%, #e9eef6 60%);
+    background-size: 300% 100%;
+    animation: match-skeleton-shimmer 1.35s linear infinite;
+  }
+}
+
+.history-page-skeleton__card .history-card__meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .analysis-skeleton__bar,
   .analysis-skeleton__chip,
   .analysis-skeleton__pill,
   .analysis-skeleton__track,
   .analysis-skeleton__circle,
-  .analysis-skeleton__chart {
+  .analysis-skeleton__chart,
+  .history-page-skeleton__balls span {
     animation: none;
   }
 }

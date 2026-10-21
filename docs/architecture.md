@@ -19,9 +19,9 @@
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | SPA + 同源 BFF，单端口可部署（BFF 顺带托管 `dist`） |
-| 前端规模 | TS/TSX 55 个文件 ≈ 9 752 行；SCSS 1 个文件 5 269 行 |
+| 前端规模 | TS/TSX 56 个文件 ≈ 9 985 行；SCSS 1 个文件 5 335 行 |
 | BFF 规模 | `server/` 5 个文件 + `api/` 9 个文件，共 1 908 行；`scripts/` 负责构建、部署与架构图生成 |
-| 构建产物 | `dist/assets/index-*.js` ≈ 555 KB（单 chunk）+ 76.4 KB CSS + 2 个 Worker chunk |
+| 构建产物 | `dist/assets/index-*.js` ≈ 560 KB（单 chunk）+ 77.6 KB CSS + 2 个 Worker chunk |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（内置 `fetch` / `AbortSignal.timeout`） |
 | 依赖 | 前端：React 19、React Router 6、Zustand 5、html2canvas、Sass；服务端：**无第三方依赖** |
 | 工程设施 | ❌ 无 ESLint / Prettier / 单元测试 / CI；已有本地 Git hooks（密钥扫描、架构图同步、自动部署） |
@@ -32,7 +32,7 @@
 | 路由 | 页面 | 核心能力 | 数据来源 |
 | --- | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、串关注数/金额/最高奖金/税、首屏骨架屏、方案级 AI 串关分析、高清快照 | `GET /api/matches` |
-| `/history` | 开奖历史 | 排列五开奖列表、走势图、预测摘要 | `GET /api/history` + IndexedDB |
+| `/history` | 开奖历史 | 排列五开奖列表、走势图、首屏骨架屏、预测摘要 | `GET /api/history` + IndexedDB |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏 | 本地 IndexedDB 数据 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | 本地 IndexedDB 数据 |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
@@ -251,6 +251,7 @@ D:\ticai
    │  └─ types.ts              # BffEnvelope<T>
    ├─ styles/global.scss
    ├─ components/AnalysisPageSkeleton.tsx # 分析页一屏骨架
+   ├─ components/HistoryPageSkeleton.tsx  # 开奖历史页骨架
    └─ assets/                  # 未被引用的图片（可删）
 ```
 
@@ -359,6 +360,13 @@ flowchart TD
   P --> Q
 ```
 
+开奖历史页的首屏与预测：
+
+- 首次加载时 `HistoryPageSkeleton` 覆盖预测摘要和 5 列走势表的占位，不再先渲染空表格；
+- 7755 期全量预测从主线程 `useMemo` 迁移到 `historyAnalysisWorker`，避免首屏计算卡死；
+- 预测按「样本数 + 首期 + 末期」签名去重，翻页时复用同一份分析结果，不重复跑全量回测；
+- 走势表格的 `TrendGrid` 用 `memo` 隔离，Worker 返回预测时只更新表头预测/回测摘要，不重建 5×30×10 个单元格。
+
 存储设计（`src/storage/historyDb.ts`）：
 
 | 项 | 值 |
@@ -396,7 +404,7 @@ sequenceDiagram
 
 两个分析页在首次拉取历史数据（`state.loading`）时渲染 `AnalysisPageSkeleton`：预测 hero、权重/模型面板、概览和走势卡都有占位块，顶部统计 chips 也换为骨架，避免先闪出一屏 `0 / --` 再跳变。首屏 state 直接初始化为 loading，加载完成后才挂载真实内容。
 
-> ⚠️ `HistoryPage` 仍在 `useMemo` 里**同步**调用 `analyzeHistoryPrediction`（数据量大时阻塞主线程），与另两页的 Worker 方案不一致，属于遗留项。
+> ✅ `HistoryPage` 已将全量预测迁移到 `historyAnalysisWorker`，并用签名去重避免翻页时重复计算；主线程只负责渲染当前页走势。
 
 ### 5.4 比赛 AI 分析（SSE）
 
@@ -564,9 +572,8 @@ sequenceDiagram
 | # | 问题 | 位置 | 影响 |
 | --- | --- | --- | --- |
 | 4 | 分析页仍巨型 | `HistoryAnalysisPage` 720 行、`MathTrendAnalysisPage` 437 行 | 与已拆分的 `HomePage` 风格不一致，复用困难 |
-| 5 | `HistoryPage` 主线程同步跑算法 | `HistoryPage.tsx:81` | 数据量大时切页卡顿 |
-| 6 | 单文件全局样式 5 269 行 | `global.scss` | 无作用域隔离，删除困难 |
-| 7 | 单 chunk 555 KB，无懒加载 | 构建产物 | 首屏体积偏大，超 Vite 500 KB 告警线 |
+| 6 | 单文件全局样式 5 335 行 | `global.scss` | 无作用域隔离，删除困难 |
+| 7 | 单 chunk 560 KB，无懒加载 | 构建产物 | 首屏体积偏大，超 Vite 500 KB 告警线 |
 | 8 | 类型宽松 | 领域类型含 `[key: string]: unknown`；`strict` 未开 | 接口字段漂移无法在编译期发现 |
 | 9 | 截图以 base64 常驻 state | `HomePage.tsx` | 多次截图累积数 MB 内存 |
 | 10 | 缓存无 TTL 过期 | `historyService.ts` | 老数据长期保留（裁剪只按数量） |
@@ -588,7 +595,7 @@ sequenceDiagram
 1. **BFF 加固**：加 IP 维度限流、简单 token 鉴权、`/api/health` 探活接入编排；必要时换 Fastify 以获得成熟中间件。
 2. **测试基线**：给 `betSlipMath.ts`、`historyPrediction.ts`、`historyDb.ts` 加 Vitest（纯函数/仓储，收益最高）；把本次的 CDP 冒烟固化成 `scripts/smoke.mjs`。
 3. **继续拆页面**：`HistoryAnalysisPage` 按「参数面板 / 每位明细 / 统计卡」拆分，复用 `useAnalysisWorker`。
-4. **分包与懒加载**：路由级 `React.lazy` + 手动 chunk（worker 已独立，主 chunk 约 555 KB）。
+4. **分包与懒加载**：路由级 `React.lazy` + 手动 chunk（worker 已独立，主 chunk 约 560 KB）。
 5. **样式模块化**：按页拆 `*.module.scss`，`global.scss` 只留 reset 与设计 token。
 6. **缓存治理**：加 TTL 与"最近访问"策略；超范围分页明确返回空态提示。
 
@@ -617,6 +624,8 @@ sequenceDiagram
 | 部署隔离 | 使用系统临时目录 + 项目 ID 构建，不依赖仓库根 `.vercel`，避免权限/密钥目录问题 |
 | 线上体彩 | 发布构建强制 `VITE_SPORTTERY_DIRECT=1` 并校验 bundle 含体彩域名；Vercel 出口 IP 会被体彩 WAF 拦截 |
 | 交互修复 | 玩法切换动画导致的短暂横向滚动条通过内容区 `overflow-x: hidden` 消除 |
+| 开奖历史性能 | 7755 期预测在主线程 `useMemo` 中同步计算 | 迁移 `historyAnalysisWorker`，按样本签名去重；走势表格 memo，首屏增加骨架 |
+| 分析页骨架 | 分析页 / 数学走势页加载态为文字 | 预测 hero、参数面板、概览和走势区均有一屏骨架 |
 
 **验证证据（本次实跑）**
 
