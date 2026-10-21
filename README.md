@@ -311,12 +311,13 @@ npm run deploy:local
 
 脚本依次执行：
 
-1. `npm run build`：本地构建 Vite 静态资源；
-2. 在系统临时目录创建隔离构建目录，复制 `api/`、`server/`、`dist/` 和最小 `package.json`；
-3. 用 `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` 执行 `vercel build --prod`，生成预构建函数产物；
-4. 用 `dist` 替换 `.vercel/output/static`：避免 Vercel 把 `src/`、`server/` 源码当成静态文件发布，也保证 `index.html` 指向 hashed assets；
-5. `vercel deploy --prebuilt --prod`：只上传 `.vercel/output`，不上传源码与 `.env`；
-6. 清理临时目录（Windows 上偶尔被 CLI 短暂占用，清理失败不会影响已完成的部署）。
+1. 强制 `VITE_SPORTTERY_DIRECT=1` 后执行 `npm run build`：本地构建 Vite 静态资源，让线上浏览器直连体彩接口（Vercel 出口 IP 会被体彩 WAF 拦截）；
+2. 检查产物 bundle 中确实存在 `webapi.sporttery.cn`，否则中止发布；
+3. 在系统临时目录创建隔离构建目录，复制 `api/`、`server/`、`dist/` 和最小 `package.json`；
+4. 用 `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` 执行 `vercel build --prod`，生成预构建函数产物；
+5. 用 `dist` 替换 `.vercel/output/static`：避免 Vercel 把 `src/`、`server/` 源码当成静态文件发布，也保证 `index.html` 指向 hashed assets；
+6. `vercel deploy --prebuilt --prod`：只上传 `.vercel/output`，不上传源码与 `.env`；
+7. 清理临时目录（Windows 上偶尔被 CLI 短暂占用，清理失败不会影响已完成的部署）。
 
 > 如果访问线上站点时要求登录 Vercel，检查项目 **Settings → Deployment Protection**。
 > 当前项目是 `all_except_custom_domains`，`*.vercel.app` 的生产域名也会被保护；需要公开访问时要改成只保护 Preview 或关闭。

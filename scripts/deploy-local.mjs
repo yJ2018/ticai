@@ -133,6 +133,23 @@ function buildStagingDir() {
   return stage
 }
 
+function assertProductionBundle() {
+  const assetsDir = resolve(root, 'dist/assets')
+  const entryBundles = readdirSync(assetsDir).filter(
+    (file) => /^index-.*\.js$/.test(file),
+  )
+  const hasDirectSporttery = entryBundles.some((file) =>
+    readFileSync(resolve(assetsDir, file), 'utf8').includes('webapi.sporttery.cn'),
+  )
+
+  if (!hasDirectSporttery) {
+    fail(
+      '生产构建缺少 VITE_SPORTTERY_DIRECT=1。Vercel 出口 IP 会被体彩 WAF 拦截，' +
+        '线上将无法加载赛事与开奖数据；已中止发布。',
+    )
+  }
+}
+
 const whoami = capture(`${vercel} whoami`)
 if (!whoami || /logged out/i.test(whoami)) {
   fail(
@@ -152,12 +169,16 @@ if (dirty) {
 
 let stage = ''
 try {
-  run('本地构建静态资源', 'npm run build')
+  // 体彩接口会拦截 Vercel 出口 IP，生产构建必须让浏览器直连体彩；
+  // 该开关会被打进前端 bundle，不能依赖服务端运行时环境变量。
+  process.env.VITE_SPORTTERY_DIRECT = '1'
+  run('本地构建静态资源（浏览器直连体彩）', 'npm run build')
 
   const builtIndex = readFileSync(resolve(root, 'dist/index.html'), 'utf8')
   if (!builtIndex.includes('/assets/')) {
     fail('dist/index.html 没有指向 hashed assets，请先执行 npm run build。')
   }
+  assertProductionBundle()
 
   stage = buildStagingDir()
   console.log(`[deploy:local] 临时构建目录：${stage}`)

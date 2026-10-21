@@ -20,6 +20,7 @@
   - `DEPLOY_STRICT=1 git push` 部署失败时阻止推送；
   - 默认部署失败仍继续推送，并提示手动重试 `npm run deploy:local`。
 - 部署脚本使用临时目录 + `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`，不依赖仓库根 `.vercel`；需要本机已执行 `npx vercel login`。
+- 发布构建会强制 `VITE_SPORTTERY_DIRECT=1` 并校验 bundle 中存在 `webapi.sporttery.cn`；Vercel 出口 IP 会被体彩 WAF 拦截，不能改回同源 `/api/matches`。
 
 ## 架构图
 
