@@ -87,7 +87,7 @@ export function AiAnalysisPanel({ analysis, anchor, onClose, onRetry }: AiAnalys
     return null
   }
 
-  const { match, status, content, error, summary, weatherLabel, elapsedMs } = analysis
+  const { match, status, content, error, summary, weatherLabel, elapsedMs, fromCache } = analysis
   const predictionIndex = content.indexOf('【预测】')
   const hasPrediction = predictionIndex >= 0
   const processText = (hasPrediction ? content.slice(0, predictionIndex) : content)
@@ -152,8 +152,8 @@ export function AiAnalysisPanel({ analysis, anchor, onClose, onRetry }: AiAnalys
             {status === 'done' && (
               <>
                 <i className="ai-analysis__dot is-done" aria-hidden="true" />
-                分析完成
-                {elapsedMs ? ` · ${(elapsedMs / 1000).toFixed(1)}s` : ''}
+                {fromCache ? '本地缓存 · 3 小时内' : '分析完成'}
+                {!fromCache && elapsedMs ? ` · ${(elapsedMs / 1000).toFixed(1)}s` : ''}
               </>
             )}
             {status === 'error' && (

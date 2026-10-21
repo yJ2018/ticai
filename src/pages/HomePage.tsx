@@ -307,6 +307,19 @@ export function HomePage() {
           clonedDocument.querySelectorAll<HTMLElement>('.plan-modal__meta').forEach((element) => {
             element.hidden = false
           })
+
+          // 快照要完整包含所有场次：临时解除弹层最大高度与列表滚动限制。
+          const snapshotCard = clonedDocument.querySelector<HTMLElement>('.plan-modal__card')
+          if (snapshotCard) {
+            snapshotCard.style.maxHeight = 'none'
+            snapshotCard.style.height = 'auto'
+          }
+          const snapshotList = clonedDocument.querySelector<HTMLElement>('.plan-modal__list')
+          if (snapshotList) {
+            snapshotList.style.flex = '0 0 auto'
+            snapshotList.style.maxHeight = 'none'
+            snapshotList.style.overflowY = 'visible'
+          }
         },
       })
       const dataUrl = canvas.toDataURL('image/png')

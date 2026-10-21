@@ -7,6 +7,13 @@ import {
   parseAnalysisSummary,
   type AnalysisSummary,
 } from './aiAnalysis'
+import {
+  buildMatchAiCacheKey,
+  readAiAnalysisCache,
+  removeAiAnalysisCache,
+  writeAiAnalysisCache,
+  type MatchAiCachePayload,
+} from './aiAnalysisCache'
 
 export type AiAnalysisStatus = 'loading' | 'streaming' | 'done' | 'error'
 
@@ -22,11 +29,13 @@ export type AiAnalysisState = {
   weatherLabel: string
   elapsedMs?: number
   usage?: AiStreamDone['usage']
+  /** 本次结果是否直接来自 3 小时内的 localStorage 缓存 */
+  fromCache?: boolean
 }
 
 /**
  * 单场比赛的 AI 分析状态机：
- * - 同一玩法 + 比赛的结果会缓存，重复打开不重复计费；
+ * - 同一玩法 + 比赛的结果会写入 localStorage，3 小时内重复打开直接展示；
  * - 打开新比赛会中止上一条流；
  * - 比赛地天气按球队缓存 10 分钟（BFF 内部还会缓存天气与城市解析）。
  */
@@ -34,7 +43,6 @@ export function useMatchAiAnalysis(activePool: MatchPoolType) {
   const [analysis, setAnalysis] = useState<AiAnalysisState | null>(null)
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const stateRef = useRef<AiAnalysisState | null>(null)
-  const cacheRef = useRef(new Map<string, AiAnalysisState>())
   const controllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => () => controllerRef.current?.abort(), [])
@@ -155,15 +163,26 @@ export function useMatchAiAnalysis(activePool: MatchPoolType) {
         return
       }
 
+      const summary = parseAnalysisSummary(current.content)
       const next: AiAnalysisState = {
         ...current,
         status: 'done',
-        summary: parseAnalysisSummary(current.content),
+        summary,
         elapsedMs: done.elapsedMs,
         usage: done.usage,
+        fromCache: false,
       }
       stateRef.current = next
-      cacheRef.current.set(base.key, next)
+      writeAiAnalysisCache<MatchAiCachePayload>(
+        buildMatchAiCacheKey(base.pool, base.match.id),
+        {
+          content: current.content,
+          summary,
+          weatherLabel: current.weatherLabel,
+          elapsedMs: done.elapsedMs,
+          usage: done.usage,
+        },
+      )
       setAnalysis(next)
     } catch (error) {
       if (controller.signal.aborted) {
@@ -181,13 +200,6 @@ export function useMatchAiAnalysis(activePool: MatchPoolType) {
       const key = `${activePool}:${match.id}`
       setAnchor(element)
 
-      const cached = cacheRef.current.get(key)
-      if (cached) {
-        controllerRef.current?.abort()
-        applyAnalysis(cached)
-        return
-      }
-
       const base: AiAnalysisState = {
         key,
         match,
@@ -199,6 +211,25 @@ export function useMatchAiAnalysis(activePool: MatchPoolType) {
         summary: null,
         weatherLabel: '',
       }
+
+      const cached = readAiAnalysisCache<MatchAiCachePayload>(
+        buildMatchAiCacheKey(activePool, match.id),
+      )
+      if (cached) {
+        controllerRef.current?.abort()
+        applyAnalysis({
+          ...base,
+          status: 'done',
+          content: cached.payload.content,
+          summary: cached.payload.summary,
+          weatherLabel: cached.payload.weatherLabel,
+          elapsedMs: cached.payload.elapsedMs,
+          usage: cached.payload.usage,
+          fromCache: true,
+        })
+        return
+      }
+
       applyAnalysis(base)
       void run(base)
     },
@@ -211,7 +242,7 @@ export function useMatchAiAnalysis(activePool: MatchPoolType) {
     if (!analysis) {
       return
     }
-    cacheRef.current.delete(analysis.key)
+    removeAiAnalysisCache(buildMatchAiCacheKey(analysis.pool, analysis.match.id))
     const base: AiAnalysisState = {
       ...analysis,
       status: 'loading',
@@ -221,6 +252,7 @@ export function useMatchAiAnalysis(activePool: MatchPoolType) {
       summary: null,
       elapsedMs: undefined,
       usage: undefined,
+      fromCache: false,
     }
     applyAnalysis(base)
     void run(base)

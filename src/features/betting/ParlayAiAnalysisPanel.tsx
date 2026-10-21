@@ -89,7 +89,7 @@ export function ParlayAiAnalysisPanel({
     return null
   }
 
-  const { input, status, content, error, summary, elapsedMs } = analysis
+  const { input, status, content, error, summary, elapsedMs, fromCache } = analysis
 
   async function copyResult() {
     if (!content) {
@@ -144,8 +144,8 @@ export function ParlayAiAnalysisPanel({
             {status === 'done' && (
               <>
                 <i className="ai-analysis__dot is-done" aria-hidden="true" />
-                分析完成
-                {elapsedMs ? ` · ${(elapsedMs / 1000).toFixed(1)}s` : ''}
+                {fromCache ? '本地缓存 · 3 小时内' : '分析完成'}
+                {!fromCache && elapsedMs ? ` · ${(elapsedMs / 1000).toFixed(1)}s` : ''}
               </>
             )}
             {status === 'error' && (
@@ -156,7 +156,9 @@ export function ParlayAiAnalysisPanel({
             )}
           </span>
           <span className="ai-analysis__weather" title="分析范围">
-            逐场 + 串关风险
+            {input.cachedLegAnalyses?.length
+              ? `复用 ${input.cachedLegAnalyses.length} 场单场缓存`
+              : '逐场 + 串关风险'}
           </span>
         </div>
 

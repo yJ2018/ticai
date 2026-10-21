@@ -219,8 +219,10 @@ Invoke-RestMethod -Uri http://127.0.0.1:3000/api/ai-chat -Method Post `
 
 方案弹层右上角还有**方案级 AI 分析**：只把当前方案里已选的场次、选项与赔率发给模型，逐场判断所选选项，
 再评估串关的关联风险、关键短板与整体信心；同样走 SSE，并按「玩法 + 已选场次 + 选项」缓存。
+单场与方案结果都会写入 `localStorage` 并在 **3 小时内**直接复用：整组方案命中时不再请求；
+方案未命中时仍只发一次串关请求，但已分析过的单场结论会作为本地缓存带入提示词，避免重复分析这些场次。
 方案快照支持 3～4 倍高清导出，只截白色弹框；截图副本会隐藏 AI / 截图 / 关闭操作，并额外带上当前玩法、
-倍数、投注金额与最高奖金，正常弹层不展示这些附加信息。
+倍数、投注金额与最高奖金，正常弹层不展示这些附加信息；截图时会展开完整列表，不会截断最后一行。
 
 实现上，前端通过 `POST /api/ai-chat`（`stream: true`）消费 SSE，服务端边收 DeepSeek 增量边转发；
 提示词明确要求「无法确认阵容/伤情时必须写暂无可靠信息」，避免模型编造首发和伤病名单。
@@ -378,7 +380,8 @@ npx vercel dev
 │  │  ├─ AiAnalysisPanel.tsx     # 单场 AI 浮层 / 移动端抽屉
 │  │  ├─ useMatchAiAnalysis.ts   # 单场 SSE 状态机、天气、结果缓存
 │  │  ├─ ParlayAiAnalysisPanel.tsx # 方案级逐场 / 串关风险面板
-│  │  └─ useParlayAiAnalysis.ts  # 串关 SSE 状态机 + 方案缓存
+│  │  ├─ useParlayAiAnalysis.ts  # 串关 SSE 状态机 + 方案缓存
+│  │  └─ aiAnalysisCache.ts      # AI 结果 localStorage 缓存（3 小时 TTL）
 │  ├─ components/           # 通用控件（如自绘下拉 MarkovOrderSelect）
 │  ├─ router/               # 自研 Keep-Alive 路由
 │  ├─ service/              # 业务服务（历史缓存状态机、赔率映射等）

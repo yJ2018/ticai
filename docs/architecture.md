@@ -19,9 +19,9 @@
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | SPA + 同源 BFF，单端口可部署（BFF 顺带托管 `dist`） |
-| 前端规模 | TS/TSX 53 个文件 ≈ 9 298 行；SCSS 1 个文件 5 104 行 |
+| 前端规模 | TS/TSX 54 个文件 ≈ 9 533 行；SCSS 1 个文件 5 104 行 |
 | BFF 规模 | `server/` 5 个文件 + `api/` 9 个文件，共 1 908 行；`scripts/` 负责构建、部署与架构图生成 |
-| 构建产物 | `dist/assets/index-*.js` ≈ 547 KB（单 chunk）+ 73.7 KB CSS + 2 个 Worker chunk |
+| 构建产物 | `dist/assets/index-*.js` ≈ 549 KB（单 chunk）+ 73.7 KB CSS + 2 个 Worker chunk |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（内置 `fetch` / `AbortSignal.timeout`） |
 | 依赖 | 前端：React 19、React Router 6、Zustand 5、html2canvas、Sass；服务端：**无第三方依赖** |
 | 工程设施 | ❌ 无 ESLint / Prettier / 单元测试 / CI；已有本地 Git hooks（密钥扫描、架构图同步、自动部署） |
@@ -210,7 +210,7 @@ D:\ticai
    │  ├─ routes.tsx            # appRoutes(7) / navLinks(5)
    │  └─ AppRouter.tsx / types.ts
    ├─ pages
-   │  ├─ HomePage.tsx          # 499 行：状态编排 + 组合子组件 + 方案弹层
+   │  ├─ HomePage.tsx          # 511 行：状态编排 + 组合子组件 + 方案弹层
    │  ├─ HistoryPage.tsx       # 385 行
    │  ├─ HistoryAnalysisPage   # 720 行（仍未拆分）
    │  ├─ MathTrendAnalysisPage # 437 行（仍未拆分）
@@ -222,6 +222,7 @@ D:\ticai
    │  ├─ ParlayAiAnalysisPanel.tsx # 方案级逐场判断 / 串关风险面板
    │  ├─ useParlayAiAnalysis.ts # 串关 SSE 状态机 + 方案缓存
    │  ├─ parlayAiAnalysis.ts   # 串关提示词、关键风险摘要解析
+   │  ├─ aiAnalysisCache.ts    # AI 结果 localStorage 缓存（3 小时 TTL）
    │  ├─ aiAnalysis.ts         # 单场提示词构建、推荐摘要解析
    │  ├─ useBetSlip.ts         # 选择态、串关、注数/金额/最高奖金
    │  ├─ betSlipMath.ts        # 纯函数：组合乘积、税率、过关上限、标签格式化
@@ -317,6 +318,7 @@ sequenceDiagram
 1. 首屏加载时 `MatchListSkeleton` 读取 `.home-page__content` 的可视高度、单卡高度和 gap，按 `ceil((可视高度 + gap) / (卡片高度 + gap))` 动态补足骨架卡，覆盖一整屏。
 2. 方案快照只截 `.plan-modal__card`，不带遮罩和背后的赛事列表；截图倍率按 DPR 取 3～4 倍。
 3. 截图副本中隐藏「AI分析 / 截图 / 关闭」操作，并显示仅截图可见的当前玩法、倍数、投注金额与最高奖金；正常弹层不展示这些附加信息。
+4. 截图副本会临时解除弹层最大高度和列表滚动限制，保证所有场次与底部摘要都被完整截入，不会挡住最后一行。
 
 **投注计算规则（`features/betting/betSlipMath.ts`，纯函数）**
 
@@ -469,7 +471,8 @@ sequenceDiagram
 1. 只分析当前方案已选场次，不额外拉取未选比赛；提示词要求逐场覆盖、不新增比赛。
 2. 输出固定包含「总评 / 逐场分析 / 串关建议 / 结论」，解析「整体风险、综合信心、一句话总结」做摘要。
 3. 缓存键为「玩法 + 过关方式 + 场次 + 选项」，同一方案重复打开不重复扣费；关闭浮层会 abort SSE。
-4. 与单场分析不同，方案级分析不逐场请求比赛地天气，避免 N 场串关产生 N 次城市解析与天气请求。
+4. 单场与方案结果写入 `localStorage`，TTL 3 小时；方案未命中时仍只发一次请求，但会把已缓存单场分析带入提示词复用。
+5. 与单场分析不同，方案级分析不逐场请求比赛地天气，避免 N 场串关产生 N 次城市解析与天气请求。
 
 ### 5.6 星座与天气
 
@@ -560,7 +563,7 @@ sequenceDiagram
 | 4 | 分析页仍巨型 | `HistoryAnalysisPage` 720 行、`MathTrendAnalysisPage` 437 行 | 与已拆分的 `HomePage` 风格不一致，复用困难 |
 | 5 | `HistoryPage` 主线程同步跑算法 | `HistoryPage.tsx:81` | 数据量大时切页卡顿 |
 | 6 | 单文件全局样式 5 104 行 | `global.scss` | 无作用域隔离，删除困难 |
-| 7 | 单 chunk 547 KB，无懒加载 | 构建产物 | 首屏体积偏大，超 Vite 500 KB 告警线 |
+| 7 | 单 chunk 549 KB，无懒加载 | 构建产物 | 首屏体积偏大，超 Vite 500 KB 告警线 |
 | 8 | 类型宽松 | 领域类型含 `[key: string]: unknown`；`strict` 未开 | 接口字段漂移无法在编译期发现 |
 | 9 | 截图以 base64 常驻 state | `HomePage.tsx` | 多次截图累积数 MB 内存 |
 | 10 | 缓存无 TTL 过期 | `historyService.ts` | 老数据长期保留（裁剪只按数量） |
@@ -582,7 +585,7 @@ sequenceDiagram
 1. **BFF 加固**：加 IP 维度限流、简单 token 鉴权、`/api/health` 探活接入编排；必要时换 Fastify 以获得成熟中间件。
 2. **测试基线**：给 `betSlipMath.ts`、`historyPrediction.ts`、`historyDb.ts` 加 Vitest（纯函数/仓储，收益最高）；把本次的 CDP 冒烟固化成 `scripts/smoke.mjs`。
 3. **继续拆页面**：`HistoryAnalysisPage` 按「参数面板 / 每位明细 / 统计卡」拆分，复用 `useAnalysisWorker`。
-4. **分包与懒加载**：路由级 `React.lazy` + 手动 chunk（worker 已独立，主 chunk 约 547 KB）。
+4. **分包与懒加载**：路由级 `React.lazy` + 手动 chunk（worker 已独立，主 chunk 约 549 KB）。
 5. **样式模块化**：按页拆 `*.module.scss`，`global.scss` 只留 reset 与设计 token。
 6. **缓存治理**：加 TTL 与"最近访问"策略；超范围分页明确返回空态提示。
 
@@ -597,7 +600,7 @@ sequenceDiagram
 | IP 定位 | 依赖仓库外的 `localhost:3000/api/ip`（无实现） | BFF 实现 `/api/ip`，未配置密钥时优雅降级 |
 | 上游治理 | 无缓存、无超时、错误靠文案 | 白名单校验 + TTL 缓存 + 8 s 超时 + 统一错误码 |
 | 开奖缓存 | localStorage 单 key 全量，超 5 MB 静默失败 | IndexedDB 两 store，增量写入，2 万条上限裁剪，旧数据自动迁移 |
-| 首页 | `HomePage.tsx` 916 行、12 个 `useState` | 499 行 + `features/betting`（hook + 组件 + AI + 快照） |
+| 首页 | `HomePage.tsx` 916 行、12 个 `useState` | 511 行 + `features/betting`（hook + 组件 + AI + 快照） |
 | 构建 | `npm run build` 失败（`main.tsx` 未使用 React 导入） | 通过，退出码 0 |
 
 ### 2026-10-21 增量
@@ -646,6 +649,7 @@ sequenceDiagram
 | 投注组件 | [MatchPoolList.tsx](../src/features/betting/MatchPoolList.tsx)、[MatchListSkeleton.tsx](../src/features/betting/MatchListSkeleton.tsx)、[BetSlipFooter.tsx](../src/features/betting/BetSlipFooter.tsx)、[PlanModal.tsx](../src/features/betting/PlanModal.tsx)、[SnapshotOverlay.tsx](../src/features/betting/SnapshotOverlay.tsx) |
 | 单场 AI | [AiAnalysisPanel.tsx](../src/features/betting/AiAnalysisPanel.tsx)、[useMatchAiAnalysis.ts](../src/features/betting/useMatchAiAnalysis.ts)、[aiAnalysis.ts](../src/features/betting/aiAnalysis.ts) |
 | 方案 AI | [ParlayAiAnalysisPanel.tsx](../src/features/betting/ParlayAiAnalysisPanel.tsx)、[useParlayAiAnalysis.ts](../src/features/betting/useParlayAiAnalysis.ts)、[parlayAiAnalysis.ts](../src/features/betting/parlayAiAnalysis.ts) |
+| AI 本地缓存 | [aiAnalysisCache.ts](../src/features/betting/aiAnalysisCache.ts)（`localStorage`，3 小时 TTL） |
 | 自动交付 | [scripts/update-architecture.mjs](../scripts/update-architecture.mjs)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs)、[scripts/git-hooks](../scripts/git-hooks)、[AGENTS.md](../AGENTS.md) |
 | 开奖缓存 | [src/service/historyService.ts](../src/service/historyService.ts) |
 | IndexedDB 仓储 | [src/storage/historyDb.ts](../src/storage/historyDb.ts) |
