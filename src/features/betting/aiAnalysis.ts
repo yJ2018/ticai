@@ -84,7 +84,7 @@ function buildMatchPrompt(
  * 把当前玩法的完整赔率拼成一段文本。只给 AI 摘要会丢掉大部分比分/半全场选项，
  * 因此优先使用 optionGroups 里的全部可选项，超长时再截断。
  */
-function formatOddsForPrompt(match: MatchCard, pool: MatchPoolType) {
+export function formatOddsForPrompt(match: MatchCard, pool: MatchPoolType) {
   const groups =
     pool === 'mixed'
       ? [

@@ -1,9 +1,11 @@
 import { type MatchCard, type MatchCardOptionGroup, type MatchPoolType } from '../../service/matchService'
 import { formatKickoffTime } from './betSlipMath'
+import { MatchListSkeleton } from './MatchListSkeleton'
 
 type MatchPoolListProps = {
   panelAnimClass: string
   loading: boolean
+  fetched: boolean
   error: string
   items: MatchCard[]
   activePool: MatchPoolType
@@ -18,6 +20,7 @@ type MatchPoolListProps = {
 export function MatchPoolList({
   panelAnimClass,
   loading,
+  fetched,
   error,
   items,
   activePool,
@@ -113,64 +116,68 @@ export function MatchPoolList({
     )
   }
 
+  const showSkeleton = !error && (!fetched || loading)
+
   return (
     <div className={`home-page__result-panel ${panelAnimClass}`}>
-      <ul className="home-page__list">
-        {loading && <li>正在加载比赛数据...</li>}
-        {!loading && error && <li>{error}</li>}
-        {!loading &&
-          !error &&
-          items.map((item) => {
-            const picked = (selectedOptionKeys[item.id]?.length ?? 0) > 0
+      {showSkeleton ? (
+        <MatchListSkeleton activePool={activePool} />
+      ) : (
+        <ul className="home-page__list">
+          {error && <li>{error}</li>}
+          {!error &&
+            items.map((item) => {
+              const picked = (selectedOptionKeys[item.id]?.length ?? 0) > 0
 
-            if (activePool === 'mixed') {
-              const expanded = expandedMixedIds.includes(item.id)
+              if (activePool === 'mixed') {
+                const expanded = expandedMixedIds.includes(item.id)
+                return (
+                  <li key={item.id} className={`${picked ? 'is-picked ' : ''}is-option-layout`}>
+                    <div className="pool-card pool-card--mixed">
+                      {renderMatchHead(item)}
+                      <div className="pool-card__odds-wrap">
+                        {renderOptionGroups(item)}
+                        <div className="mixed-card__toggle-row">
+                          <button
+                            type="button"
+                            className="mixed-card__toggle"
+                            onClick={() => onToggleMixed(item.id)}
+                          >
+                            {expanded ? '收起' : '展开更多玩法'}
+                          </button>
+                        </div>
+                      </div>
+                      {expanded && (
+                        <div className="mixed-card__sections">
+                          {(item.mixedSections ?? []).map((section) => (
+                            <section
+                              key={section.key}
+                              className={`mixed-card__section mixed-card__section--${section.poolType}`}
+                            >
+                              <h4>{section.title}</h4>
+                              {renderOptionGroups(item, section.poolType === 'crs', section.groups)}
+                            </section>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                )
+              }
+
               return (
                 <li key={item.id} className={`${picked ? 'is-picked ' : ''}is-option-layout`}>
-                  <div className="pool-card pool-card--mixed">
+                  <div className={`pool-card pool-card--${activePool}`}>
                     {renderMatchHead(item)}
                     <div className="pool-card__odds-wrap">
-                      {renderOptionGroups(item)}
-                      <div className="mixed-card__toggle-row">
-                        <button
-                          type="button"
-                          className="mixed-card__toggle"
-                          onClick={() => onToggleMixed(item.id)}
-                        >
-                          {expanded ? '收起' : '展开更多玩法'}
-                        </button>
-                      </div>
+                      {renderOptionGroups(item, activePool === 'crs')}
                     </div>
-                    {expanded && (
-                      <div className="mixed-card__sections">
-                        {(item.mixedSections ?? []).map((section) => (
-                          <section
-                            key={section.key}
-                            className={`mixed-card__section mixed-card__section--${section.poolType}`}
-                          >
-                            <h4>{section.title}</h4>
-                            {renderOptionGroups(item, section.poolType === 'crs', section.groups)}
-                          </section>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </li>
               )
-            }
-
-            return (
-              <li key={item.id} className={`${picked ? 'is-picked ' : ''}is-option-layout`}>
-                <div className={`pool-card pool-card--${activePool}`}>
-                  {renderMatchHead(item)}
-                  <div className="pool-card__odds-wrap">
-                    {renderOptionGroups(item, activePool === 'crs')}
-                  </div>
-                </div>
-              </li>
-            )
-          })}
-      </ul>
+            })}
+        </ul>
+      )}
     </div>
   )
 }

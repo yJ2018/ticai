@@ -7,7 +7,9 @@ import { MatchPoolList } from '../features/betting/MatchPoolList'
 import { PlanModal } from '../features/betting/PlanModal'
 import { SnapshotOverlay } from '../features/betting/SnapshotOverlay'
 import { AiAnalysisPanel } from '../features/betting/AiAnalysisPanel'
+import { ParlayAiAnalysisPanel } from '../features/betting/ParlayAiAnalysisPanel'
 import { useMatchAiAnalysis } from '../features/betting/useMatchAiAnalysis'
+import { useParlayAiAnalysis } from '../features/betting/useParlayAiAnalysis'
 import { useBetSlip } from '../features/betting/useBetSlip'
 import { PLAN_MODAL_ANIMATION_MS, formatMoney, getSportteryTaxInfo } from '../features/betting/betSlipMath'
 
@@ -50,6 +52,7 @@ export function HomePage() {
 
   const betSlip = useBetSlip(items, activePool)
   const aiAnalysis = useMatchAiAnalysis(activePool)
+  const parlayAi = useParlayAiAnalysis()
 
   useEffect(() => {
     loadMatches()
@@ -132,6 +135,7 @@ export function HomePage() {
     setIsPassPanelOpen(false)
     setIsMultiplePanelOpen(false)
     aiAnalysis.close()
+    parlayAi.close()
     closePlanModal()
   }
 
@@ -196,6 +200,7 @@ export function HomePage() {
     closePlanModal()
     closeAllPanels()
     aiAnalysis.close()
+    parlayAi.close()
   }
 
   function closePlanModal() {
@@ -203,6 +208,7 @@ export function HomePage() {
       window.clearTimeout(planModalTimerRef.current)
       planModalTimerRef.current = null
     }
+    parlayAi.close()
     setIsPlanModalOpen(false)
     planModalTimerRef.current = window.setTimeout(() => {
       setIsPlanModalMounted(false)
@@ -217,6 +223,7 @@ export function HomePage() {
     }
     closeAllPanels()
     aiAnalysis.close()
+    parlayAi.close()
     if (planModalTimerRef.current) {
       window.clearTimeout(planModalTimerRef.current)
       planModalTimerRef.current = null
@@ -236,6 +243,25 @@ export function HomePage() {
     aiAnalysis.open(item, anchor)
   }
 
+  function toggleParlayAi(anchor: HTMLButtonElement) {
+    if (parlayAi.analysis) {
+      parlayAi.close()
+      return
+    }
+
+    parlayAi.open(
+      {
+        pool: activePool,
+        passSummaryText: betSlip.passSummaryText,
+        entries: betSlip.planEntries,
+        matches: items,
+        betAmount: betSlip.betAmount,
+        maxBonus: betSlip.maxBonus,
+      },
+      anchor,
+    )
+  }
+
   function openMultiplePanel() {
     setIsPassPanelOpen(false)
     setMultipleDraft('')
@@ -246,17 +272,42 @@ export function HomePage() {
     if (isCapturingSnapshot || typeof window === 'undefined') {
       return
     }
-    const captureTarget = planModalLayerRef.current
+    const captureLayer = planModalLayerRef.current
+    // 只截白色方案卡，不把遮罩层和后面的赛事列表带进快照。
+    const captureTarget =
+      captureLayer?.querySelector<HTMLElement>('.plan-modal__card') ?? captureLayer
     if (!captureTarget) {
       setToastText('未找到可截图区域')
       return
     }
     setIsCapturingSnapshot(true)
     try {
+      if (document.fonts) {
+        await document.fonts.ready
+      }
+
+      // 截图按设备像素比放大输出，避免方案图在预览 / 保存后发虚。
+      const captureScale = Math.min(4, Math.max(3, (window.devicePixelRatio || 1) * 2))
       const canvas = await html2canvas(captureTarget, {
         useCORS: true,
-        scale: Math.min(window.devicePixelRatio || 1, 2),
+        scale: captureScale,
         backgroundColor: null,
+        logging: false,
+        // AI 分析 / 截图 / 关闭属于操作控件，不应出现在方案快照里。
+        onclone: (clonedDocument) => {
+          clonedDocument.querySelectorAll<HTMLElement>('.plan-modal__head-actions').forEach((element) => {
+            element.style.display = 'none'
+          })
+
+          // 玩法、倍数等信息平时不占弹层空间，只在快照副本中展示。
+          const eyebrow = clonedDocument.querySelector<HTMLElement>('.plan-modal__eyebrow')
+          if (eyebrow) {
+            eyebrow.textContent = `当前玩法 · ${eyebrow.dataset.poolLabel || '未知玩法'}`
+          }
+          clonedDocument.querySelectorAll<HTMLElement>('.plan-modal__meta').forEach((element) => {
+            element.hidden = false
+          })
+        },
       })
       const dataUrl = canvas.toDataURL('image/png')
       setSnapshotUrl(dataUrl)
@@ -362,6 +413,7 @@ export function HomePage() {
             key={`${activePool}-${panelAnimTick}`}
             panelAnimClass={panelAnimClass}
             loading={activeCache.loading}
+            fetched={activeCache.fetched}
             error={activeCache.error}
             items={items}
             activePool={activePool}
@@ -379,6 +431,13 @@ export function HomePage() {
         anchor={aiAnalysis.anchor}
         onClose={aiAnalysis.close}
         onRetry={aiAnalysis.retry}
+      />
+
+      <ParlayAiAnalysisPanel
+        analysis={parlayAi.analysis}
+        anchor={parlayAi.anchor}
+        onClose={parlayAi.close}
+        onRetry={parlayAi.retry}
       />
 
       {(isPassPanelOpen || isMultiplePanelOpen) && (
@@ -416,10 +475,16 @@ export function HomePage() {
         mounted={isPlanModalMounted}
         open={isPlanModalOpen}
         passSummaryText={betSlip.passSummaryText}
+        poolLabel={poolTabs.find((tab) => tab.key === activePool)?.label ?? ''}
+        multiple={betSlip.multiple}
+        betAmount={betSlip.betAmount}
+        maxBonus={betSlip.maxBonus}
         entries={betSlip.planEntries}
         isCapturing={isCapturingSnapshot}
         onCapture={captureSnapshot}
         onClose={closePlanModal}
+        onAnalyze={toggleParlayAi}
+        isAiActive={parlayAi.analysis !== null}
         layerRef={planModalLayerRef}
       />
 

@@ -1,14 +1,9 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { AnalysisText } from './AnalysisText'
 import { formatKickoffTime } from './betSlipMath'
 import { POOL_LABELS } from './aiAnalysis'
+import { useAiPanelPosition } from './useAiPanelPosition'
 import { type AiAnalysisState } from './useMatchAiAnalysis'
 
 type AiAnalysisPanelProps = {
@@ -18,80 +13,12 @@ type AiAnalysisPanelProps = {
   onRetry: () => void
 }
 
-type PanelPosition = {
-  left: number
-  top: number
-  maxHeight: number
-}
-
-const PANEL_WIDTH = 430
-const MOBILE_BREAKPOINT = 720
-
-function usePanelPosition(anchor: HTMLElement | null) {
-  const [position, setPosition] = useState<PanelPosition | null>(null)
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT,
-  )
-
-  useLayoutEffect(() => {
-    if (!anchor) {
-      setPosition(null)
-      return
-    }
-
-    const target = anchor
-
-    function update() {
-      const mobile = window.innerWidth <= MOBILE_BREAKPOINT
-      setIsMobile(mobile)
-      if (mobile) {
-        setPosition(null)
-        return
-      }
-
-      const rect = target.getBoundingClientRect()
-      const width = Math.min(PANEL_WIDTH, window.innerWidth - 24)
-
-      let left = rect.left - width - 12
-      if (left < 12) {
-        left = rect.right + 12
-      }
-      if (left + width > window.innerWidth - 12) {
-        left = Math.max(12, (window.innerWidth - width) / 2)
-      }
-
-      const estimatedHeight = Math.min(620, window.innerHeight - 24)
-      const top = Math.max(
-        12,
-        Math.min(rect.top - 16, window.innerHeight - estimatedHeight - 12),
-      )
-
-      // 面板可能比预估更高，用实际 top 反推可用高度，避免底部超出视口
-      setPosition({
-        left,
-        top,
-        maxHeight: Math.max(320, window.innerHeight - top - 12),
-      })
-    }
-
-    update()
-    window.addEventListener('resize', update)
-    window.addEventListener('scroll', update, true)
-    return () => {
-      window.removeEventListener('resize', update)
-      window.removeEventListener('scroll', update, true)
-    }
-  }, [anchor])
-
-  return { position, isMobile }
-}
-
 export function AiAnalysisPanel({ analysis, anchor, onClose, onRetry }: AiAnalysisPanelProps) {
   const panelRef = useRef<HTMLElement | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const [showProcess, setShowProcess] = useState(true)
   const [copied, setCopied] = useState(false)
-  const { position, isMobile } = usePanelPosition(anchor)
+  const { position, isMobile } = useAiPanelPosition(anchor)
 
   useEffect(() => {
     if (!analysis) {
@@ -355,34 +282,4 @@ function LoadingState() {
       <p>AI 会先梳理这些维度，再给出预测结论。</p>
     </div>
   )
-}
-
-function AnalysisText({ text }: { text: string }) {
-  const nodes: ReactNode[] = []
-
-  text.split('\n').forEach((line, index) => {
-    const trimmed = line.trim()
-    if (!trimmed) {
-      return
-    }
-    if (/^【.+】$/.test(trimmed)) {
-      nodes.push(
-        <h4 key={`h-${index}`} className="ai-analysis__section-title">
-          {trimmed.replace(/[【】]/g, '')}
-        </h4>,
-      )
-      return
-    }
-    if (/^(推荐选项|比分参考|信心等级|理由)[：:]/.test(trimmed)) {
-      nodes.push(
-        <p key={`key-${index}`} className="ai-analysis__key-line">
-          {trimmed}
-        </p>,
-      )
-      return
-    }
-    nodes.push(<p key={`p-${index}`}>{trimmed}</p>)
-  })
-
-  return <div className="ai-analysis__text">{nodes}</div>
 }
