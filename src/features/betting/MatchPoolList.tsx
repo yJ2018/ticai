@@ -1,4 +1,9 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
 import { type MatchCard, type MatchCardOptionGroup, type MatchPoolType } from '../../service/matchService'
+import { MatchDetailDialog } from '../matchDetail/MatchDetailDialog'
+import { useIsMobile } from '../matchDetail/useIsMobile'
 import { formatKickoffTime } from './betSlipMath'
 import { MatchListSkeleton } from './MatchListSkeleton'
 
@@ -30,6 +35,19 @@ export function MatchPoolList({
   onToggleMixed,
   onAnalyze,
 }: MatchPoolListProps) {
+  // 对战详情：PC 走弹框，H5 跳独立页面
+  const isMobile = useIsMobile()
+  const navigate = useNavigate()
+  const [detailTarget, setDetailTarget] = useState<MatchCard | null>(null)
+
+  function openDetail(item: MatchCard) {
+    if (isMobile) {
+      navigate(`/match/${item.id}`, { state: { match: item } })
+      return
+    }
+    setDetailTarget(item)
+  }
+
   function renderOptionGroups(item: MatchCard, wrapGroups = false, groups?: MatchCardOptionGroup[]) {
     const groupList = groups ?? item.optionGroups ?? []
 
@@ -82,11 +100,20 @@ export function MatchPoolList({
         </div>
         <div className="pool-card__main">
           <div className="pool-card__league">{item.subtitle}</div>
-          <div className="pool-card__teams">
+          <button
+            type="button"
+            className="pool-card__teams pool-card__teams--link"
+            title="查看对战数据"
+            aria-label={`查看 ${item.homeTeam || '主队'} 对 ${item.awayTeam || '客队'} 的对战数据`}
+            onClick={() => openDetail(item)}
+          >
             <span>{item.homeTeam || '主队'}</span>
             <em>VS</em>
             <span>{item.awayTeam || '客队'}</span>
-          </div>
+            <i className="pool-card__teams-more" aria-hidden="true">
+              ›
+            </i>
+          </button>
         </div>
         <button
           type="button"
@@ -178,6 +205,8 @@ export function MatchPoolList({
             })}
         </ul>
       )}
+
+      <MatchDetailDialog match={detailTarget} onClose={() => setDetailTarget(null)} />
     </div>
   )
 }

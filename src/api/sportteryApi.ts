@@ -1,3 +1,4 @@
+import { apiUrl } from './base'
 import { request } from './httpClient'
 import {
   type LotteryHistoryParams,
@@ -21,10 +22,10 @@ const DIRECT = import.meta.env.VITE_SPORTTERY_DIRECT === '1'
 
 const MATCH_CALCULATOR_URL = DIRECT
   ? 'https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry'
-  : '/api/matches'
+  : apiUrl('/api/matches')
 const LOTTERY_HISTORY_URL = DIRECT
   ? 'https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry'
-  : '/api/history'
+  : apiUrl('/api/history')
 
 function poolCodeFor(poolType: MatchPoolKey) {
   if (poolType === 'mixed') {

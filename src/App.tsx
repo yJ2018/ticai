@@ -39,31 +39,41 @@ export default function App() {
     setIsDisclaimerOpen(false)
   }, [])
 
+  const isFullscreen = isFullscreenRoute(location.pathname)
+
   return (
-    <div className="app-shell">
-      <header className="app-topbar">
-        <div className="app-topbar__title">
-          <strong>体彩助手</strong>
-          <span>赛事投注与开奖历史</span>
-        </div>
-        <nav className="app-topbar__nav" aria-label="主导航">
-          {navLinks.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => `app-topbar__link${isActive ? ' is-active' : ''}`}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-      </header>
+    <div className={`app-shell${isFullscreen ? ' app-shell--fullscreen' : ''}`}>
+      {/* H5 对战详情是全屏页面，带自己的返回栏，不需要站点头部 */}
+      {!isFullscreen && (
+        <header className="app-topbar">
+          <div className="app-topbar__title">
+            <strong>体彩助手</strong>
+            <span>赛事投注与开奖历史</span>
+          </div>
+          <nav className="app-topbar__nav" aria-label="主导航">
+            {navLinks.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => `app-topbar__link${isActive ? ' is-active' : ''}`}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </header>
+      )}
       <main className="app-main">
         <AppRouter />
       </main>
       <EntertainmentDisclaimer open={isDisclaimerOpen} onDismiss={handleDisclaimerDismiss} />
     </div>
   )
+}
+
+/** 这些路由自带导航栏，渲染时隐藏站点头部 */
+function isFullscreenRoute(pathname: string) {
+  return pathname.startsWith('/match/')
 }
 
 function normalizePath(pathname: string) {

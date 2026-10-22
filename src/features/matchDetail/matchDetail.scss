@@ -1,0 +1,574 @@
+/* 对战数据详情：PC 弹框与 H5 页面共用一套样式 */
+
+.md-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.md-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(60rem, 94vw);
+  max-height: 86vh;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, 0.28);
+}
+
+.md-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.4rem 0.9rem;
+  border-bottom: 1px solid #e5e7eb;
+
+  h2 {
+    margin: 0;
+    color: #111827;
+    font-size: 1.1rem;
+  }
+
+  p {
+    margin: 0.2rem 0 0;
+    color: #6b7280;
+    font-size: 0.82rem;
+  }
+}
+
+.md-dialog__body {
+  padding: 0 1.4rem 1.4rem;
+  overflow-y: auto;
+}
+
+.md-close {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: #e5e7eb;
+    color: #111827;
+  }
+}
+
+.md-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f8fafc;
+}
+
+/* 独立滚动容器：返回栏在它上面，内容永远从栏下开始，不会钻到栏底下 */
+.md-page__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2rem;
+}
+
+/* 详情页去掉站点外壳的内边距，让返回栏贴住视口顶部。
+   用双类选择器提高权重，避免被 .app-shell 的基础规则按顺序覆盖。 */
+.app-shell.app-shell--fullscreen {
+  height: 100dvh;
+  max-width: none;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+
+  .app-main,
+  .keep-alive-route-pane {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 关键：KeepAliveRoutes 的入场动画会给面板留下 transform，
+     会干扰内部布局，全屏页直接关掉。 */
+  .keep-alive-route-pane {
+    transform: none;
+    animation: none;
+    opacity: 1;
+  }
+}
+
+.md-page__bar {
+  flex: 0 0 auto;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.9rem;
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+
+  strong {
+    min-width: 0;
+    overflow: hidden;
+    color: #111827;
+    font-size: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.md-page__back {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  cursor: pointer;
+
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.md-page .md-body,
+.md-page .md-loading,
+.md-page .md-empty-state {
+  padding: 0.9rem 0.9rem 0;
+}
+
+.md-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding-top: 0.9rem;
+}
+
+.md-hero {
+  padding: 0.9rem 1rem;
+  border: 1px solid #dbeafe;
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, #eff6ff, #fff);
+}
+
+.md-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.78rem;
+}
+
+.md-hero__league {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.md-hero__status {
+  margin-left: auto;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #4b5563;
+}
+
+.md-hero__score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0.5rem 0 0.2rem;
+
+  strong {
+    color: #1d4ed8;
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  strong.is-vs {
+    color: #9ca3af;
+    font-size: 1rem;
+  }
+}
+
+.md-hero__team {
+  max-width: 40%;
+  overflow: hidden;
+  color: #111827;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.md-hero__htft {
+  color: #2563eb;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.md-section {
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #eef2f7;
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.md-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+
+  h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 0.95rem;
+  }
+
+  span {
+    color: #6b7280;
+    font-size: 0.74rem;
+    text-align: right;
+  }
+}
+
+.md-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-list__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #374151;
+  font-size: 0.82rem;
+}
+
+.md-list__date {
+  flex: 0 0 auto;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.md-list__league {
+  flex: 0 0 auto;
+  color: #2563eb;
+  font-size: 0.74rem;
+}
+
+.md-list__teams {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  b {
+    color: #111827;
+  }
+}
+
+.md-list__half {
+  flex: 0 0 auto;
+  color: #9ca3af;
+  font-size: 0.72rem;
+}
+
+.md-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.md-side__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  color: #374151;
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  span {
+    color: #9ca3af;
+    font-size: 0.72rem;
+    font-weight: 400;
+  }
+}
+
+.md-side__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-injury,
+.md-form,
+.md-fixture,
+.md-shooter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #374151;
+  font-size: 0.8rem;
+}
+
+.md-injury__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.md-injury__pos {
+  flex: 0 0 auto;
+  color: #9ca3af;
+  font-size: 0.72rem;
+}
+
+.md-injury em {
+  flex: 0 0 auto;
+  padding: 0 0.32rem;
+  border-radius: 0.3rem;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 0.7rem;
+  font-style: normal;
+
+  &.is-suspend {
+    background: #fff7ed;
+    color: #c2410c;
+  }
+}
+
+.md-form__tag {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  border-radius: 0.3rem;
+  font-size: 0.7rem;
+  font-style: normal;
+  text-align: center;
+
+  &.is-胜 {
+    background: #ecfdf5;
+    color: #047857;
+  }
+
+  &.is-平 {
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+
+  &.is-负 {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  &.is-none {
+    background: transparent;
+    color: #9ca3af;
+  }
+}
+
+.md-shooter__stat {
+  flex: 0 0 auto;
+  color: #2563eb;
+  font-size: 0.74rem;
+}
+
+.md-lineup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.26rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-lineup__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #374151;
+  font-size: 0.8rem;
+
+  em {
+    flex: 0 0 1.4rem;
+    color: #9ca3af;
+    font-size: 0.72rem;
+    font-style: normal;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  i {
+    flex: 0 0 auto;
+    color: #6b7280;
+    font-size: 0.7rem;
+    font-style: normal;
+  }
+}
+
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+
+  th,
+  td {
+    padding: 0.32rem 0.2rem;
+    text-align: center;
+  }
+
+  th {
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  td:first-child,
+  th:first-child {
+    text-align: left;
+  }
+
+  tbody tr + tr td {
+    border-top: 1px solid #f1f5f9;
+  }
+}
+
+.md-empty {
+  margin: 0;
+  padding: 0.35rem 0;
+  color: #9ca3af;
+  font-size: 0.78rem;
+}
+
+.md-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 1.6rem 0.2rem;
+  color: #6b7280;
+  font-size: 0.82rem;
+}
+
+.md-loading__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #2563eb;
+  animation: md-pulse 1s ease-in-out infinite;
+}
+
+@keyframes md-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.md-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.6rem 0.4rem;
+  text-align: center;
+
+  strong {
+    color: #111827;
+    font-size: 1rem;
+  }
+
+  p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.82rem;
+  }
+}
+
+.md-empty-state__hint {
+  color: #9ca3af !important;
+  font-size: 0.76rem !important;
+}
+
+/* 对战数据入口：球队名做成可点击按钮（挂在赛事卡片头部） */
+.pool-card__teams--link {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover .pool-card__teams-more,
+  &:focus-visible .pool-card__teams-more {
+    color: #1d4ed8;
+  }
+}
+
+.pool-card__teams-more {
+  flex: 0 0 auto;
+  margin-left: 0.15rem;
+  color: #9ca3af;
+  font-size: 0.95rem;
+  font-style: normal;
+}
+
+@media (max-width: 47.99rem) {
+  .md-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .md-modal {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md-loading__dot {
+    animation: none;
+  }
+}

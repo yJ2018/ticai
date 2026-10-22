@@ -1,3 +1,4 @@
+import { apiUrl } from '../api/base'
 import { request } from '../api/httpClient'
 import { type BffEnvelope } from '../api/types'
 import { CONSTELLATIONS, type ConstellationName, type HoroscopeData, type HoroscopeType } from '../domain/constellation'
@@ -19,7 +20,7 @@ type JuheHoroscopePayload = {
   summary?: string
 }
 
-const HOROSCOPE_ENDPOINT = '/api/horoscope'
+const HOROSCOPE_ENDPOINT = apiUrl('/api/horoscope')
 
 export const constellationService = {
   async getHoroscope(

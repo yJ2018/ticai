@@ -1,3 +1,4 @@
+import { apiUrl } from './base'
 import { ApiError, request } from './httpClient'
 import { type BffEnvelope } from './types'
 
@@ -49,7 +50,7 @@ export type AiChatResult = {
   elapsedMs: number
 }
 
-const AI_CHAT_ENDPOINT = '/api/ai-chat'
+const AI_CHAT_ENDPOINT = apiUrl('/api/ai-chat')
 /** 服务端默认 60s 上游超时，这里留 10s 余量 */
 const AI_TIMEOUT_MS = 70_000
 

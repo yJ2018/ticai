@@ -1,3 +1,4 @@
+import { apiUrl } from './base'
 import { request } from './httpClient'
 import { type BffEnvelope } from './types'
 
@@ -60,7 +61,7 @@ export type VenueWeatherQuery = {
   kickoff: string
 }
 
-const VENUE_WEATHER_ENDPOINT = '/api/venue-weather'
+const VENUE_WEATHER_ENDPOINT = apiUrl('/api/venue-weather')
 
 export async function getVenueWeather(
   query: VenueWeatherQuery,

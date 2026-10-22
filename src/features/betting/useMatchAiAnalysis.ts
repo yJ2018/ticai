@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { askAiStream, type AiStreamDone } from '../../api/aiApi'
-import { getVenueWeather } from '../../api/venueWeatherApi'
+import { type AiStreamDone } from '../../api/aiApi'
+import { askMatchAnalysis } from '../../api/analysisApi'
 import { type MatchCard, type MatchPoolType } from '../../service/matchService'
-import {
-  buildMatchAnalysisMessages,
-  parseAnalysisSummary,
-  type AnalysisSummary,
-} from './aiAnalysis'
+import { parseAnalysisSummary, type AnalysisSummary } from './aiAnalysis'
 import {
   buildMatchAiCacheKey,
   readAiAnalysisCache,
@@ -52,23 +48,6 @@ export function useMatchAiAnalysis(activePool: MatchPoolType) {
     setAnalysis(next)
   }
 
-  function getVenueWeatherFor(match: MatchCard, signal: AbortSignal) {
-    const team = match.homeTeam || ''
-    if (!team) {
-      return Promise.resolve(null)
-    }
-
-    return getVenueWeather(
-      {
-        teamId: match.homeTeamId,
-        homeTeam: team,
-        league: match.subtitle || '',
-        kickoff: match.time || '',
-      },
-      signal,
-    ).catch(() => null)
-  }
-
   function update(
     key: string,
     patch: Partial<AiAnalysisState> | ((prev: AiAnalysisState) => Partial<AiAnalysisState>),
@@ -88,50 +67,22 @@ export function useMatchAiAnalysis(activePool: MatchPoolType) {
     const controller = new AbortController()
     controllerRef.current = controller
 
-    // 天气只是增强信息，最多等 15s，避免整个分析卡在「获取天气」阶段
-    const weatherController = new AbortController()
-    const weatherTimer = window.setTimeout(() => weatherController.abort(), 15_000)
-    const weatherSignal =
-      typeof AbortSignal.any === 'function'
-        ? AbortSignal.any([controller.signal, weatherController.signal])
-        : controller.signal
-
-    let venueWeather = null
-    try {
-      venueWeather = await getVenueWeatherFor(base.match, weatherSignal)
-    } finally {
-      window.clearTimeout(weatherTimer)
-    }
-
-    if (controller.signal.aborted) {
-      return
-    }
-
-    const weatherLabel =
-      venueWeather?.available === true
-        ? `${venueWeather.city} ${
-            venueWeather.current.temperature !== null
-              ? `${venueWeather.current.temperature}℃ `
-              : ''
-          }${venueWeather.current.weather}`
-        : '比赛地天气未获取'
-
-    update(base.key, { status: 'streaming', weatherLabel })
+    update(base.key, { status: 'streaming', weatherLabel: '正在装配官方数据…' })
 
     try {
-      const done = await askAiStream(
+      const done = await askMatchAnalysis(
         {
-          messages: buildMatchAnalysisMessages({
-            match: base.match,
-            pool: base.pool,
-            venueWeather,
-          }),
+          matchId: base.match.id,
+          pool: base.pool,
           thinking: false,
           maxTokens: 1_500,
           temperature: 0.4,
           signal: controller.signal,
         },
         {
+          onMeta: (meta) => {
+            update(base.key, { weatherLabel: meta.weatherLabel })
+          },
           onReasoning: (delta) => {
             update(base.key, (prev) => ({ reasoning: prev.reasoning + delta }))
           },

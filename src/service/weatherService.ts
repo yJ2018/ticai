@@ -1,3 +1,4 @@
+import { apiUrl } from '../api/base'
 import { request } from '../api/httpClient'
 import { type BffEnvelope } from '../api/types'
 import { type WeatherData, type WeatherForecastItem } from '../domain/weather'
@@ -49,8 +50,8 @@ type LocationPayload = {
   }
 }
 
-const WEATHER_ENDPOINT = '/api/weather'
-const LOCATION_ENDPOINT = '/api/ip'
+const WEATHER_ENDPOINT = apiUrl('/api/weather')
+const LOCATION_ENDPOINT = apiUrl('/api/ip')
 const DEFAULT_WEATHER_CITY = '宝山'
 
 export const weatherService = {

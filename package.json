@@ -16,6 +16,19 @@
     "ai:check": "node scripts/ai-smoke.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "architecture:update": "node scripts/update-architecture.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:seed": "node scripts/db-migrate.mjs seed",
+    "db:status": "node scripts/db-migrate.mjs status",
+    "db:verify": "node scripts/db-migrate.mjs verify",
+    "api:dev": "node apps/api/src/index.mjs",
+    "api:test": "node --test apps/api/test",
+    "crawl": "node apps/crawler/src/index.mjs",
+    "crawl:matches": "node apps/crawler/src/index.mjs matches",
+    "crawl:history": "node apps/crawler/src/index.mjs history",
+    "crawl:details": "node apps/crawler/src/index.mjs details",
+    "crawl:daemon": "node apps/crawler/src/daemon.mjs",
+    "crawl:lineups": "node apps/crawler/src/index.mjs lineups-browser --run",
+    "crawl:test": "node --test apps/crawler/test",
     "hooks:install": "node scripts/install-git-hooks.mjs",
     "deploy:local": "node scripts/deploy-local.mjs"
   },
@@ -23,15 +36,18 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "playwright": "^1.64.1",
     "typescript": "~6.0.2",
     "vite": "^8.0.4"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
+    "pg": "^8.23.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^6.30.3",
     "sass": "^1.99.0",
+    "sass-embedded": "^1.99.0",
     "zustand": "^5.0.12"
   }
 }

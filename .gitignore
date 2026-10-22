@@ -20,6 +20,9 @@ dist-ssr
 # 本地 Vercel 项目关联信息（含 org/project id）
 .vercel
 
+# 临时目录（本地 Postgres 数据目录、npm 缓存、夹具脚本）
+.tmp/
+
 # 本地私人物料
 resume/
 

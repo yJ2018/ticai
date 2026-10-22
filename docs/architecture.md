@@ -278,8 +278,15 @@ flowchart LR
 1. 访问过的页面常驻 React 树，切换只改 `display`，`useState`/滚动位置保留。
 2. **无缓存淘汰**：`cachedPathsRef` 只增不减。
 3. `/profile`（`cache: false`）切走即卸载。
-4. 只支持精确匹配：无路径参数、无嵌套路由、无 404 页。
+4. 精确匹配为主；`/match/:matchId` 是唯一的动态路由（`cache: false`），切换不同 `matchId` 时组件不卸载，但 `useMatchDetail` 会按 id 重新拉取。
 5. 副作用常驻：页面的定时器与后台请求在切走后仍运行（`historyService` 的后台补页就是全局单例，不受影响）。
+
+对战详情有两条入口，同一份正文组件（`MatchDetailContent`）：
+
+| 端 | 形态 | 实现 |
+| --- | --- | --- |
+| PC（≥768px） | 弹框 | `MatchDetailDialog`，portal 到 body，Esc / 遮罩 / × 关闭 |
+| H5（<768px） | 独立页面 `/match/:matchId` | `MatchDetailPage`，带返回按钮 |
 
 ---
 
@@ -543,6 +550,77 @@ sequenceDiagram
 | 内存 | `matchStore.poolCache` | `matchStore` | 5 个玩法池 `{loading,error,cards,fetched}` | 刷新即丢 |
 | 内存 | 组件 state | `HomePage` | 选择态、弹层、截图 dataURL | 卸载即丢 |
 
+### 7.1 服务端数据库（PostgreSQL）
+
+体彩数据不再实时透传，改为"爬虫写库 → API 读库"。数据库是三件事的唯一交汇点：
+
+```mermaid
+flowchart LR
+    C[爬虫<br/>竞彩赛程·赔率·赛果 / 开奖 / 伤病·阵容] -->|幂等 upsert| DB[(PostgreSQL)]
+    DB -->|读库 + 重组旧响应形状| API[API<br/>Vercel]
+    API -->|/api/matches /api/history| WEB[前端<br/>Vercel]
+    WEB -.->|不再直连| SPORTTERY[体彩 webapi]
+```
+
+| 域 | 表 | 写入方 | 保留策略 |
+| --- | --- | --- | --- |
+| 彩票 | `lottery_game` / `lottery_draw` / `lottery_prize_level` | 开奖爬虫（4 个彩种） | 永久 |
+| 足球 | `league` / `team` / `team_alias` / `match` / `match_odds_snapshot` | 赛程爬虫 + 赛果爬虫 | 赔率快照 120 天 |
+| 补充 | `player` / `injury` / `match_lineup` / `match_lineup_player` | 自建爬虫 | 阵容每队只留最近 1 场 |
+| 映射 | `external_ref` | 人工确认后写入 | 永久 |
+| 可观测 | `crawl_run` | 每条爬虫链路 | 30 天 |
+
+关键设计：
+
+1. **只入库竞彩赛事**：`match.sporttery_match_id` 必填且唯一，第三方数据只 UPDATE 字段、不 INSERT 行，避开跨源实体消解。
+2. **比分与半场比分单列**，`htft` 是存储生成列（`h/d/a × h/d/a`），半全场分布可直接分组统计；`match_side` 视图把主客方向拉平，并用 `translate(htft,'ha','ah')` 翻转客队视角。
+3. **赔率快照按 `content_hash` 去重**，内容不变不写行，是唯一需要保留策略的表。
+4. **`crawl_run` 是数据新鲜度的唯一来源**，API 用它回答"当前数据是多少分钟前的"，而不是猜上游。
+
+实现与运维细节见 [db/README.md](../db/README.md)。
+
+### 7.2 独立 API 服务（`apps/api`）
+
+8 个接口从 `server/` + `api/*.js` 抽成独立服务：零框架、零构建，只依赖 `pg`。同一份 `createApp()` 同时给本地/VPS 的 `node:http` 和 Vercel 函数使用，不存在两套实现。
+
+| 接口 | 数据来源 | 说明 |
+| --- | --- | --- |
+| `/api/matches` | 数据库 | 库 → 体彩 `matchInfoList` 信封；忽略 `poolType`，一次返回全部玩法 |
+| `/api/history` | 数据库 | 库 → `{list,pageNo,pageSize,pages,total}`；金额字段同时输出上游真名与历史误用名 |
+| `/api/match-detail` | 数据库 | 对战详情 7 个板块（交锋/伤停/近况/未来/特征/积分/射手），**缺失返回 null、空分组保留空数组，并列出 `missing`** |
+| `/api/ai-analysis` | 数据库 + DeepSeek | **只收 `matchId` + `pool`**：服务端装配提示词（`apps/api/src/ai/prompt.mjs`）、官方数据、天气，SSE 先发 `meta` 再流式输出 |
+| `/api/horoscope` `/api/weather` `/api/ip` | 聚合数据 | 代理 + TTL 缓存 |
+| `/api/venue-weather` | DeepSeek + Open-Meteo | 城市解析 + 天气 |
+| `/api/ai-chat` | DeepSeek | `stream:true` → SSE |
+| `/api/health` `/healthz` | 数据库 / — | readiness（库不通 503）与 liveness 分离 |
+
+关键约定：**响应形状不变**，所以前端 `matchService` / `historyService` 一行不改就能切到新服务；切流只需给前端加 `VITE_API_BASE`。
+
+前端 AI 分析会在打开面板时并行拉取 `/api/match-detail`，把伤停、历史交锋、近期战绩、联赛排名、射手写进提示词（[src/features/betting/aiAnalysis.ts](../src/features/betting/aiAnalysis.ts) 的 `formatMatchDetail`）。接口不可用时静默降级为 null，**不改变原有行为**；数据缺失时提示词明确写「缺失，不要编造」，而不是交给模型猜。
+
+### 7.3 独立爬虫（`apps/crawler`）
+
+与主应用、API 都隔离：自己的 `package.json`、自己的进程，不 import 任何应用代码，只写数据库。
+
+```
+体彩 webapi ──▶ apps/crawler ──写──▶ PostgreSQL ──读──▶ apps/api ──▶ 前端
+```
+
+| 任务 | 写入 | 频率 | 去重方式 |
+| --- | --- | --- | --- |
+| `matches` | `league` / `team` / `match` / `match_odds_snapshot` | 60 s | 赔率去 `update*` 后算 sha256，内容不变不写 |
+| `history` | `lottery_draw` / `lottery_prize_level` | 10 min 或按开奖日 | `(game_no, issue)` 唯一键 |
+| `--backfill` | 同上，逐页回灌 | 一次性 | 同上 |
+| `details` | `injury` / `player` / `match.result_*` / `match_feed` | 按需，低频 | 球员按 `sporttery_person_id`；伤停按 `source_ref` |
+
+三个关键事实（实测）：
+
+1. **不需要浏览器**。不带 `Referer` 时体彩 WAF 返回 `HTTP 567`，补齐 `referer`/`origin`/浏览器 UA/`accept-language` 后即 200。爬虫把这套头写死在 `http.mjs`，因此无需 Playwright。
+2. **对战数据有 7 个接口**（`getInjurySuspensionV1` / `getMatchResultV1` / `getResultHistoryV1` / `getFutureMatchesV1` / `getMatchFeatureV1` / `getMatchTablesV1` / `getMatchPlayerV1`），都挂在 `webapi.sporttery.cn/gateway/uniform/football`，参数是 **`sportteryMatchId`**（不是 `matchId`，用错会静默返回空 `value`）。
+3. **比分与半场比分来自 `getMatchResultV1`** 的 `fullCourtGoal` / `halfTimeGoal`；`match.htft` 生成列据此自动产出，半全场分布可直接统计。
+
+每轮写一条 `crawl_run`，`/api/health` 的 `dataSources[].ageSeconds` 直接由它计算。
+
 ---
 
 ## 8. 关键设计取舍
@@ -642,6 +720,21 @@ sequenceDiagram
 | 截图链路 | 弹层截图生成 `data:image/png` 并出现缩略图 |
 | 布局回归 | 拆分前后 430×932 截图一致（含既有的横向溢出问题） |
 
+### 2026-10-23 重构：数据层与 AI 全链路
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 接口来源 | BFF 实时透传体彩 | 爬虫写库，API 只读库（`apps/api`） |
+| 数据存储 | 无 | PostgreSQL 18 张表：彩票域、足球域、对战源、可观测性 |
+| 爬虫 | 无 | `apps/crawler`：赛程/赔率、四彩种开奖、伤停、赛果、阵容 |
+| 阵容 | 无来源 | 500.com + Playwright（有头），按场次号匹配，11 首发 + 替补 |
+| AI 分析 | 前端拼 messages 发 `/api/ai-chat` | `POST /api/ai-analysis` 只收 `matchId + pool`，提示词与官方数据下沉服务端 |
+| 前端请求 | 天气 + 详情 + 对话 = 3 次 | 1 次；`meta` 事件先返回天气 |
+| 部署 | Vercel 单项目 | 前端 `ticai` + 后端 `ticai-service` 两个项目，`VITE_API_BASE` 连接 |
+| 投注时段 | 无限制 | matches/details/lineups 过销售时段闸门（平日 11–22、周末 11–23） |
+
+接口清单与契约见 [docs/api.md](api.md)；数据库与上游字段实况见 [db/README.md](../db/README.md)；爬虫调度与阵容抓取见 [apps/crawler/README.md](../apps/crawler/README.md)。
+
 ---
 
 ## 12. 关键文件索引
@@ -667,4 +760,22 @@ sequenceDiagram
 | IndexedDB 仓储 | [src/storage/historyDb.ts](../src/storage/historyDb.ts) |
 | 预测算法 | [src/domain/historyPrediction.ts](../src/domain/historyPrediction.ts) |
 | 传输层 | [src/api/httpClient.ts](../src/api/httpClient.ts)、[src/api/sportteryApi.ts](../src/api/sportteryApi.ts) |
+| 数据库 schema | [db/migrations/0001_init.sql](../db/migrations/0001_init.sql) |
+| 彩种种子 | [db/seed/001_lottery_games.sql](../db/seed/001_lottery_games.sql) |
+| 保留策略 / 巡检 | [db/maintenance.sql](../db/maintenance.sql) |
+| 迁移执行器 | [scripts/db-migrate.mjs](../scripts/db-migrate.mjs) |
+| 数据库说明 | [db/README.md](../db/README.md) |
+| 接口文档 | [docs/api.md](api.md) |
+| 独立 API 入口 | [apps/api/src/index.mjs](../apps/api/src/index.mjs)、[apps/api/src/app.mjs](../apps/api/src/app.mjs) |
+| 独立 API 读库 | [apps/api/src/repos/matches.mjs](../apps/api/src/repos/matches.mjs)、[apps/api/src/repos/lottery.mjs](../apps/api/src/repos/lottery.mjs) |
+| 响应整形 | [apps/api/src/reshape.mjs](../apps/api/src/reshape.mjs) |
+| Vercel 函数入口 | [apps/api/api/index.js](../apps/api/api/index.js) |
+| 爬虫入口 / 调度 | [apps/crawler/src/index.mjs](../apps/crawler/src/index.mjs) |
+| 爬虫任务 | [apps/crawler/src/tasks/matches.mjs](../apps/crawler/src/tasks/matches.mjs)、[apps/crawler/src/tasks/history.mjs](../apps/crawler/src/tasks/history.mjs) |
+| 上游归一化 | [apps/crawler/src/normalize.mjs](../apps/crawler/src/normalize.mjs) |
+| 对战数据任务 | [apps/crawler/src/tasks/details.mjs](../apps/crawler/src/tasks/details.mjs) |
+| 对战详情接口 | [apps/api/src/match-detail.mjs](../apps/api/src/match-detail.mjs)、[apps/api/src/handlers/match-detail.mjs](../apps/api/src/handlers/match-detail.mjs) |
+| 对战详情页 | [src/features/matchDetail/MatchDetailContent.tsx](../src/features/matchDetail/MatchDetailContent.tsx)、[MatchDetailDialog.tsx](../src/features/matchDetail/MatchDetailDialog.tsx)、[src/pages/MatchDetailPage.tsx](../src/pages/MatchDetailPage.tsx) |
+| 详情视图映射 | [src/features/matchDetail/matchDetailView.ts](../src/features/matchDetail/matchDetailView.ts) |
+| 体彩 HTTP 客户端 | [apps/crawler/src/http.mjs](../apps/crawler/src/http.mjs) |
 | 样式 | [src/styles/global.scss](../src/styles/global.scss) |

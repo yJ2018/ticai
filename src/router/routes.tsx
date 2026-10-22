@@ -4,6 +4,7 @@ import { HistoryPage } from '../pages/HistoryPage'
 import { HomePage } from '../pages/HomePage'
 import { HoroscopePage } from '../pages/HoroscopePage'
 import { MathTrendAnalysisPage } from '../pages/MathTrendAnalysisPage'
+import { MatchDetailPage } from '../pages/MatchDetailPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { type KeepAliveRouteItem, type NavItem } from './types'
 
@@ -12,6 +13,8 @@ export const appRoutes: KeepAliveRouteItem[] = [
   { path: '/history', element: <HistoryPage />, cache: true },
   { path: '/history-analysis', element: <HistoryAnalysisPage />, cache: true },
   { path: '/math-trend-analysis', element: <MathTrendAnalysisPage />, cache: true },
+  // H5 对战详情：不缓存，换一场要重新拉数据
+  { path: '/match/:matchId', element: <MatchDetailPage />, cache: false },
   { path: '/horoscope', element: <HoroscopePage />, cache: true },
   { path: '/about', element: <AboutPage />, cache: true },
   { path: '/profile', element: <ProfilePage />, cache: false },

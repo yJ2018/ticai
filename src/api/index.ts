@@ -9,6 +9,15 @@ export type {
   AiUsage,
 } from './aiApi'
 export { getLotteryHistoryPage, getMatchCalculator } from './sportteryApi'
+export { getMatchDetail } from './matchDetailApi'
+export type {
+  MatchDetail,
+  MatchFeedHistory,
+  MatchFeedInjury,
+  MatchFeedResult,
+  MatchFeedShooter,
+  MatchFeedTables,
+} from './matchDetailApi'
 export { getVenueWeather } from './venueWeatherApi'
 export type {
   VenueWeatherDaily,
