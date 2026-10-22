@@ -53,6 +53,6 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'))
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 
-console.log('[dev] 启动 BFF (server/index.mjs) 与 Vite 开发服务器...')
-start('api', ['server/index.mjs'])
+console.log('[dev] 启动 API（apps/api）与 Vite 开发服务器...')
+start('api', ['apps/api/src/index.mjs'])
 start('web', [viteBin, '--host'])

@@ -301,9 +301,49 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 **限流**：`AI_RATE_LIMIT_PER_MIN`（默认 10 次/分钟/IP），超出返回 `429`。
 
-### 3.2 `POST /api/ai-chat`（遗留）
+### 3.2 `POST /api/ai-parlay`（串关）
 
-通用的 DeepSeek 代理，由客户端自带 `messages`。目前**仅方案级（串关）分析**在用，后续会同样下沉为 `/api/ai-parlay`。
+**只收选中的场次与选项**，联赛、开赛时间、赔率、伤停由服务端按 `matchId` 从库里补；系统提示词也在服务端。
+
+**请求体**
+
+```json
+{
+  "pool": "ttg",
+  "passSummaryText": "3串1",
+  "betAmount": 20,
+  "maxBonus": 456.7,
+  "stream": true,
+  "entries": [
+    {
+      "matchId": 2042124,
+      "matchNo": "周四006",
+      "teams": "伯恩茅斯 vs AC米兰",
+      "kickoffTime": "10-23 03:00",
+      "options": [{ "label": "2球", "value": "3.85" }],
+      "cachedAnalysis": "……可选，3 小时内的单场结论，服务端会复用"
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `entries` | array | 1–10 场，超出返回 `400` |
+| `entries[].matchId` | int | 体彩赛事 ID，用于补赔率与伤停 |
+| `entries[].options` | array | 每场 1–6 个，`label` ≤24 字、`value` ≤12 字 |
+| `entries[].cachedAnalysis` | string | ≤900 字，标注「可复用」后交给模型 |
+| `passSummaryText` | string | 过关方式，如 `3串1` |
+| `betAmount` / `maxBonus` | number | 仅用于提示词里的方案概况 |
+| `stream` | boolean | `true` 走 SSE |
+
+**SSE 事件**：`meta`（`legs` / `matched` / `promptChars`）→ `content` 增量 → `done`；错误为 `error`。
+
+**与遗留接口的区别**：`/api/ai-chat` 需要客户端自带完整 `messages`，改提示词要发版且请求体大；本接口只传结构化参数，提示词可随时在服务端迭代。
+
+### 3.3 `POST /api/ai-chat`（遗留）
+
+通用的 DeepSeek 代理，由客户端自带 `messages`。**前端已不再调用**（单场走 `/api/ai-analysis`、串关走 `/api/ai-parlay`），保留给脚本与第三方调试。
 
 请求体与 `/api/ai-analysis` 类似，但用 `messages` 取代 `matchId`：
 

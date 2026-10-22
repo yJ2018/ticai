@@ -20,7 +20,14 @@
   - `DEPLOY_STRICT=1 git push` 部署失败时阻止推送；
   - 默认部署失败仍继续推送，并提示手动重试 `npm run deploy:local`。
 - 部署脚本使用临时目录 + `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`，不依赖仓库根 `.vercel`；需要本机已执行 `npx vercel login`。
-- 发布构建会强制 `VITE_SPORTTERY_DIRECT=1` 并校验 bundle 中存在 `webapi.sporttery.cn`；Vercel 出口 IP 会被体彩 WAF 拦截，不能改回同源 `/api/matches`。
+- 发布构建会用 `VITE_API_BASE`（默认 `https://ticai-service.vercel.app`）并校验 bundle 中存在该地址；前端只连自有 API，体彩由本地爬虫访问（云厂商出口 IP 会被 WAF 拦截）。
+
+## 仓库结构
+
+- `apps/api`：独立服务端（只读库，REST + SSE），部署在 Vercel 项目 `ticai-service`。
+- `apps/crawler`：本地爬虫（只写库），`npm run crawl:daemon` 常驻；受竞彩销售时段闸门约束。
+- `db/`：迁移与保留策略，`npm run db:migrate` 执行。
+- 前端静态托管在 Vercel 项目 `ticai`，通过 `VITE_API_BASE` 指向 API；`server/` 与 `api/` 已删除。
 
 ## 架构图
 

@@ -141,7 +141,7 @@ function beijingTime(iso) {
   return `${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')}`
 }
 
-function formatOdds(odds, pool) {
+export function formatOdds(odds, pool) {
   if (!odds || typeof odds !== 'object') {
     return ''
   }

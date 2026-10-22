@@ -6,13 +6,6 @@
   "git": {
     "deploymentEnabled": false
   },
-  "functions": {
-    "api/*.js": {
-      "memory": 1024,
-      "maxDuration": 60,
-      "excludeFiles": "**/.env*"
-    }
-  },
   "rewrites": [
     {
       "source": "/((?!api/).*)",

@@ -1,16 +1,17 @@
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { HttpError, loadEnvFile } from '../server/lib.mjs'
-import { chatCompletion, createLlmConfig } from '../server/llm.mjs'
+import { loadEnv } from '../apps/api/src/config.mjs'
+import { HttpError } from '../apps/api/src/lib.mjs'
+import { chatCompletion, createLlmConfig } from '../apps/api/src/llm.mjs'
 
 /**
- * 密钥连通性自检：绕过 BFF，直接用 server/llm.mjs 调一次 DeepSeek。
+ * 密钥连通性自检：绕过 HTTP 层，直接用 apps/api 的 LLM 客户端调一次 DeepSeek。
  * 用法：npm run ai:check [提示词]
  */
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-loadEnvFile(resolve(root, '.env'))
+loadEnv(root)
 
 const config = createLlmConfig()
 

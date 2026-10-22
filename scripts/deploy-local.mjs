@@ -17,9 +17,11 @@ import { fileURLToPath } from 'node:url'
  *
  * 为什么要用临时目录：
  * - 仓库根目录的 .vercel 可能被安全软件 / Agent 沙箱保护，CLI 无法读写；
- * - 在系统临时目录创建一次性的 Vercel 项目目录，复制 api/server/dist，
+ * - 在系统临时目录创建一次性的 Vercel 项目目录，只复制 dist 与配置，
  *   用 VERCEL_ORG_ID + VERCEL_PROJECT_ID 直接构建预构建产物；
  * - 部署完成后清理，不污染仓库，也不需要根目录 .vercel。
+ *
+ * 前端只托管静态资源，接口在独立的 ticai-service 项目（apps/api）。
  *
  * 前置：npx vercel login（一次即可）。项目 ID 可通过环境变量覆盖。
  */
@@ -28,6 +30,7 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const vercel = process.env.VERCEL_CLI ?? 'npx --yes vercel@64'
 const defaultOrgId = 'team_WzCWvjcpY00YVeEnkv3Js5Pi'
 const defaultProjectId = 'prj_dnpcabvlaKKhkioBQzFVZHdqJcpc'
+const defaultApiBase = 'https://ticai-service.vercel.app'
 const keepStage = process.env.KEEP_DEPLOY_STAGE === '1'
 
 function capture(command) {
@@ -95,16 +98,15 @@ function buildStagingDir() {
 
   const stage = mkdtempSync(join(tmpdir(), 'ticai-deploy-'))
 
-  for (const entry of ['api', 'server', 'dist']) {
-    cpSync(resolve(root, entry), resolve(stage, entry), { recursive: true })
-  }
+  // 前端项目只发布静态资源；接口已经拆到独立的 ticai-service
+  cpSync(resolve(root, 'dist'), resolve(stage, 'dist'), { recursive: true })
   for (const entry of ['vercel.json', '.vercelignore']) {
     if (existsSync(resolve(root, entry))) {
       cpSync(resolve(root, entry), resolve(stage, entry))
     }
   }
 
-  // 线上函数只跑 api/ + server/，没有任何第三方运行时依赖；
+  // 前端项目只发布静态资源，没有函数运行时依赖；
   // 使用最小 package.json，避免 Vercel 为前端依赖白装一遍。
   writeFileSync(
     resolve(stage, 'package.json'),
@@ -133,19 +135,16 @@ function buildStagingDir() {
   return stage
 }
 
-function assertProductionBundle() {
+function assertApiBase(apiBase) {
   const assetsDir = resolve(root, 'dist/assets')
-  const entryBundles = readdirSync(assetsDir).filter(
-    (file) => /^index-.*\.js$/.test(file),
-  )
-  const hasDirectSporttery = entryBundles.some((file) =>
-    readFileSync(resolve(assetsDir, file), 'utf8').includes('webapi.sporttery.cn'),
+  const entryBundles = readdirSync(assetsDir).filter((file) => /^index-.*\.js$/.test(file))
+  const hasApiBase = entryBundles.some((file) =>
+    readFileSync(resolve(assetsDir, file), 'utf8').includes(apiBase),
   )
 
-  if (!hasDirectSporttery) {
+  if (!hasApiBase) {
     fail(
-      '生产构建缺少 VITE_SPORTTERY_DIRECT=1。Vercel 出口 IP 会被体彩 WAF 拦截，' +
-        '线上将无法加载赛事与开奖数据；已中止发布。',
+      `生产构建里没有找到 API 地址 ${apiBase}。请检查 VITE_API_BASE 是否在构建时生效（当前进程环境变量优先于 .env）。`,
     )
   }
 }
@@ -169,16 +168,16 @@ if (dirty) {
 
 let stage = ''
 try {
-  // 体彩接口会拦截 Vercel 出口 IP，生产构建必须让浏览器直连体彩；
-  // 该开关会被打进前端 bundle，不能依赖服务端运行时环境变量。
-  process.env.VITE_SPORTTERY_DIRECT = '1'
-  run('本地构建静态资源（浏览器直连体彩）', 'npm run build')
+  // 前端只发静态资源，所有数据来自独立的 API 项目
+  const apiBase = (process.env.VITE_API_BASE || defaultApiBase).replace(/\/+$/, '')
+  process.env.VITE_API_BASE = apiBase
+  run(`本地构建静态资源（API → ${apiBase}）`, 'npm run build')
 
   const builtIndex = readFileSync(resolve(root, 'dist/index.html'), 'utf8')
   if (!builtIndex.includes('/assets/')) {
     fail('dist/index.html 没有指向 hashed assets，请先执行 npm run build。')
   }
-  assertProductionBundle()
+  assertApiBase(apiBase)
 
   stage = buildStagingDir()
   console.log(`[deploy:local] 临时构建目录：${stage}`)

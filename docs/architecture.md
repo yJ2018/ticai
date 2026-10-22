@@ -2,7 +2,11 @@
 
 > 中国体彩「排列五」开奖历史 + 竞彩足球赔率投注方案 + 两种号码预测分析，附带星座运势 / 天气。
 >
-> **架构形态**：React SPA 　+　 零依赖 Node BFF（`server/`）。浏览器只与同源 `/api/*` 通信，第三方密钥只存在于服务端。
+> **架构形态**：React SPA（静态托管） + 独立 Node API（`apps/api`，只读库） + 本地爬虫（`apps/crawler`，写库）。
+> 浏览器只与自有 API 通信；第三方密钥、提示词、上游访问全部留在服务端。
+>
+> 2026-10-23 起 `server/` 与 `api/` 两个旧 BFF 目录已删除。下文第 6、8 章中出现的「BFF」等价于今天的 `apps/api`，
+> 接口契约以 [docs/api.md](api.md) 为准。
 
 ![架构图](./architecture.png)
 
@@ -18,13 +22,14 @@
 | 项目 | 内容 |
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
-| 形态 | SPA + 同源 BFF，单端口可部署（BFF 顺带托管 `dist`） |
-| 前端规模 | TS/TSX 56 个文件 ≈ 9 985 行；SCSS 1 个文件 5 335 行 |
-| BFF 规模 | `server/` 5 个文件 + `api/` 9 个文件，共 1 908 行；`scripts/` 负责构建、部署与架构图生成 |
-| 构建产物 | `dist/assets/index-*.js` ≈ 560 KB（单 chunk）+ 77.6 KB CSS + 2 个 Worker chunk |
+| 形态 | SPA 静态托管 + 独立 API 服务（两个 Vercel 项目，`VITE_API_BASE` 连接） |
+| 前端规模 | TS/TSX 60 个文件；SCSS 单文件 5 300+ 行 |
+| 服务端规模 | `apps/api`：11 个接口、提示词与官方数据装配；`apps/crawler`：赛程/开奖/伤停/阵容四条链路 |
+| 数据层 | PostgreSQL 18 张表：API 只读，爬虫只写（`db/README.md`） |
+| 构建产物 | `dist/assets/index-*.js` ≈ 570 KB + 84 KB CSS + 2 个 Worker chunk |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（内置 `fetch` / `AbortSignal.timeout`） |
-| 依赖 | 前端：React 19、React Router 6、Zustand 5、html2canvas、Sass；服务端：**无第三方依赖** |
-| 工程设施 | ❌ 无 ESLint / Prettier / 单元测试 / CI；已有本地 Git hooks（密钥扫描、架构图同步、自动部署） |
+| 依赖 | 前端：React 19、React Router 6、Zustand 5、html2canvas、Sass；服务端仅 `pg`；爬虫可选 `playwright`（阵容） |
+| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 40+ 个 |
 | tsconfig | `strict` **未开启**；开启 `noUnusedLocals`、`noUnusedParameters`、`erasableSyntaxOnly`、`verbatimModuleSyntax` |
 
 ### 功能地图
@@ -53,26 +58,30 @@
 | 样式 | 单个 `src/styles/global.scss`（BEM，3 534 行） |
 | 计算 | Web Worker（`type: 'module'`）承载预测算法，另有主线程降级路径 |
 | 持久化 | IndexedDB（开奖历史）；localStorage 仅剩迁移入口与死代码 |
-| 传输 | 浏览器 `fetch('/api/*')` → BFF；BFF 用 Node `fetch` 访问上游 |
+| 传输 | 浏览器 `fetch(VITE_API_BASE + '/api/*')`；API 只读库，不直连上游 |
 | 截图 | html2canvas → `canvas.toDataURL('image/png')` |
 
 ### 运行方式
 
 ```bash
 npm install
-cp .env.example .env        # 填入聚合数据密钥（BFF 专用）
+cp .env.example .env        # DATABASE_URL + 聚合数据 / DeepSeek 密钥
 
-npm run dev                 # BFF :3000 + Vite :5173（/api 走代理）
-npm run dev:api             # 只起 BFF
+npm run dev                 # API :3001 + Vite :5173（/api 走代理）
+npm run dev:api             # 只起 API
 npm run dev:web             # 只起前端
+npm run crawl:daemon        # 本地爬虫（抓上游、写云端库）
 
-npm run build && npm start   # 生产：单进程，:3000 同时提供 dist 与 /api
+npm run build               # 构建静态资源 → Vercel（前端项目）
 ```
 
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `HOST` / `PORT` | `127.0.0.1` / `3000` | BFF 监听地址；默认只绑本机 |
-| `SERVE_STATIC` | `1` | 是否由 BFF 托管 `dist`（反代部署可设 `0`） |
+| `API_HOST` / `API_PORT` | `127.0.0.1` / `3001` | API 监听地址；默认只绑本机 |
+| `DATABASE_URL` | — | PostgreSQL 连接串（API 与爬虫共用） |
+| `DATABASE_SSL` | — | 云端库（Prisma Postgres 等）需设 `1` |
+| `CORS_ORIGINS` | `http://localhost:5173` | 允许的前端来源，逗号分隔 |
+| `VITE_API_BASE` | 空（同源） | 构建时写入前端 bundle 的 API 地址 |
 | `UPSTREAM_TIMEOUT_MS` | `8000` | 上游请求超时 |
 | `JUHE_WEATHER_KEY` | — | 缺失时 `/api/weather` 返回 503 |
 | `JUHE_HOROSCOPE_KEY` | — | 缺失时 `/api/horoscope` 返回 503 |
@@ -175,7 +184,7 @@ flowchart TB
 - `pages → service → api/httpClient → /api/*`：统一传输层，**前端不再出现任何上游域名或密钥**。
 - `pages → domain`：分析页直接调用纯函数算法（`HistoryAnalysisPage` 通过 Worker）。
 - `domain` 不依赖 React/DOM，可被 Worker 直接复用。
-- `server/*` 不依赖前端代码，只通过 HTTP 契约耦合。
+- `apps/api` 与 `apps/crawler` 不依赖前端代码，只通过 HTTP 契约与数据库耦合。
 
 ---
 
@@ -184,19 +193,32 @@ flowchart TB
 ```text
 D:\ticai
 ├─ index.html                  # 挂载点 <div id="app">
-├─ vite.config.ts              # /api → BFF 代理（端口从 .env 读取）
+├─ vite.config.ts              # /api → 本地 API 代理（端口从 .env 读取）
 ├─ tsconfig.json               # bundler 模式、noEmit、未开 strict
-├─ package.json                # dev / dev:api / dev:web / build / start / preview
-├─ .env / .env.example         # BFF 密钥与端口（.env 已被 .gitignore 忽略）
+├─ package.json                # dev / dev:api / build / crawl:* / db:*
+├─ .env / .env.example         # 数据库与第三方密钥（.env 已被 .gitignore 忽略）
 ├─ public/                     # favicon.svg、icons.svg
-├─ server/                     # ★ 零依赖 Node BFF
-│  ├─ index.mjs                # HTTP 服务、路由分发、静态托管、SPA fallback、优雅退出
-│  ├─ handlers.mjs             # /api/matches|history|horoscope|weather|ip|ai-chat|venue-weather|health
-│  ├─ llm.mjs                  # DeepSeek 客户端（OpenAI 兼容 /chat/completions）
-│  ├─ venue.mjs                # 主队城市解析（DeepSeek）+ Open-Meteo 比赛地天气
-│  └─ lib.mjs                  # .env 解析、TTL/LRU 缓存、超时 fetch、JSON body、静态文件
+├─ apps/
+│  ├─ api/                     # ★ 独立服务端：只读库，对外 11 个接口
+│  │  ├─ src/app.mjs           # 路由表、CORS、错误信封
+│  │  ├─ src/handlers/         # matches|history|match-detail|ai|parlay|venue|ip|health
+│  │  ├─ src/ai/prompt.mjs     # 单场提示词与官方数据装配
+│  │  ├─ src/ai/parlay-prompt.mjs
+│  │  └─ src/db.mjs            # pg 连接池（懒加载）
+│  └─ crawler/                 # ★ 本地爬虫：只写库
+│     ├─ src/tasks/matches.mjs # 赛程 + 赔率快照 + 自动下架
+│     ├─ src/tasks/history.mjs # 四彩种开奖
+│     ├─ src/tasks/details.mjs # 伤停 + 赛果
+│     ├─ src/tasks/lineups*.mjs# 阵容（500.com + Playwright）
+│     ├─ src/bet-window.mjs    # 竞彩销售时段闸门
+│     └─ src/daemon.mjs        # 常驻调度器
+├─ db/
+│  ├─ migrations/              # 0001_init / 0002_match_feed
+│  ├─ seed/                    # 四彩种
+│  └─ maintenance.sql          # 阵容/赔率/抓取记录保留策略
 ├─ scripts/
-│  ├─ dev.mjs                  # 并行拉起 BFF + Vite，任一退出则联动关闭
+│  ├─ dev.mjs                  # 并行拉起 API + Vite，任一退出则联动关闭
+│  ├─ db-migrate.mjs           # 迁移执行器（up|seed|status|verify）
 │  ├─ ai-smoke.mjs             # npm run ai:check 密钥连通性自检
 │  ├─ update-architecture.mjs  # 按文件清单生成 architecture.svg/.png
 │  ├─ install-git-hooks.mjs    # 安装 pre-commit / pre-push hooks
@@ -500,7 +522,12 @@ sequenceDiagram
 
 ---
 
-## 6. BFF 接口契约
+## 6. 接口契约（已迁移到 apps/api）
+
+> 2026-10-23 起接口实现位于 `apps/api`，`server/` 与 `api/` 已删除。
+> **完整契约以 [docs/api.md](api.md) 为准**（11 个接口、SSE 协议、错误码、字段双写）。
+> 本章保留早期的设计说明，其中「BFF」一律等价于今天的 `apps/api`。
+> 新增：`POST /api/ai-parlay`（串关分析，只收选中的场次与选项）。
 
 | 路径 | 上游 | 入参（均白名单校验） | 缓存 |
 | --- | --- | --- | --- |

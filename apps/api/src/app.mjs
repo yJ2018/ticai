@@ -5,6 +5,7 @@ import { createAiHandlers } from './handlers/ai.mjs'
 import { createAnalysisHandler } from './handlers/analysis.mjs'
 import { createHealthHandlers } from './handlers/health.mjs'
 import { createMatchDetailHandler } from './handlers/match-detail.mjs'
+import { createParlayHandler } from './handlers/parlay.mjs'
 import { createSportteryHandlers } from './handlers/sporttery.mjs'
 import { createUpstreamHandlers } from './handlers/upstream.mjs'
 
@@ -41,6 +42,7 @@ export function createApp(config) {
   const health = createHealthHandlers(config)
   const matchDetail = createMatchDetailHandler(config)
   const analysis = createAnalysisHandler(config)
+  const parlay = createParlayHandler(config)
 
   const routes = new Map([
     ['/api/matches', { methods: ['GET'], handler: sporttery.matches }],
@@ -48,6 +50,8 @@ export function createApp(config) {
     ['/api/match-detail', { methods: ['GET'], handler: matchDetail }],
     // 单场 AI 分析：只收 matchId + pool，提示词在服务端装配
     ['/api/ai-analysis', { methods: ['POST'], handler: analysis }],
+    // 串关 AI 分析：只收选中的场次与选项
+    ['/api/ai-parlay', { methods: ['POST'], handler: parlay }],
     ['/api/horoscope', { methods: ['GET'], handler: upstream.horoscope }],
     ['/api/weather', { methods: ['GET'], handler: upstream.weather }],
     ['/api/ip', { methods: ['GET'], handler: upstream.ip }],

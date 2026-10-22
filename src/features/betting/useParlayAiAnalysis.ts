@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { askAiStream, type AiStreamDone } from '../../api/aiApi'
+import { type AiStreamDone } from '../../api/aiApi'
+import { askParlayAnalysis } from '../../api/parlayApi'
 import {
   buildMatchAiCacheKey,
   buildParlayAiCacheKey,
@@ -11,7 +12,6 @@ import {
 } from './aiAnalysisCache'
 import {
   buildParlayAnalysisKey,
-  buildParlayAnalysisMessages,
   parseParlaySummary,
   type CachedLegAnalysis,
   type ParlayAnalysisInput,
@@ -94,9 +94,27 @@ export function useParlayAiAnalysis() {
     controllerRef.current = controller
 
     try {
-      const done = await askAiStream(
+      const cachedById = new Map(
+        (base.input.cachedLegAnalyses ?? []).map((cached) => [cached.id, cached]),
+      )
+
+      const done = await askParlayAnalysis(
         {
-          messages: buildParlayAnalysisMessages(base.input),
+          pool: base.input.pool,
+          passSummaryText: base.input.passSummaryText,
+          betAmount: base.input.betAmount,
+          maxBonus: base.input.maxBonus,
+          entries: base.input.entries.map((entry) => ({
+            matchId: entry.id,
+            matchNo: entry.matchNo,
+            teams: entry.teams,
+            kickoffTime: entry.kickoffTime,
+            options: entry.selectedOptions.map((option) => ({
+              label: option.label,
+              value: option.value,
+            })),
+            cachedAnalysis: cachedById.get(entry.id)?.content,
+          })),
           thinking: false,
           maxTokens: 2_400,
           temperature: 0.4,

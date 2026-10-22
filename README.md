@@ -1,9 +1,11 @@
 # ticai · 体彩助手
 
 > 中国体彩「排列五」开奖分析 + 竞彩足球赔率投注方案的 Web 应用。
-> 前端 React 19 单页应用，服务端为零依赖 Node BFF；浏览器只与同源 `/api/*` 通信，第三方密钥不出服务端。
+> 前端 React 19 单页应用（静态托管），服务端拆成两个独立项目：
+> `apps/api`（只读数据库，对外 REST + SSE）与 `apps/crawler`（本地抓体彩，写库）。
+> 浏览器只与自有 API 通信，第三方密钥、提示词与上游访问都留在服务端。
 
-🔗 **在线预览**：https://ticai-eight.vercel.app 　（Vercel 部署，推送 `main` 自动发布）
+🔗 **在线预览**：前端 https://ticai-eight.vercel.app ｜ 接口 https://ticai-service.vercel.app/healthz
 
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)

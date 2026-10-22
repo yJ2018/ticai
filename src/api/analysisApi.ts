@@ -1,22 +1,23 @@
-import { type AiUsage } from './aiApi'
 import { apiUrl } from './base'
+import { type AiUsage } from './aiApi'
 import { ApiError } from './httpClient'
 
 /**
- * 单场 AI 分析：只提交 matchId + pool。
+ * AI 分析的通用 SSE 客户端。
  *
- * 提示词、官方数据、天气都在服务端装配（apps/api/src/ai/prompt.mjs），
- * 客户端不再把整段 messages 塞进请求体——提示词改版不需要前端发版。
+ * 单场（/api/ai-analysis）与串关（/api/ai-parlay）共用同一个解析器，
+ * 只差请求体——两边都是「服务端装配提示词，客户端只发结构化参数」。
  */
 
 export type AnalysisMeta = {
-  matchId: number
-  pool: string
-  weatherLabel: string
-  /** 服务端实际拼出来的 user 提示词字符数，便于观察 token 变化 */
-  promptChars: number
-  hasOdds: boolean
-  feeds: string[]
+  matchId?: number
+  pool?: string
+  weatherLabel?: string
+  promptChars?: number
+  hasOdds?: boolean
+  feeds?: string[]
+  legs?: number
+  matched?: number
 }
 
 export type AnalysisDone = {
@@ -33,24 +34,22 @@ export type AnalysisHandlers = {
   onContent?: (delta: string) => void
 }
 
-export type AnalysisRequest = {
-  matchId: number
-  pool: string
-  thinking?: boolean
-  maxTokens?: number
-  temperature?: number
+export type StreamOptions = {
   signal?: AbortSignal
   /** 前端侧总超时，默认 120s */
   timeoutMs?: number
+  /** 超时提示语 */
+  timeoutMessage?: string
 }
 
-const ENDPOINT = apiUrl('/api/ai-analysis')
-
-export async function askMatchAnalysis(
-  request: AnalysisRequest,
+/** 发起一次 SSE 请求并消费事件流。 */
+export async function streamSseJson(
+  endpoint: string,
+  payload: Record<string, unknown>,
   handlers: AnalysisHandlers = {},
+  options: StreamOptions = {},
 ): Promise<AnalysisDone> {
-  const { signal, timeoutMs = 120_000, ...body } = request
+  const { signal, timeoutMs = 120_000, timeoutMessage = 'AI 分析超时，请重试' } = options
   const timeoutSignal = AbortSignal.timeout(timeoutMs)
   const requestSignal =
     signal && typeof AbortSignal.any === 'function'
@@ -59,10 +58,10 @@ export async function askMatchAnalysis(
 
   let response: Response
   try {
-    response = await fetch(ENDPOINT, {
+    response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-      body: JSON.stringify({ ...body, stream: true }),
+      body: JSON.stringify({ ...payload, stream: true }),
       signal: requestSignal,
     })
   } catch (error) {
@@ -70,7 +69,7 @@ export async function askMatchAnalysis(
       throw error
     }
     if (timeoutSignal.aborted) {
-      throw new ApiError('AI 分析超时，请重试', 504)
+      throw new ApiError(timeoutMessage, 504)
     }
     throw new ApiError('网络请求失败，请确认 API 服务已启动', 0)
   }
@@ -104,25 +103,25 @@ export async function askMatchAnalysis(
       return
     }
 
-    let payload: Record<string, unknown>
+    let parsed: Record<string, unknown>
     try {
-      payload = JSON.parse(dataLines.join('\n')) as Record<string, unknown>
+      parsed = JSON.parse(dataLines.join('\n')) as Record<string, unknown>
     } catch {
       return
     }
 
     if (event === 'meta') {
-      handlers.onMeta?.(payload as unknown as AnalysisMeta)
-    } else if (event === 'reasoning' && typeof payload.delta === 'string') {
-      handlers.onReasoning?.(payload.delta)
-    } else if (event === 'content' && typeof payload.delta === 'string') {
-      handlers.onContent?.(payload.delta)
+      handlers.onMeta?.(parsed as unknown as AnalysisMeta)
+    } else if (event === 'reasoning' && typeof parsed.delta === 'string') {
+      handlers.onReasoning?.(parsed.delta)
+    } else if (event === 'content' && typeof parsed.delta === 'string') {
+      handlers.onContent?.(parsed.delta)
     } else if (event === 'done') {
-      done = payload as unknown as AnalysisDone
+      done = parsed as unknown as AnalysisDone
     } else if (event === 'error') {
       streamError = new ApiError(
-        typeof payload.message === 'string' ? payload.message : 'AI 分析失败',
-        typeof payload.status === 'number' ? payload.status : 502,
+        typeof parsed.message === 'string' ? parsed.message : 'AI 分析失败',
+        typeof parsed.status === 'number' ? parsed.status : 502,
       )
     }
   }
@@ -151,7 +150,7 @@ export async function askMatchAnalysis(
       throw error
     }
     if (timeoutSignal.aborted) {
-      throw new ApiError('AI 分析超时，请重试', 504)
+      throw new ApiError(timeoutMessage, 504)
     }
     throw new ApiError('AI 分析连接中断，请重试', 0)
   } finally {
@@ -166,6 +165,31 @@ export async function askMatchAnalysis(
   }
 
   return done
+}
+
+export type AnalysisRequest = {
+  matchId: number
+  pool: string
+  thinking?: boolean
+  maxTokens?: number
+  temperature?: number
+  signal?: AbortSignal
+  timeoutMs?: number
+}
+
+/** 单场分析：只提交 matchId + pool。 */
+export async function askMatchAnalysis(
+  request: AnalysisRequest,
+  handlers: AnalysisHandlers = {},
+): Promise<AnalysisDone> {
+  const { signal, timeoutMs, ...body } = request
+
+  return streamSseJson(
+    apiUrl('/api/ai-analysis'),
+    body as unknown as Record<string, unknown>,
+    handlers,
+    { signal, timeoutMs },
+  )
 }
 
 async function readErrorMessage(response: Response) {

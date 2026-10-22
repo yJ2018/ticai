@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { loadEnvFile } from '../server/lib.mjs'
+import { loadEnv } from '../apps/api/src/config.mjs'
 
 /**
  * 数据库迁移执行器（零框架，只依赖 pg）。
@@ -25,7 +25,7 @@ const MIGRATION_DIR = resolve(root, 'db/migrations')
 const SEED_DIR = resolve(root, 'db/seed')
 const LOCK_KEY = 'ticai:migrate'
 
-const envLoaded = loadEnvFile()
+const envLoaded = loadEnv(root)
 const DATABASE_URL = process.env.DATABASE_URL ?? ''
 const SSL_MODE = process.env.DATABASE_SSL ?? ''
 const COMMAND = process.argv[2] ?? 'up'

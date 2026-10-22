@@ -9,44 +9,16 @@ import {
 } from '../domain/sporttery'
 
 /**
- * 体彩接口有两条链路：
+ * 赛程与开奖数据。
  *
- * - 默认走同源 BFF：`/api/*`，由 server/ 或 api/ 转发，便于统一超时与错误码；
- * - `VITE_SPORTTERY_DIRECT=1` 时浏览器直连体彩。
- *
- * 之所以需要直连模式：体彩 WAF 会对云厂商出口 IP 返回 HTTP 567，
- * 部署在 Vercel（无论 iad1 还是 hkg1）都无法访问；而体彩接口本身
- * 不涉及密钥、且允许跨域，因此在云端部署时改为浏览器直连最稳妥。
+ * 全部走自有 API（apps/api 读库），浏览器不再直连体彩：
+ * 体彩只由本地爬虫在服务端抓取，WAF 出口 IP 的问题因此消失。
  */
-const DIRECT = import.meta.env.VITE_SPORTTERY_DIRECT === '1'
-
-const MATCH_CALCULATOR_URL = DIRECT
-  ? 'https://webapi.sporttery.cn/gateway/uniform/football/getMatchCalculatorV1.qry'
-  : apiUrl('/api/matches')
-const LOTTERY_HISTORY_URL = DIRECT
-  ? 'https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry'
-  : apiUrl('/api/history')
-
-function poolCodeFor(poolType: MatchPoolKey) {
-  if (poolType === 'mixed') {
-    return ''
-  }
-  if (poolType === 'had') {
-    return 'hhad,had'
-  }
-  return poolType
-}
+const MATCH_CALCULATOR_URL = apiUrl('/api/matches')
+const LOTTERY_HISTORY_URL = apiUrl('/api/history')
 
 export async function getMatchCalculator(poolType: MatchPoolKey = 'mixed', signal?: AbortSignal) {
-  const query = new URLSearchParams({ channel: 'c' })
-  if (DIRECT) {
-    const poolCode = poolCodeFor(poolType)
-    if (poolCode) {
-      query.set('poolCode', poolCode)
-    }
-  } else {
-    query.set('poolType', poolType)
-  }
+  const query = new URLSearchParams({ channel: 'c', poolType })
 
   const response = await request<SportteryEnvelope<MatchCalculatorValue>>(
     `${MATCH_CALCULATOR_URL}?${query.toString()}`,

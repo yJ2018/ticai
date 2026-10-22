@@ -81,16 +81,16 @@ const stateCards = [
 ]
 
 const bffCards = [
-  { title: 'server/index.mjs', subtitle: 'Node HTTP 路由 + 静态托管' },
-  { title: 'server/handlers.mjs', subtitle: '8 个 /api 接口 · 参数白名单' },
-  { title: 'server/lib.mjs', subtitle: 'TTL 缓存 · 超时 · env · 错误映射' },
-  { title: 'server/llm.mjs', subtitle: 'DeepSeek JSON / SSE 客户端' },
-  { title: 'server/venue.mjs', subtitle: '城市解析 + Open-Meteo 预报' },
-  { title: 'api/*.js', subtitle: 'Serverless 薄适配层 · 复用 handlers' },
+  { title: 'apps/api/src/index.mjs', subtitle: '独立服务端 · Node HTTP 入口' },
+  { title: 'apps/api/src/app.mjs', subtitle: '11 个接口 · CORS · 错误映射' },
+  { title: 'apps/api/src/ai/prompt.mjs', subtitle: '单场提示词 · 官方数据装配' },
+  { title: 'apps/api/src/ai/parlay-prompt.mjs', subtitle: '串关提示词 · 复用单场缓存结论' },
+  { title: 'apps/api/src/db.mjs', subtitle: 'pg 连接池 · 懒加载' },
+  { title: 'apps/crawler/src', subtitle: '赛程赔率 · 开奖 · 伤停 · 阵容' },
 ]
 
 const externalCards = [
-  { title: 'webapi.sporttery.cn', subtitle: '赛程赔率 · 开奖历史' },
+  { title: 'webapi.sporttery.cn', subtitle: '仅本地爬虫访问 · 云 IP 被 WAF 拦截' },
   { title: '聚合数据 juhe.cn', subtitle: '天气 · 星座 · IP 归属地' },
   { title: 'DeepSeek API', subtitle: 'chat/completions · SSE' },
   { title: 'Open-Meteo', subtitle: 'Geocoding + Forecast' },
@@ -128,15 +128,15 @@ const sections = [
     cards: stateCards,
   },
   {
-    title: '⑤ BFF 服务端 server/ + api/',
+    title: '⑤ 服务端 apps/api + apps/crawler',
     color: '#0ea5e9',
-    caption: '零依赖 Node · 密钥不出服务端 · JSON + SSE 统一治理',
+    caption: '独立 API 读库 · 爬虫写库 · 密钥与提示词不出服务端',
     cards: bffCards,
   },
   {
     title: '⑥ 外部数据源与部署',
     color: '#ef4444',
-    caption: '浏览器不直连上游；push 前构建、更新架构图并发布 Vercel',
+    caption: '前端只连自有 API；爬虫在本机抓上游；push 前更新架构图',
     cards: externalCards,
   },
 ]
