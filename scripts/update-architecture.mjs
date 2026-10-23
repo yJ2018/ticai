@@ -81,12 +81,13 @@ const stateCards = [
 ]
 
 const bffCards = [
-  { title: 'apps/api/src/index.mjs', subtitle: '独立服务端 · Node HTTP 入口' },
-  { title: 'apps/api/src/app.mjs', subtitle: '11 个接口 · CORS · 错误映射' },
+  { title: 'apps/api/src/index.mjs', subtitle: '本地 / VPS 入口 · node:http' },
+  { title: 'apps/api/src/app.mjs', subtitle: '11 个接口 · CORS · 错误信封' },
   { title: 'apps/api/src/ai/prompt.mjs', subtitle: '单场提示词 · 官方数据装配' },
-  { title: 'apps/api/src/ai/parlay-prompt.mjs', subtitle: '串关提示词 · 复用单场缓存结论' },
-  { title: 'apps/api/src/db.mjs', subtitle: 'pg 连接池 · 懒加载' },
-  { title: 'apps/crawler/src', subtitle: '赛程赔率 · 开奖 · 伤停 · 阵容' },
+  { title: 'apps/api/src/ai/parlay-prompt.mjs', subtitle: '串关提示词 · 复用单场缓存' },
+  { title: 'apps/api/src/repos', subtitle: 'matches · lottery · match-detail 查询' },
+  { title: 'apps/crawler/daemon.mjs', subtitle: '串行队列 · 销售时段闸门 · 开盘补跑 · 每日 09:00' },
+  { title: 'apps/crawler/tasks', subtitle: 'matches · history · details · lineups · expire · official' },
 ]
 
 const externalCards = [

@@ -633,18 +633,30 @@ flowchart LR
 体彩 webapi ──▶ apps/crawler ──写──▶ PostgreSQL ──读──▶ apps/api ──▶ 前端
 ```
 
-| 任务 | 写入 | 频率 | 去重方式 |
+| 任务 | 数据源 | 写入 | 频率 |
 | --- | --- | --- | --- |
-| `matches` | `league` / `team` / `match` / `match_odds_snapshot` | 60 s | 赔率去 `update*` 后算 sha256，内容不变不写 |
-| `history` | `lottery_draw` / `lottery_prize_level` | 10 min 或按开奖日 | `(game_no, issue)` 唯一键 |
-| `--backfill` | 同上，逐页回灌 | 一次性 | 同上 |
-| `details` | `injury` / `player` / `match.result_*` / `match_feed` | 按需，低频 | 球员按 `sporttery_person_id`；伤停按 `source_ref` |
+| `matches` | 体彩 | `league` / `team` / `match` / `match_odds_snapshot` | 每 30 分钟（销售时段内） |
+| `history` | 体彩 | `lottery_draw` / `lottery_prize_level` | 每 3 小时 |
+| `details` | 体彩 | `injury` / `player` / `match.result_*` / `match_feed` | 每 3 小时 |
+| `lineups` | 500.com | `match_lineup` / `match_lineup_player` / `player` | 每 60 分钟，仅赛前 6 小时窗口 |
+| `expire` | —（纯本地） | `match.sell_status` | 每 30 分钟 |
+| `official` | 体彩 | 上面四类官方数据 | **每天 09:00**（开盘前预热） |
+
+调度规则（`daemon.mjs`）：
+
+- **销售时段闸门**：平日 11:00–22:00、周末 11:00–23:00（北京时间）。非销售时段盘口不变，`matches` / `details` / `lineups` 直接跳过；`history` 与 `expire` 不受限。
+- **开盘补跑**：被闸门跳过时按开盘时刻排一次性定时器，11:00 立刻抓一轮，不用等下一个 30 分钟周期。
+- **串行队列**：跨境写库延迟高，几条链路排队执行；上一轮没跑完时同一任务不会重复入队。
+- **已开赛兜底**：体彩在结算前仍会返回已开赛的比赛，`matches` 写库时按 `kickoff_at <= now()` 一律记 `closed`，否则会把 `expire` 的结果改回在售。
+
+单测覆盖：`normalize`（19）、`daily-schedule`（5，09:00 倒计时）、`bet-window`（5，开盘边界与补跑倒计时）。
 
 三个关键事实（实测）：
 
-1. **不需要浏览器**。不带 `Referer` 时体彩 WAF 返回 `HTTP 567`，补齐 `referer`/`origin`/浏览器 UA/`accept-language` 后即 200。爬虫把这套头写死在 `http.mjs`，因此无需 Playwright。
+1. **体彩不需要浏览器**。不带 `Referer` 时体彩 WAF 返回 `HTTP 567`，补齐 `referer`/`origin`/浏览器 UA/`accept-language` 后即 200。爬虫把这套头写死在 `http.mjs`。
 2. **对战数据有 7 个接口**（`getInjurySuspensionV1` / `getMatchResultV1` / `getResultHistoryV1` / `getFutureMatchesV1` / `getMatchFeatureV1` / `getMatchTablesV1` / `getMatchPlayerV1`），都挂在 `webapi.sporttery.cn/gateway/uniform/football`，参数是 **`sportteryMatchId`**（不是 `matchId`，用错会静默返回空 `value`）。
 3. **比分与半场比分来自 `getMatchResultV1`** 的 `fullCourtGoal` / `halfTimeGoal`；`match.htft` 生成列据此自动产出，半全场分布可直接统计。
+4. **阵容必须用浏览器**：体彩没有阵容接口（7 个候选路径全 `E0001`），改用 500.com；它的阵容是 JS 渲染且拦截 headless，所以 `lineups` 用 Playwright + 有头 Chrome，按「场次号」匹配（体彩与 500.com 共用同一套编号）。
 
 每轮写一条 `crawl_run`，`/api/health` 的 `dataSources[].ageSeconds` 直接由它计算。
 
@@ -652,8 +664,8 @@ flowchart LR
 
 ## 8. 关键设计取舍
 
-1. **BFF 而非直连**：密钥不出服务端、同源消除 HTTPS 混合内容、上游超时与错误映射集中一处；代价是多一个需要部署的进程。
-2. **零依赖 Node BFF**：不引入 Express/Fastify，用 `node:http` + 内置 `fetch`，避免供应链与安装成本；代价是路由/静态服务手写（已限制在 147 行内）。
+1. **独立 API 而非浏览器直连**：密钥、提示词与上游访问都留在服务端；代价是多一个需要部署的项目（`ticai-service`）。
+2. **零框架 Node API**：不引入 Express/Fastify，用 `node:http`（本地）与单函数（Vercel）共用一套 `createApp()`，避免供应链与安装成本；服务端唯一依赖是 `pg`。
 3. **IndexedDB 而非 localStorage**：开奖数据是只追加序列，5 MB 配额与"整份重写"都不合适；改为 meta + 单条记录两 store，只写增量、按序裁剪。
 4. **内存 Map 为权威、IDB 为持久化**：读路径零 await 抖动，写入异步且失败静默降级，保证弱网/隐私模式仍可用。
 5. **自研 Keep-Alive**：React Router 6 无内置方案，`display:none` + 常驻挂载成本最低；代价是无淘汰、无懒加载。
@@ -668,9 +680,9 @@ flowchart LR
 
 | # | 问题 | 位置 | 影响 |
 | --- | --- | --- | --- |
-| 1 | BFF 无鉴权/限流 | `server/index.mjs` | 对外暴露时配额可被刷；建议前置网关或加 IP 限流 |
-| 2 | 单进程、无重试、无熔断 | `server/lib.mjs` | 上游抖动时直接 502/504；进程重启后缓存全冷 |
-| 3 | 部署必须提供 `.env` | `.env.example` | 缺密钥时天气/星座 503（页面显示错误态），但赛事与开奖仍可用 |
+| 1 | 只读接口无鉴权 | `apps/api/src/app.mjs` | 赛事/开奖可被任意调用；AI 接口有 IP 限流，其余没有 |
+| 2 | 跨境数据库往返 | `apps/api/src/db.mjs` | 单次写 100–300ms，批量抓取变慢；连接数受 Prisma Postgres 限制（`max_connections=50`） |
+| 3 | 爬虫依赖本机长驻 | `apps/crawler/src/daemon.mjs` | 机器关机/休眠就没有新数据；可用系统计划任务兜底跑 `official` |
 
 ### 中
 
@@ -682,7 +694,7 @@ flowchart LR
 | 8 | 类型宽松 | 领域类型含 `[key: string]: unknown`；`strict` 未开 | 接口字段漂移无法在编译期发现 |
 | 9 | 截图以 base64 常驻 state | `HomePage.tsx` | 多次截图累积数 MB 内存 |
 | 10 | 缓存无 TTL 过期 | `historyService.ts` | 老数据长期保留（裁剪只按数量） |
-| 11 | 无 ESLint / Prettier / 测试 / CI | 全仓 | 重构缺乏自动化保护（本次改造依赖手工 CDP 冒烟） |
+| 11 | 无 ESLint / Prettier / CI | 全仓 | 已有 `node:test` 单测 54 个，但没有 lint 与流水线 |
 
 ### 低
 
@@ -758,7 +770,8 @@ flowchart LR
 | AI 分析 | 前端拼 messages 发 `/api/ai-chat` | `POST /api/ai-analysis` 只收 `matchId + pool`，提示词与官方数据下沉服务端 |
 | 前端请求 | 天气 + 详情 + 对话 = 3 次 | 1 次；`meta` 事件先返回天气 |
 | 部署 | Vercel 单项目 | 前端 `ticai` + 后端 `ticai-service` 两个项目，`VITE_API_BASE` 连接 |
-| 投注时段 | 无限制 | matches/details/lineups 过销售时段闸门（平日 11–22、周末 11–23） |
+| 投注时段 | 无限制 | matches/details/lineups 过销售时段闸门（平日 11–22、周末 11–23），开盘瞬间补跑一次 |
+| 每日预热 | 无 | 每天 09:00 跑一轮「仅体彩官网数据」：停售收敛 + 赛程赔率 + 开奖 + 伤停赛果 |
 
 接口清单与契约见 [docs/api.md](api.md)；数据库与上游字段实况见 [db/README.md](../db/README.md)；爬虫调度与阵容抓取见 [apps/crawler/README.md](../apps/crawler/README.md)。
 

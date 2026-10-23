@@ -78,6 +78,8 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 在售赛事 + 每个玩法的最新赔率，输出体彩 `matchInfoList` 结构。
 
+**只返回可投注的比赛**：`sell_status = 'on_sale'`。体彩列表在结算前仍会返回已开赛的比赛，爬虫写库时按开赛时间兜底记 `closed`，所以不会出现「已经踢完还挂着在售」的场次。
+
 **查询参数**
 
 | 参数 | 类型 | 默认 | 说明 |
