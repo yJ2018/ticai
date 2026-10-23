@@ -66,8 +66,48 @@
   }
 }
 
+.auto-parlay__scope-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 1.25rem 0.15rem;
+}
+
+.auto-parlay__scope {
+  display: inline-flex;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+
+  button {
+    padding: 0.22rem 0.7rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #64748b;
+    font: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
+
+    &.is-active {
+      background: #fff;
+      color: #1d4ed8;
+      font-weight: 600;
+      box-shadow: 0 0.1rem 0.35rem rgba(15, 23, 42, 0.12);
+    }
+  }
+}
+
+.auto-parlay__scope-note {
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
 .auto-parlay__progress {
   height: 3px;
+  margin-top: 0.45rem;
   background: #eef2f7;
 
   span {

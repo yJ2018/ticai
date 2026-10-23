@@ -42,6 +42,8 @@ export type MatchCard = {
   awayTeam?: string
   homeTeamId?: number
   matchNo?: string
+  /** 销售日（期号所属的那一天）：一键串关默认只串当天 */
+  businessDate?: string
   markets?: MatchMarkets
   optionGroups?: MatchCardOptionGroup[]
   mixedSections?: MatchCardMixedSection[]
@@ -75,6 +77,7 @@ function toMatchCard(match: MatchItem, businessDate: string, poolType: MatchPool
     awayTeam: away,
     homeTeamId: match.homeTeamId,
     matchNo: match.matchNumStr,
+    businessDate: businessDate.slice(0, 10),
     markets: {
       had: match.had,
       hhad: match.hhad,

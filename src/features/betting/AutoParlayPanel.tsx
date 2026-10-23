@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
 import { type ParlayLeg } from './parlayModel'
-import { type AutoParlayState } from './useAutoParlay'
+import { type AutoParlayScope, type AutoParlayState } from './useAutoParlay'
 import './autoParlay.scss'
 
 type AutoParlayPanelProps = {
@@ -10,6 +10,7 @@ type AutoParlayPanelProps = {
   poolLabel: string
   onApply: (legs: ParlayLeg[]) => void
   onClose: () => void
+  onScopeChange: (scope: AutoParlayScope) => void
 }
 
 function percent(value: number) {
@@ -34,7 +35,7 @@ const CONFIDENCE_LABEL = { high: '高', medium: '中', low: '低' } as const
  * 一键串关的分析过程面板：步骤条 + 进度 + 最终的三选与串关明细。
  * 数字都是模型真算出来的，动画只负责把阶段露出来。
  */
-export function AutoParlayPanel({ state, poolLabel, onApply, onClose }: AutoParlayPanelProps) {
+export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeChange }: AutoParlayPanelProps) {
   const open = state.poolType !== null
 
   useEffect(() => {
@@ -89,6 +90,32 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose }: AutoParl
             ×
           </button>
         </header>
+
+        <div className="auto-parlay__scope-row">
+          <div className="auto-parlay__scope" role="group" aria-label="场次范围">
+            <button
+              type="button"
+              className={state.scope === 'today' ? 'is-active' : ''}
+              aria-pressed={state.scope === 'today'}
+              onClick={() => onScopeChange('today')}
+            >
+              今天
+            </button>
+            <button
+              type="button"
+              className={state.scope === 'all' ? 'is-active' : ''}
+              aria-pressed={state.scope === 'all'}
+              onClick={() => onScopeChange('all')}
+            >
+              跨天
+            </button>
+          </div>
+          <span className="auto-parlay__scope-note">
+            {state.scope === 'today'
+              ? `默认只串今天 · ${state.inScope} 场可用${state.excluded > 0 ? `，已排除跨天 ${state.excluded} 场` : ''}`
+              : `已放开跨天 · 共 ${state.inScope} 场`}
+          </span>
+        </div>
 
         <div className="auto-parlay__progress" aria-hidden="true">
           <span style={{ width: `${Math.max(4, progress)}%` }} />

@@ -16,6 +16,8 @@ import {
 
 export type AutoStepStatus = 'pending' | 'active' | 'done'
 
+export type AutoParlayScope = 'today' | 'all'
+
 export type AutoStep = {
   key: string
   label: string
@@ -35,6 +37,12 @@ export type AutoParlayState = {
   error: string
   /** 每场三选的数量，用于结果页的一句话说明 */
   analyzed: number
+  /** 场次范围：默认只看今天，手动切跨天 */
+  scope: AutoParlayScope
+  /** 今天（销售日）的场次数 */
+  inScope: number
+  /** 被排除的跨天场次数 */
+  excluded: number
 }
 
 const STEP_DEFS: Array<{ key: string; label: string }> = [
@@ -56,6 +64,26 @@ const INITIAL: AutoParlayState = {
   shortPlan: null,
   error: '',
   analyzed: 0,
+  scope: 'today',
+  inScope: 0,
+  excluded: 0,
+}
+
+/** 北京时间的今天（YYYY-MM-DD），和期号口径一致 */
+function beijingToday() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
+function inScope(card: MatchCard, scope: AutoParlayScope) {
+  if (scope === 'all') {
+    return true
+  }
+  return Boolean(card.businessDate) && card.businessDate === beijingToday()
 }
 
 type WorkItem = {
@@ -78,6 +106,7 @@ function sleep(ms: number) {
 export function useAutoParlay() {
   const [state, setState] = useState<AutoParlayState>(INITIAL)
   const runToken = useRef(0)
+  const lastRun = useRef<{ cards: MatchCard[]; poolType: MatchPoolType } | null>(null)
 
   const patchStep = useCallback((key: string, patch: Partial<AutoStep>) => {
     setState((prev) => ({
@@ -88,24 +117,43 @@ export function useAutoParlay() {
 
   const close = useCallback(() => {
     runToken.current += 1
+    lastRun.current = null
     setState(INITIAL)
   }, [])
 
   const start = useCallback(
-    async (cards: MatchCard[], poolType: MatchPoolType) => {
+    async (cards: MatchCard[], poolType: MatchPoolType, scope: AutoParlayScope = 'today') => {
       const token = runToken.current + 1
       runToken.current = token
       const alive = () => runToken.current === token
+      lastRun.current = { cards, poolType }
 
-      setState({ ...INITIAL, poolType, running: true, total: cards.length })
-      patchStep('odds', { status: 'active', detail: `${cards.length} 场在售` })
+      const scoped = cards.filter((card) => inScope(card, scope))
+      const excluded = cards.length - scoped.length
+      const scopeInfo = { scope, inScope: scoped.length, excluded }
+
+      if (scoped.length < 2) {
+        setState({
+          ...INITIAL,
+          poolType,
+          ...scopeInfo,
+          error:
+            scope === 'today'
+              ? `今天只剩 ${scoped.length} 场，无法组串；可以切到"跨天"再分析`
+              : `可用场次只有 ${scoped.length} 场，无法组串`,
+        })
+        return
+      }
+
+      setState({ ...INITIAL, poolType, running: true, total: scoped.length, ...scopeInfo })
+      patchStep('odds', { status: 'active', detail: `${scoped.length} 场在售` })
       await sleep(260)
       if (!alive()) {
         return
       }
-      patchStep('odds', { status: 'done', detail: `${cards.length} 场在售` })
+      patchStep('odds', { status: 'done', detail: `${scoped.length} 场在售` })
 
-      const work: WorkItem[] = cards.map((card) => ({
+      const work: WorkItem[] = scoped.map((card) => ({
         card,
         entries: [],
         fit: null,
@@ -222,5 +270,17 @@ export function useAutoParlay() {
     [patchStep],
   )
 
-  return { state, start, close }
+  /** 切换"今天 / 跨天"后用同一批比赛重跑 */
+  const restart = useCallback(
+    (scope: AutoParlayScope) => {
+      const last = lastRun.current
+      if (!last) {
+        return
+      }
+      void start(last.cards, last.poolType, scope)
+    },
+    [start],
+  )
+
+  return { state, start, restart, close }
 }

@@ -505,6 +505,7 @@ export function HomePage() {
         poolLabel={poolTabs.find((tab) => tab.key === activePool)?.label ?? ''}
         onApply={applyAutoParlay}
         onClose={autoParlay.close}
+        onScopeChange={autoParlay.restart}
       />
 
       {(isPassPanelOpen || isMultiplePanelOpen) && (
