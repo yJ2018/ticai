@@ -1,70 +1,140 @@
+import { type LotteryHistoryGameType } from '../domain/lotteryHistory'
+
 const TREND_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-/** 开奖历史首屏骨架：预测摘要 + 5 列走势大表。 */
-export function HistoryPageSkeleton() {
+type SkeletonMeta = {
+  positional: boolean
+  mainCount: number
+  extraCount: number
+}
+
+/** 骨架屏按彩种变形：位次彩种铺走势列，大乐透铺明细表 */
+const SKELETON_META: Record<LotteryHistoryGameType, SkeletonMeta> = {
+  pl5: { positional: true, mainCount: 5, extraCount: 0 },
+  qxc: { positional: true, mainCount: 7, extraCount: 0 },
+  dlt: { positional: false, mainCount: 5, extraCount: 2 },
+}
+
+export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGameType }) {
+  const meta = SKELETON_META[game]
+  const ballCount = meta.mainCount + meta.extraCount
+
   return (
     <div className="history-page-skeleton" role="status" aria-live="polite" aria-busy="true">
       <span className="analysis-skeleton__sr">正在加载开奖历史与分析数据…</span>
 
-      <section className="history-insight" aria-hidden="true">
-        <div className="history-insight__header">
-          <div className="analysis-skeleton__line-list">
-            <span className="analysis-skeleton__bar" style={{ width: '5rem' }} />
-            <span className="analysis-skeleton__bar analysis-skeleton__bar--title" style={{ width: '18rem' }} />
+      {meta.positional && (
+        <section className="history-insight" aria-hidden="true">
+          <div className="history-insight__header">
+            <div className="analysis-skeleton__line-list">
+              <span className="analysis-skeleton__bar" style={{ width: '5rem' }} />
+              <span className="analysis-skeleton__bar analysis-skeleton__bar--title" style={{ width: '18rem' }} />
+            </div>
+            <span className="analysis-skeleton__bar" style={{ width: '14rem' }} />
           </div>
-          <span className="analysis-skeleton__bar" style={{ width: '14rem' }} />
-        </div>
 
-        <div className="history-insight__metrics">
-          {Array.from({ length: 3 }, (_, index) => (
-            <article key={index} className="history-insight__metric">
-              <span className="analysis-skeleton__bar" style={{ width: '5.5rem' }} />
-              <span className="analysis-skeleton__bar analysis-skeleton__bar--title" style={{ width: '4rem' }} />
-            </article>
-          ))}
-        </div>
-
-        <div className="history-insight__numbers">
-          <span className="analysis-skeleton__bar" style={{ width: '4.2rem' }} />
-          <div className="history-insight__numbers-list">
-            {Array.from({ length: 5 }, (_, index) => (
-              <span key={index} className="analysis-skeleton__pill analysis-skeleton__pill--light" />
+          <div className="history-insight__metrics">
+            {Array.from({ length: 3 }, (_, index) => (
+              <article key={index} className="history-insight__metric">
+                <span className="analysis-skeleton__bar" style={{ width: '5.5rem' }} />
+                <span
+                  className="analysis-skeleton__bar analysis-skeleton__bar--title"
+                  style={{ width: '4rem' }}
+                />
+              </article>
             ))}
           </div>
-        </div>
-      </section>
 
-      <div className="history-page__desktop history-page-skeleton__desktop" aria-hidden="true">
-        <section className="trend-axis">
-          <div className="trend-axis__spacer" />
-          <div className="trend-axis__header">
-            <span className="analysis-skeleton__bar" style={{ width: '4.5rem' }} />
-          </div>
-          <div className="history-page-skeleton__axis-grid" />
-        </section>
-
-        {Array.from({ length: 5 }, (_, panelIndex) => (
-          <section key={panelIndex} className="trend-panel">
-            <div className="trend-panel__header">
-              <div className="analysis-skeleton__line-list">
-                <span className="analysis-skeleton__bar" style={{ width: '3.8rem' }} />
-                <span className="analysis-skeleton__bar analysis-skeleton__bar--title" style={{ width: '3.4rem' }} />
-              </div>
-              <span className="analysis-skeleton__bar" style={{ width: '3.2rem' }} />
+          <div className="history-insight__numbers">
+            <span className="analysis-skeleton__bar" style={{ width: '4.2rem' }} />
+            <div className="history-insight__numbers-list">
+              {Array.from({ length: 5 }, (_, index) => (
+                <span key={index} className="analysis-skeleton__pill analysis-skeleton__pill--light" />
+              ))}
             </div>
+          </div>
+        </section>
+      )}
 
-            <div className="trend-panel__table">
-              <div className="trend-panel__table-head">
-                <div className="history-page-skeleton__digits">
-                  {TREND_DIGITS.map((digit) => (
-                    <span key={digit} />
-                  ))}
-                </div>
+      <div
+        className="history-page__desktop history-page-skeleton__desktop"
+        aria-hidden="true"
+        style={{
+          gridTemplateColumns: meta.positional
+            ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr))`
+            : 'minmax(0, 1fr)',
+        }}
+      >
+        {meta.positional ? (
+          <>
+            <section className="trend-axis">
+              <div className="trend-axis__spacer" />
+              <div className="trend-axis__header">
+                <span className="analysis-skeleton__bar" style={{ width: '4.5rem' }} />
               </div>
-              <div className="history-page-skeleton__trend-grid" />
+              <div className="history-page-skeleton__axis-grid" />
+            </section>
+
+            {Array.from({ length: meta.mainCount }, (_, panelIndex) => (
+              <section key={panelIndex} className="trend-panel">
+                <div className="trend-panel__header">
+                  <div className="analysis-skeleton__line-list">
+                    <span className="analysis-skeleton__bar" style={{ width: '3.8rem' }} />
+                    <span
+                      className="analysis-skeleton__bar analysis-skeleton__bar--title"
+                      style={{ width: '3.4rem' }}
+                    />
+                  </div>
+                  <span className="analysis-skeleton__bar" style={{ width: '3.2rem' }} />
+                </div>
+
+                <div className="trend-panel__table">
+                  <div className="trend-panel__table-head">
+                    <div className="history-page-skeleton__digits">
+                      {TREND_DIGITS.map((digit) => (
+                        <span key={digit} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="history-page-skeleton__trend-grid" />
+                </div>
+              </section>
+            ))}
+          </>
+        ) : (
+          <section className="history-dlt">
+            <header className="history-dlt__head">
+              <div className="analysis-skeleton__line-list">
+                <span className="analysis-skeleton__bar" style={{ width: '4.4rem' }} />
+                <span
+                  className="analysis-skeleton__bar analysis-skeleton__bar--title"
+                  style={{ width: '12rem' }}
+                />
+              </div>
+              <span className="analysis-skeleton__bar" style={{ width: '10rem' }} />
+            </header>
+
+            <div className="history-dlt__table-wrap">
+              <div className="history-page-skeleton__dlt-rows">
+                {Array.from({ length: 8 }, (_, rowIndex) => (
+                  <div key={rowIndex} className="history-page-skeleton__dlt-row">
+                    <span className="analysis-skeleton__bar" style={{ width: '3.4rem' }} />
+                    <span className="analysis-skeleton__bar" style={{ width: '4.6rem' }} />
+                    <div className="history-page-skeleton__balls">
+                      {Array.from({ length: ballCount }, (_, ballIndex) => (
+                        <span
+                          key={ballIndex}
+                          className={ballIndex >= meta.mainCount ? 'is-back' : undefined}
+                        />
+                      ))}
+                    </div>
+                    <span className="analysis-skeleton__bar" style={{ width: '5rem' }} />
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
-        ))}
+        )}
       </div>
 
       <ul className="history-page__list history-page__mobile history-page-skeleton__mobile" aria-hidden="true">
@@ -73,13 +143,19 @@ export function HistoryPageSkeleton() {
             <div className="history-card__head">
               <div className="analysis-skeleton__line-list">
                 <span className="analysis-skeleton__bar" style={{ width: '4.8rem' }} />
-                <span className="analysis-skeleton__bar analysis-skeleton__bar--title" style={{ width: '6rem' }} />
+                <span
+                  className="analysis-skeleton__bar analysis-skeleton__bar--title"
+                  style={{ width: '6rem' }}
+                />
               </div>
               <span className="analysis-skeleton__bar" style={{ width: '4rem' }} />
             </div>
             <div className="history-page-skeleton__balls">
-              {Array.from({ length: 5 }, (_, ballIndex) => (
-                <span key={ballIndex} />
+              {Array.from({ length: ballCount }, (_, ballIndex) => (
+                <span
+                  key={ballIndex}
+                  className={ballIndex >= meta.mainCount ? 'is-back' : undefined}
+                />
               ))}
             </div>
             <div className="history-card__meta">

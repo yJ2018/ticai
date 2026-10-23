@@ -15,6 +15,14 @@ const HISTORY_GAME_CONFIG: Record<LotteryHistoryGameType, { gameNo: string; labe
     gameNo: '350133',
     label: '排列五',
   },
+  qxc: {
+    gameNo: '04',
+    label: '七星彩',
+  },
+  dlt: {
+    gameNo: '85',
+    label: '大乐透',
+  },
 }
 
 /** 上一版用的是 localStorage，这里保留 key 仅用于一次性迁移 */
@@ -362,7 +370,7 @@ async function mergeCacheIntoStorage(
 ) {
   const current = getMemoryCache(gameType) ?? (await loadCache(gameType))
   const knownIssues = new Set(current?.items.map((item) => item.issue) ?? [])
-  const next = mergeHistoryCache(current, result, options)
+  const next = mergeHistoryCache(gameType, current, result, options)
   const addedEntries = next.items.filter((item) => !knownIssues.has(item.issue))
 
   cacheByGame.set(gameType, next)
@@ -370,6 +378,7 @@ async function mergeCacheIntoStorage(
 }
 
 function mergeHistoryCache(
+  gameType: LotteryHistoryGameType,
   cache: LotteryHistoryCache | null,
   result: LotteryHistoryPageResult,
   options: { markIncrementalSync?: boolean } = {},
@@ -383,7 +392,7 @@ function mergeHistoryCache(
 
   return {
     version: HISTORY_CACHE_VERSION,
-    gameType: cache?.gameType ?? 'pl5',
+    gameType: cache?.gameType ?? gameType,
     items: mergedItems,
     total: nextTotal,
     archivePageSize: result.pageSize,

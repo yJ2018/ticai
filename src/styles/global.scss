@@ -2173,6 +2173,18 @@ button:focus-visible,
   box-shadow: 0 0.3rem 0.7rem rgba(220, 38, 38, 0.22);
 }
 
+/* 大乐透后区 / 七星彩第七位：蓝色区分 */
+.history-card__ball.is-extra,
+.history-card__ball.is-special {
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+  box-shadow: 0 0.3rem 0.7rem rgba(37, 99, 235, 0.24);
+}
+
+.history-card__ball.is-special {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+}
+
 .history-card__meta {
   margin-top: 0.9rem;
   display: grid;
@@ -2310,10 +2322,57 @@ button:focus-visible,
   stroke-linejoin: round;
 }
 
-.trend-panel__line-dot {
-  fill: #fff7ed;
-  stroke: #ea580c;
-  stroke-width: 2;
+/* 折线节点：用 HTML 画，避免 SVG 被横向拉伸后变成椭圆 */
+.trend-panel__dots {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+
+  span {
+    position: absolute;
+    width: 0.55rem;
+    height: 0.55rem;
+    margin: -0.275rem 0 0 -0.275rem;
+    border-radius: 50%;
+    background: #fff7ed;
+    border: 2px solid #ea580c;
+    box-sizing: border-box;
+  }
+}
+
+/* 七星彩第七位：特殊号用蓝色区分 */
+.trend-panel.is-special {
+  .trend-panel__cell.is-hit {
+    background: linear-gradient(180deg, #3b82f6, #2563eb);
+  }
+
+  .trend-panel__polyline {
+    stroke: #2563eb;
+  }
+
+  .trend-panel__dots span {
+    background: #eff6ff;
+    border-color: #2563eb;
+  }
+
+  .trend-panel__badge {
+    background: #e0edff;
+    color: #1d4ed8;
+  }
+}
+
+.trend-panel__badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.3rem;
+  border-radius: 0.3rem;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 600;
+  vertical-align: middle;
 }
 
 .trend-panel__grid {
@@ -2343,6 +2402,149 @@ button:focus-visible,
   color: #fff;
   font-weight: 700;
   background: linear-gradient(180deg, #ef4444, #dc2626);
+}
+
+/* ── 大乐透开奖明细（非位次彩种） ─────────────────────── */
+
+.history-dlt {
+  min-width: 0;
+  padding: 0.9rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 0.35rem 1rem rgba(15, 23, 42, 0.06);
+}
+
+.history-dlt__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+
+  h3 {
+    margin: 0.1rem 0 0;
+    color: #0f172a;
+    font-size: 0.95rem;
+  }
+}
+
+.history-dlt__eyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.history-dlt__desc {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.history-dlt__table-wrap {
+  overflow-x: auto;
+}
+
+.history-dlt__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+
+  th {
+    padding: 0.4rem 0.5rem;
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.42rem 0.5rem;
+    border-top: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .is-issue {
+    color: #0f172a;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .is-date {
+    color: #64748b;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .is-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .is-prize {
+    color: #64748b;
+    font-size: 0.75rem;
+
+    span {
+      margin-left: 0.4rem;
+      color: #0f172a;
+      font-weight: 600;
+    }
+  }
+}
+
+.history-dlt__balls {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.history-dlt__ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+
+  &.is-back {
+    background: linear-gradient(180deg, #3b82f6, #2563eb);
+  }
+}
+
+.history-page-skeleton__dlt-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.55rem 0.5rem;
+}
+
+.history-page-skeleton__dlt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+
+  .history-page-skeleton__balls {
+    margin-top: 0;
+    gap: 0.3rem;
+
+    span {
+      width: 1.75rem;
+      height: 1.75rem;
+    }
+  }
+}
+
+.history-page-skeleton__balls span.is-back {
+  background: linear-gradient(90deg, #dbeafe 20%, #eff6ff 40%, #dbeafe 60%);
+  background-size: 300% 100%;
 }
 
 .trend-axis {

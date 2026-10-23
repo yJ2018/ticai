@@ -1,5 +1,5 @@
-/** 彩种标识：首版仅排列五，保留联合类型便于扩展 */
-export type LotteryHistoryGameType = 'pl5'
+/** 彩种标识：排列五 / 七星彩 / 超级大乐透 */
+export type LotteryHistoryGameType = 'pl5' | 'qxc' | 'dlt'
 
 /** 单期开奖记录（已归一化为展示字段） */
 export type LotteryHistoryEntry = {

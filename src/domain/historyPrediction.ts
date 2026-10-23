@@ -163,6 +163,8 @@ export type PredictionConfig = {
 }
 
 export type PredictionAnalyzeOptions = {
+  /** 位次数量：排列五 5、七星彩 7；默认 5 */
+  positionCount?: number
   recentWindow?: number
   longWindow?: number
   minTrainingSize?: number
@@ -237,7 +239,10 @@ export function analyzeHistoryPrediction(
   const config = resolvePredictionConfig(options)
   const sortedEntries = sortChronological(entries)
   const validDraws = getValidDraws(sortedEntries)
-  const positions = Array.from({ length: POSITION_COUNT }, (_, position) => analyzePosition(sortedEntries, position, config))
+  const positionCount = Math.max(1, Math.floor(options.positionCount ?? POSITION_COUNT))
+  const positions = Array.from({ length: positionCount }, (_, position) =>
+    analyzePosition(sortedEntries, position, config),
+  )
   const sampleSize = sortedEntries.length
 
   return {

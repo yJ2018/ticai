@@ -15,11 +15,30 @@ import {
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
 import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
 
-const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [{ key: 'pl5', label: '排列五' }]
+const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [
+  { key: 'pl5', label: '排列五' },
+  { key: 'qxc', label: '七星彩' },
+  { key: 'dlt', label: '大乐透' },
+]
 const TREND_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-const TREND_POSITIONS = ['第一位', '第二位', '第三位', '第四位', '第五位']
-const TREND_CELL_SIZE = 30
-const TREND_ROW_SIZE = 34
+const POSITION_LABELS = ['第一位', '第二位', '第三位', '第四位', '第五位', '第六位', '第七位']
+
+type GameMeta = {
+  label: string
+  /** 是否是按位次计数的彩种（排列五 / 七星彩），大乐透不是 */
+  positional: boolean
+  mainCount: number
+  extraCount: number
+  /** 最后一位是特殊号（七星彩的第七位） */
+  specialLast: boolean
+  unit: string
+}
+
+const GAME_META: Record<LotteryHistoryGameType, GameMeta> = {
+  pl5: { label: '排列五', positional: true, mainCount: 5, extraCount: 0, specialLast: false, unit: '位' },
+  qxc: { label: '七星彩', positional: true, mainCount: 7, extraCount: 0, specialLast: true, unit: '位' },
+  dlt: { label: '大乐透', positional: false, mainCount: 5, extraCount: 2, specialLast: false, unit: '个' },
+}
 /**
  * 请求锁窗口：既保证按钮转圈"看得见"，也把连点吸收掉。
  * 700ms 覆盖常见的双击 / 连点节奏（含新页入场动画的 220ms），
@@ -62,13 +81,16 @@ type PagerAction = PageDirection | 'refresh'
 
 export function HistoryPage() {
   const [activeGame, setActiveGame] = useState<LotteryHistoryGameType>('pl5')
+  const meta = GAME_META[activeGame]
+  const positionLabels = POSITION_LABELS.slice(0, meta.mainCount)
   const [state, setState] = useState<HistoryState>(initialState)
   const [pageDirection, setPageDirection] = useState<PageDirection>('next')
   const [pendingAction, setPendingAction] = useState<PagerAction | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
   const lastPageRef = useRef(1)
-  // 同步锁：state 更新到 DOM 之间有窗口期，用 ref 挡住同一帧内的重复触发
-  const busyRef = useRef(false)
+  // 请求令牌：只让最后一次请求落地。切彩种不再被上一轮请求挡住
+  const requestTokenRef = useRef(0)
+  const loadedGameRef = useRef<LotteryHistoryGameType | null>(null)
 
   const [prediction, setPrediction] = useState<HistoryPredictionAnalysis>(() =>
     analyzeHistoryPrediction([]),
@@ -81,26 +103,35 @@ export function HistoryPage() {
 
   const loadHistory = useCallback(
     async (pageNo = 1, action: PagerAction = 'next') => {
-      if (busyRef.current) {
-        return
-      }
-      busyRef.current = true
+      const token = requestTokenRef.current + 1
+      requestTokenRef.current = token
+      const game = activeGame
+      const isGameSwitch = loadedGameRef.current !== game
+      loadedGameRef.current = game
 
       const startedAt = Date.now()
       setPendingAction(action)
-      setState((prev) => ({
-        ...prev,
-        loading: true,
-        error: '',
-      }))
+
+      if (isGameSwitch) {
+        // 切彩种：先清空列表，让骨架屏按新彩种铺开，避免短暂显示上一个彩种的数据
+        lastPageRef.current = 1
+        contentRef.current?.scrollTo({ top: 0 })
+        setPredictionReady(false)
+        setState({ ...initialState, loading: true })
+      } else {
+        setState((prev) => ({ ...prev, loading: true, error: '' }))
+      }
 
       try {
-        const data = await historyService.getHistoryPage(activeGame, pageNo)
-        const cachedItems = await historyService.getCachedHistoryEntries(activeGame)
+        const data = await historyService.getHistoryPage(game, pageNo)
+        const cachedItems = await historyService.getCachedHistoryEntries(game)
 
         // 本地缓存命中时数据几乎立刻返回，这里补足一个最短 loading 时长，
         // 让按钮转圈"看得见"，而不是闪一帧就消失。
         await waitAtLeast(startedAt, HISTORY_MIN_BUSY_MS)
+        if (requestTokenRef.current !== token) {
+          return
+        }
 
         // 翻页时先把滚动位置归零，再让新内容滑入，避免停在上一页的底部
         if (data.pageNo !== lastPageRef.current) {
@@ -120,14 +151,18 @@ export function HistoryPage() {
         })
       } catch {
         await waitAtLeast(startedAt, HISTORY_MIN_BUSY_MS)
+        if (requestTokenRef.current !== token) {
+          return
+        }
         setState((prev) => ({
           ...prev,
           loading: false,
           error: '开奖历史加载失败，请稍后重试',
         }))
       } finally {
-        busyRef.current = false
-        setPendingAction(null)
+        if (requestTokenRef.current === token) {
+          setPendingAction(null)
+        }
       }
     },
     [activeGame],
@@ -175,8 +210,8 @@ export function HistoryPage() {
   const analysisEntries =
     state.analysisItems.length > 0 ? state.analysisItems : state.items
   const predictionSignature =
-    analysisEntries.length > 0
-      ? `${analysisEntries.length}:${analysisEntries[0]?.issue ?? ''}:${
+    meta.positional && analysisEntries.length > 0
+      ? `${activeGame}:${analysisEntries.length}:${analysisEntries[0]?.issue ?? ''}:${
           analysisEntries[analysisEntries.length - 1]?.issue ?? ''
         }`
       : ''
@@ -203,7 +238,7 @@ export function HistoryPage() {
     worker.postMessage({
       requestId,
       entries: analysisEntries,
-      options: {},
+      options: { positionCount: meta.mainCount },
     })
     // entries 只在这个签名变化时更新，避免翻页时对同一份缓存重复重算。
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -223,9 +258,11 @@ export function HistoryPage() {
     () =>
       state.items.map((item) => ({
         item,
-        digits: TREND_POSITIONS.map((_, position) => parseDigitValue(item, position)),
+        digits: positionLabels.map((_, position) => parseDigitValue(item, position)),
       })),
-    [state.items],
+    // positionLabels 由 activeGame 决定
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.items, activeGame],
   )
   const trendPredictions = useMemo(
     () => prediction.positions.map((item) => item.picks),
@@ -234,7 +271,7 @@ export function HistoryPage() {
 
   const isInitialLoading =
     (state.loading && state.items.length === 0) ||
-    (state.items.length > 0 && !predictionReady)
+    (state.items.length > 0 && meta.positional && !predictionReady)
   const pageAnimClass = pageDirection === 'prev' ? 'is-prev-page' : 'is-next-page'
 
   // 点击即进入 busy：只在按钮上转圈，内容保持原样，避免整块明暗变化被感知成闪烁
@@ -247,7 +284,9 @@ export function HistoryPage() {
           <p className="history-page__eyebrow">开奖历史</p>
           <h2>体彩开奖查询</h2>
         </div>
-        <p className="history-page__desc">首版优先接入排列五开奖历史，后续可以继续扩展更多彩种。</p>
+        <p className="history-page__desc">
+          排列五、七星彩按位次看走势，大乐透按前后区看开奖明细；数据来自体彩官方接口。
+        </p>
       </header>
 
       <div className="history-page__toolbar">
@@ -279,7 +318,7 @@ export function HistoryPage() {
       </div>
 
       <div ref={contentRef} className="history-page__content" aria-busy={state.loading || predictionLoading}>
-        {isInitialLoading && !state.error && <HistoryPageSkeleton />}
+        {isInitialLoading && !state.error && <HistoryPageSkeleton game={activeGame} />}
 
         {!state.loading && state.error && (
           <div className="history-page__status history-page__status--error">
@@ -292,6 +331,7 @@ export function HistoryPage() {
 
         {!isInitialLoading && !state.error && (
           <>
+            {meta.positional && (
             <section className="history-insight">
               <div className="history-insight__header">
                 <div>
@@ -333,12 +373,20 @@ export function HistoryPage() {
                 </div>
               </div>
             </section>
+            )}
 
             <div
-              key={`desktop-${state.pageNo}`}
+              key={`desktop-${activeGame}-${state.pageNo}`}
               className={`history-page__desktop ${pageAnimClass}`}
+              style={{
+                gridTemplateColumns: meta.positional
+                  ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr))`
+                  : 'minmax(0, 1fr)',
+              }}
             >
-              <section className="trend-axis">
+              {meta.positional ? (
+                <>
+                  <section className="trend-axis">
                 <div className="trend-axis__spacer" aria-hidden="true" />
                 <div className="trend-axis__header">期号 / 日期</div>
                 <div className="trend-axis__body">
@@ -351,20 +399,25 @@ export function HistoryPage() {
                 </div>
               </section>
 
-              {TREND_POSITIONS.map((label, position) => (
+              {positionLabels.map((label, position) => (
                 <TrendPanel
-                  key={label}
+                  key={`${activeGame}-${label}`}
                   label={label}
                   position={position}
                   rows={trendRows}
+                  special={meta.specialLast && position === positionLabels.length - 1}
                   caption={formatPositionCaption(prediction.positions[position])}
                   forecast={formatPredictionText(trendPredictions[position])}
                 />
               ))}
+                </>
+              ) : (
+                <DltHistoryTable items={state.items} meta={meta} />
+              )}
             </div>
 
             <div
-              key={`mobile-${state.pageNo}`}
+              key={`mobile-${activeGame}-${state.pageNo}`}
               className={`history-page__mobile ${pageAnimClass}`}
             >
               <ul className="history-page__list">
@@ -375,15 +428,24 @@ export function HistoryPage() {
                         <span className="history-card__issue-label">第 {item.issue} 期</span>
                         <strong>{item.drawDate}</strong>
                       </div>
-                      <span className="history-card__game-tag">排列五</span>
+                      <span className="history-card__game-tag">{meta.label}</span>
                     </div>
 
                     <div className="history-card__numbers" aria-label={`第${item.issue}期开奖号码`}>
-                      {item.numbers.map((num, index) => (
-                        <span key={`${item.issue}-${index}-${num}`} className="history-card__ball">
-                          {num}
-                        </span>
-                      ))}
+                      {item.numbers.map((num, index) => {
+                        const isExtra = index >= meta.mainCount
+                        const isSpecial = meta.specialLast && index === meta.mainCount - 1
+                        return (
+                          <span
+                            key={`${item.issue}-${index}-${num}`}
+                            className={`history-card__ball${isExtra ? ' is-extra' : ''}${
+                              isSpecial ? ' is-special' : ''
+                            }`}
+                          >
+                            {num}
+                          </span>
+                        )
+                      })}
                     </div>
 
                     <div className="history-card__meta">
@@ -451,10 +513,78 @@ type TrendRow = {
   digits: Array<number | null>
 }
 
+/** 大乐透不是按位次开奖，桌面端用明细表代替走势网格 */
+function DltHistoryTable({ items, meta }: { items: LotteryHistoryEntry[]; meta: GameMeta }) {
+  return (
+    <section className="history-dlt">
+      <header className="history-dlt__head">
+        <div>
+          <p className="history-dlt__eyebrow">开奖明细</p>
+          <h3>
+            {meta.label} · 前区 {meta.mainCount} + 后区 {meta.extraCount}
+          </h3>
+        </div>
+        <p className="history-dlt__desc">红球为前区（1–35），蓝球为后区（1–12）。</p>
+      </header>
+
+      <div className="history-dlt__table-wrap">
+        <table className="history-dlt__table">
+          <thead>
+            <tr>
+              <th>期号</th>
+              <th>开奖日期</th>
+              <th>前区</th>
+              <th>后区</th>
+              <th>销售额</th>
+              <th>一等奖</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => {
+              const front = item.numbers.slice(0, meta.mainCount)
+              const back = item.numbers.slice(meta.mainCount)
+              return (
+                <tr key={item.issue}>
+                  <td className="is-issue">{item.issue}</td>
+                  <td className="is-date">{item.drawDate}</td>
+                  <td>
+                    <div className="history-dlt__balls">
+                      {front.map((num, index) => (
+                        <span key={`${item.issue}-front-${index}`} className="history-dlt__ball">
+                          {num}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="history-dlt__balls">
+                      {back.map((num, index) => (
+                        <span key={`${item.issue}-back-${index}`} className="history-dlt__ball is-back">
+                          {num}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="is-num">{item.salesAmount}</td>
+                  <td className="is-prize">
+                    {item.firstPrizeCount} 注<span>{item.firstPrizeAmount}</span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 type TrendPanelProps = {
   label: string
   position: number
   rows: TrendRow[]
+  /** 特殊位（七星彩第七位）单独配色 */
+  special?: boolean
   caption: string
   forecast: string
 }
@@ -463,18 +593,22 @@ const TrendPanel = memo(function TrendPanel({
   label,
   position,
   rows,
+  special = false,
   caption,
   forecast,
 }: TrendPanelProps) {
   return (
-    <section className="trend-panel">
+    <section className={`trend-panel${special ? ' is-special' : ''}`}>
       <div className="trend-panel__header">
         <div>
           <div className="trend-panel__eyebrow-row">
             <span className="trend-panel__eyebrow">号码走势</span>
             <span className="trend-panel__forecast">参考 {forecast}</span>
           </div>
-          <h3>{label}</h3>
+          <h3>
+            {label}
+            {special && <em className="trend-panel__badge">后一位</em>}
+          </h3>
         </div>
         <span className="trend-panel__caption">{caption}</span>
       </div>
@@ -496,6 +630,11 @@ const TrendGrid = memo(function TrendGrid({
   position: number
   rows: TrendRow[]
 }) {
+  const points = rows.flatMap((row, rowIndex) => {
+    const digit = row.digits[position]
+    return digit === null ? [] : [{ rowIndex, digit }]
+  })
+
   return (
     <div className="trend-panel__table">
       <div className="trend-panel__table-head">
@@ -517,28 +656,28 @@ const TrendGrid = memo(function TrendGrid({
         >
           <svg
             className="trend-panel__lines"
-            viewBox={`0 0 ${TREND_DIGITS.length * TREND_CELL_SIZE} ${Math.max(rows.length * TREND_ROW_SIZE, TREND_ROW_SIZE)}`}
+            viewBox={`0 0 10 ${Math.max(rows.length, 1)}`}
             preserveAspectRatio="none"
             aria-hidden="true"
           >
-            <polyline points={buildTrendPoints(rows, position)} className="trend-panel__polyline" />
-            {rows.map((row, rowIndex) => {
-              const digit = row.digits[position]
-              if (digit === null) {
-                return null
-              }
-
-              return (
-                <circle
-                  key={`${label}-${row.item.issue}-dot`}
-                  cx={digit * TREND_CELL_SIZE + TREND_CELL_SIZE / 2}
-                  cy={rowIndex * TREND_ROW_SIZE + TREND_ROW_SIZE / 2}
-                  r={5}
-                  className="trend-panel__line-dot"
-                />
-              )
-            })}
+            <path
+              d={buildSmoothPath(points)}
+              className="trend-panel__polyline"
+              vectorEffect="non-scaling-stroke"
+            />
           </svg>
+
+          <div className="trend-panel__dots" aria-hidden="true">
+            {points.map((point) => (
+              <span
+                key={`${label}-${rows[point.rowIndex].item.issue}-dot`}
+                style={{
+                  left: `${(point.digit + 0.5) * 10}%`,
+                  top: `calc(${point.rowIndex + 0.5} * 1.875rem)`,
+                }}
+              />
+            ))}
+          </div>
 
           <div className="trend-panel__grid">
             {rows.map((row) => (
@@ -571,22 +710,38 @@ function parseDigitValue(item: LotteryHistoryEntry, position: number) {
   return Number(value)
 }
 
-function buildTrendPoints(
-  rows: Array<{ item: LotteryHistoryEntry; digits: Array<number | null> }>,
-  position: number,
-) {
-  return rows
-    .map((row, rowIndex) => {
-      const digit = row.digits[position]
-      if (digit === null) {
-        return ''
-      }
-      const x = digit * TREND_CELL_SIZE + TREND_CELL_SIZE / 2
-      const y = rowIndex * TREND_ROW_SIZE + TREND_ROW_SIZE / 2
-      return `${x},${y}`
-    })
-    .filter(Boolean)
-    .join(' ')
+/**
+ * 平滑折线：Catmull-Rom 转三次贝塞尔。
+ * 坐标用「列 / 行」为单位（0–10、0–行数），由 viewBox 拉伸到实际尺寸。
+ */
+function buildSmoothPath(points: Array<{ rowIndex: number; digit: number }>) {
+  if (points.length === 0) {
+    return ''
+  }
+
+  const samples = points.map((point) => ({ x: point.digit + 0.5, y: point.rowIndex + 0.5 }))
+  if (samples.length === 1) {
+    return `M ${samples[0].x} ${samples[0].y}`
+  }
+
+  const clampX = (value: number) => Math.min(10, Math.max(0, value))
+  let path = `M ${samples[0].x.toFixed(3)} ${samples[0].y.toFixed(3)}`
+
+  for (let index = 0; index < samples.length - 1; index += 1) {
+    const previous = samples[index - 1] ?? samples[index]
+    const current = samples[index]
+    const next = samples[index + 1]
+    const after = samples[index + 2] ?? samples[index + 1]
+
+    const control1x = clampX(current.x + (next.x - previous.x) / 6)
+    const control1y = current.y + (next.y - previous.y) / 6
+    const control2x = clampX(next.x - (after.x - current.x) / 6)
+    const control2y = next.y - (after.y - current.y) / 6
+
+    path += ` C ${control1x.toFixed(3)} ${control1y.toFixed(3)} ${control2x.toFixed(3)} ${control2y.toFixed(3)} ${next.x.toFixed(3)} ${next.y.toFixed(3)}`
+  }
+
+  return path
 }
 
 function formatRate(value: number) {
@@ -608,6 +763,6 @@ function formatPositionCaption(positionAnalysis: { backtest: { top1Rate: number;
   return `回测 Top1 ${formatRate(positionAnalysis.backtest.top1Rate)}，Top3 ${formatRate(positionAnalysis.backtest.top3Rate)}`
 }
 
-function formatPredictionText(digits: number[]) {
-  return digits.length > 0 ? digits.join(' / ') : '--'
+function formatPredictionText(digits: number[] | undefined) {
+  return digits && digits.length > 0 ? digits.join(' / ') : '--'
 }
