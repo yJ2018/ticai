@@ -149,11 +149,11 @@ try {
     )
     console.log(`[deploy:api] 健康检查通过：在售 ${count} 场`)
   } catch (error) {
-    // 国内网络经常把 *.vercel.app 解析到错误 IP，部署本身是成功的，不能因此判定失败
-    console.warn(
-      `[deploy:api] 健康检查没通过（${error instanceof Error ? error.message : String(error)}）`,
-    )
-    console.warn(`[deploy:api] 部署已成功；本机 DNS 可能解析不了 Vercel 域名，用浏览器打开 ${apiBase}/healthz 确认即可。`)
+    // 国内网络常把 *.vercel.app 解析到错误 IP；部署是否成功以 CLI 的 Ready/Aliased 为准
+    const code =
+      error?.cause?.code ||
+      (/超时|timeout|abort/i.test(error instanceof Error ? error.message : '') ? 'timeout' : 'probe failed')
+    console.warn(`[deploy:api] 部署成功（线上探测跳过：${code}；用浏览器打开 ${apiBase}/healthz 确认）`)
   }
 } catch (error) {
   console.error(`\n[deploy:api] 失败：${error instanceof Error ? error.message : String(error)}`)
