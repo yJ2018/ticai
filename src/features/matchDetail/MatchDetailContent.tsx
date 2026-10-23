@@ -11,9 +11,9 @@ type MatchDetailContentProps = {
 
 const NAV_ITEMS = [
   { id: 'h2h', label: '交锋' },
+  { id: 'form', label: '近况' },
   { id: 'injury', label: '伤停' },
   { id: 'lineup', label: '阵容' },
-  { id: 'form', label: '近况' },
   { id: 'fixture', label: '赛程' },
   { id: 'table', label: '积分' },
   { id: 'shooter', label: '射手' },
@@ -142,51 +142,29 @@ export function MatchDetailContent({ view, loading, error, fallback }: MatchDeta
         {view.h2h.items.length === 0 ? (
           <Empty />
         ) : (
-          <ul className="md-list">
-            {view.h2h.items.map((item, index) => (
-              <li key={`${item.date}-${index}`} className="md-list__row">
-                <span className="md-list__date">{item.date}</span>
-                <span className="md-list__league">{item.league}</span>
-                <span className="md-match">
-                  <span className="md-match__home">{item.home}</span>
-                  <b className="md-match__score">{item.score}</b>
-                  <span className="md-match__away">{item.away}</span>
-                </span>
-                {item.half && <span className="md-list__half">半 {item.half}</span>}
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="md-h2h__head" aria-hidden="true">
+              <span>日期</span>
+              <span>赛事</span>
+              <span className="is-end">主队</span>
+              <span className="is-center">比分</span>
+              <span>客队</span>
+              <span className="is-end">半场</span>
+            </div>
+            <ul className="md-list">
+              {view.h2h.items.map((item, index) => (
+                <li key={`${item.date}-${index}`} className="md-list__row">
+                  <span className="md-list__date">{item.date}</span>
+                  <span className="md-list__league">{item.league}</span>
+                  <span className="md-list__home">{item.home}</span>
+                  <b className="md-list__score">{item.score}</b>
+                  <span className="md-list__away">{item.away}</span>
+                  <span className="md-list__half">{item.half ? `半 ${item.half}` : ''}</span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
-      </Section>
-
-      <Section id="injury" title="伤停">
-        <div className="md-columns">
-          <SideBlock group={view.injuries.home}>
-            {(person) => (
-              <li key={`${person.name}-${person.kind}`} className="md-injury">
-                <span className="md-injury__name">{person.name}</span>
-                {person.position && <span className="md-injury__pos">{person.position}</span>}
-                <em className={person.kind === '停赛' ? 'is-suspend' : ''}>{person.kind}</em>
-              </li>
-            )}
-          </SideBlock>
-          <SideBlock group={view.injuries.away}>
-            {(person) => (
-              <li key={`${person.name}-${person.kind}`} className="md-injury">
-                <span className="md-injury__name">{person.name}</span>
-                {person.position && <span className="md-injury__pos">{person.position}</span>}
-                <em className={person.kind === '停赛' ? 'is-suspend' : ''}>{person.kind}</em>
-              </li>
-            )}
-          </SideBlock>
-        </div>
-      </Section>
-
-      <Section id="lineup" title="阵容" sub={lineupSummary(view.lineup)}>
-        <div className="md-columns">
-          <LineupTeam team={view.lineup.home} name={view.homeName} />
-          <LineupTeam team={view.lineup.away} name={view.awayName} />
-        </div>
       </Section>
 
       <Section id="form" title="近期战绩">
@@ -217,6 +195,36 @@ export function MatchDetailContent({ view, loading, error, fallback }: MatchDeta
               </li>
             )}
           </SideBlock>
+        </div>
+      </Section>
+
+      <Section id="injury" title="伤停">
+        <div className="md-columns">
+          <SideBlock group={view.injuries.home}>
+            {(person) => (
+              <li key={`${person.name}-${person.kind}`} className="md-injury">
+                <span className="md-injury__name">{person.name}</span>
+                {person.position && <span className="md-injury__pos">{person.position}</span>}
+                <em className={person.kind === '停赛' ? 'is-suspend' : ''}>{person.kind}</em>
+              </li>
+            )}
+          </SideBlock>
+          <SideBlock group={view.injuries.away}>
+            {(person) => (
+              <li key={`${person.name}-${person.kind}`} className="md-injury">
+                <span className="md-injury__name">{person.name}</span>
+                {person.position && <span className="md-injury__pos">{person.position}</span>}
+                <em className={person.kind === '停赛' ? 'is-suspend' : ''}>{person.kind}</em>
+              </li>
+            )}
+          </SideBlock>
+        </div>
+      </Section>
+
+      <Section id="lineup" title="阵容" sub={lineupSummary(view.lineup)}>
+        <div className="md-columns">
+          <LineupTeam team={view.lineup.home} name={view.homeName} />
+          <LineupTeam team={view.lineup.away} name={view.awayName} />
         </div>
       </Section>
 
@@ -449,15 +457,15 @@ function MatchDetailSkeleton({ fallback }: { fallback?: MatchDetailContentProps[
         ))}
       </div>
 
-      {[0, 1, 2].map((section) => (
+      {[0, 1, 2, 3].map((section) => (
         <div className="md-skeleton__section" key={section} aria-hidden="true">
           <span className="md-skeleton__bar is-title" />
-          {section === 1 ? (
+          {section % 2 === 1 ? (
             <div className="md-skeleton__cols">
               {[0, 1].map((side) => (
                 <div className="md-skeleton__col" key={side}>
                   <span className="md-skeleton__bar" style={{ width: '5rem' }} />
-                  {[0, 1, 2].map((line) => (
+                  {[0, 1, 2, 3].map((line) => (
                     <span key={line} className="md-skeleton__bar is-wide" />
                   ))}
                 </div>
@@ -465,7 +473,7 @@ function MatchDetailSkeleton({ fallback }: { fallback?: MatchDetailContentProps[
             </div>
           ) : (
             <div className="md-skeleton__lines">
-              {[0, 1, 2, 3].map((line) => (
+              {[0, 1, 2, 3, 4].map((line) => (
                 <div className="md-skeleton__line" key={line}>
                   <span className="md-skeleton__bar" style={{ width: '3.4rem' }} />
                   <span className="md-skeleton__bar is-wide" />
