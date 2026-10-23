@@ -22,6 +22,12 @@ const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [
 ]
 const TREND_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 const POSITION_LABELS = ['第一位', '第二位', '第三位', '第四位', '第五位', '第六位', '第七位']
+const DIGIT_AXIS = TREND_DIGITS
+const FRONT_AXIS = Array.from({ length: 35 }, (_, index) => index + 1)
+const BACK_AXIS = Array.from({ length: 12 }, (_, index) => index + 1)
+/** 大乐透前区 5 条线、后区 2 条线，各自一种颜色 */
+const FRONT_COLORS = ['#ea580c', '#db2777', '#7c3aed', '#0891b2', '#65a30d']
+const BACK_COLORS = ['#2563eb', '#0ea5e9']
 
 type GameMeta = {
   label: string
@@ -381,12 +387,10 @@ export function HistoryPage() {
               style={{
                 gridTemplateColumns: meta.positional
                   ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr))`
-                  : 'minmax(0, 1fr)',
+                  : '5.1rem minmax(0, 35fr) minmax(0, 12fr)',
               }}
             >
-              {meta.positional ? (
-                <>
-                  <section className="trend-axis">
+              <section className="trend-axis">
                 <div className="trend-axis__spacer" aria-hidden="true" />
                 <div className="trend-axis__header">期号 / 日期</div>
                 <div className="trend-axis__body">
@@ -399,21 +403,70 @@ export function HistoryPage() {
                 </div>
               </section>
 
-              {positionLabels.map((label, position) => (
-                <TrendPanel
-                  key={`${activeGame}-${label}`}
-                  label={label}
-                  position={position}
-                  rows={trendRows}
-                  special={meta.specialLast && position === positionLabels.length - 1}
-                  caption={formatPositionCaption(prediction.positions[position])}
-                  forecast={formatPredictionText(trendPredictions[position])}
-                />
-              ))}
-                </>
-              ) : (
-                <DltHistoryTable items={state.items} meta={meta} />
-              )}
+              {meta.positional
+                ? positionLabels.map((label, position) => {
+                    const special = meta.specialLast && position === positionLabels.length - 1
+                    return (
+                      <TrendPanel
+                        key={`${activeGame}-${label}`}
+                        label={label}
+                        axis={DIGIT_AXIS}
+                        rows={state.items}
+                        series={[
+                          {
+                            key: 'digit',
+                            label,
+                            color: special ? '#2563eb' : '#ea580c',
+                            tone: 'front' as const,
+                            values: trendRows.map((row) => row.digits[position]),
+                          },
+                        ]}
+                        badge={special ? '后一位' : undefined}
+                        caption={formatPositionCaption(prediction.positions[position])}
+                        forecast={formatPredictionText(trendPredictions[position])}
+                      />
+                    )
+                  })
+                : [
+                    {
+                      key: 'front',
+                      label: '前区',
+                      axis: FRONT_AXIS,
+                      caption: '前区 5 个号码（1–35）',
+                      series: FRONT_COLORS.map((color, index) => ({
+                        key: `front-${index}`,
+                        label: `第 ${index + 1} 球`,
+                        color,
+                        tone: 'front' as const,
+                        values: state.items.map((item) => toBallValue(item.numbers[index])),
+                      })),
+                    },
+                    {
+                      key: 'back',
+                      label: '后区',
+                      axis: BACK_AXIS,
+                      caption: '后区 2 个号码（1–12）',
+                      series: BACK_COLORS.map((color, index) => ({
+                        key: `back-${index}`,
+                        label: `第 ${index + 1} 球`,
+                        color,
+                        tone: 'back' as const,
+                        values: state.items.map((item) =>
+                          toBallValue(item.numbers[meta.mainCount + index]),
+                        ),
+                      })),
+                    },
+                  ].map((panel) => (
+                    <TrendPanel
+                      key={`${activeGame}-${panel.key}`}
+                      label={panel.label}
+                      axis={panel.axis}
+                      rows={state.items}
+                      series={panel.series}
+                      caption={panel.caption}
+                      showLegend
+                    />
+                  ))}
             </div>
 
             <div
@@ -508,139 +561,102 @@ export function HistoryPage() {
   )
 }
 
-type TrendRow = {
-  item: LotteryHistoryEntry
-  digits: Array<number | null>
-}
-
-/** 大乐透不是按位次开奖，桌面端用明细表代替走势网格 */
-function DltHistoryTable({ items, meta }: { items: LotteryHistoryEntry[]; meta: GameMeta }) {
-  return (
-    <section className="history-dlt">
-      <header className="history-dlt__head">
-        <div>
-          <p className="history-dlt__eyebrow">开奖明细</p>
-          <h3>
-            {meta.label} · 前区 {meta.mainCount} + 后区 {meta.extraCount}
-          </h3>
-        </div>
-        <p className="history-dlt__desc">红球为前区（1–35），蓝球为后区（1–12）。</p>
-      </header>
-
-      <div className="history-dlt__table-wrap">
-        <table className="history-dlt__table">
-          <thead>
-            <tr>
-              <th>期号</th>
-              <th>开奖日期</th>
-              <th>前区</th>
-              <th>后区</th>
-              <th>销售额</th>
-              <th>一等奖</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => {
-              const front = item.numbers.slice(0, meta.mainCount)
-              const back = item.numbers.slice(meta.mainCount)
-              return (
-                <tr key={item.issue}>
-                  <td className="is-issue">{item.issue}</td>
-                  <td className="is-date">{item.drawDate}</td>
-                  <td>
-                    <div className="history-dlt__balls">
-                      {front.map((num, index) => (
-                        <span key={`${item.issue}-front-${index}`} className="history-dlt__ball">
-                          {num}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="history-dlt__balls">
-                      {back.map((num, index) => (
-                        <span key={`${item.issue}-back-${index}`} className="history-dlt__ball is-back">
-                          {num}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="is-num">{item.salesAmount}</td>
-                  <td className="is-prize">
-                    {item.firstPrizeCount} 注<span>{item.firstPrizeAmount}</span>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  )
+type TrendSeries = {
+  key: string
+  label: string
+  color: string
+  tone: 'front' | 'back'
+  values: Array<number | null>
 }
 
 type TrendPanelProps = {
   label: string
-  position: number
-  rows: TrendRow[]
-  /** 特殊位（七星彩第七位）单独配色 */
-  special?: boolean
+  /** 横轴取值范围：排列五/七星彩是 0–9，大乐透前区 1–35、后区 1–12 */
+  axis: number[]
+  rows: LotteryHistoryEntry[]
+  series: TrendSeries[]
   caption: string
-  forecast: string
+  forecast?: string
+  badge?: string
+  showLegend?: boolean
 }
 
 const TrendPanel = memo(function TrendPanel({
   label,
-  position,
+  axis,
   rows,
-  special = false,
+  series,
   caption,
   forecast,
+  badge,
+  showLegend = false,
 }: TrendPanelProps) {
   return (
-    <section className={`trend-panel${special ? ' is-special' : ''}`}>
+    <section
+      className={`trend-panel${badge ? ' is-special' : ''}${axis.length > 12 ? ' is-wide' : ''}`}
+    >
       <div className="trend-panel__header">
         <div>
           <div className="trend-panel__eyebrow-row">
             <span className="trend-panel__eyebrow">号码走势</span>
-            <span className="trend-panel__forecast">参考 {forecast}</span>
+            {forecast && <span className="trend-panel__forecast">参考 {forecast}</span>}
           </div>
           <h3>
             {label}
-            {special && <em className="trend-panel__badge">后一位</em>}
+            {badge && <em className="trend-panel__badge">{badge}</em>}
           </h3>
         </div>
         <span className="trend-panel__caption">{caption}</span>
       </div>
-      <TrendGrid label={label} position={position} rows={rows} />
+
+      {showLegend && (
+        <div className="trend-panel__legend">
+          {series.map((item) => (
+            <span key={item.key}>
+              <i style={{ background: item.color }} />
+              {item.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <TrendGrid label={label} axis={axis} rows={rows} series={series} />
     </section>
   )
 })
 
 /**
  * 走势表格只依赖当期开奖行，不依赖预测结果。
- * 预测在 Worker 返回后会触发页面更新，但这里可以跳过 5×30×10 个单元格的重建。
+ * 预测在 Worker 返回后会触发页面更新，但这里可以跳过单元格的重建。
  */
 const TrendGrid = memo(function TrendGrid({
   label,
-  position,
+  axis,
   rows,
+  series,
 }: {
   label: string
-  position: number
-  rows: TrendRow[]
+  axis: number[]
+  rows: LotteryHistoryEntry[]
+  series: TrendSeries[]
 }) {
-  const points = rows.flatMap((row, rowIndex) => {
-    const digit = row.digits[position]
-    return digit === null ? [] : [{ rowIndex, digit }]
-  })
+  const lines = series.map((item) => ({
+    ...item,
+    points: item.values.flatMap((value, rowIndex) => {
+      if (value === null) {
+        return []
+      }
+      const axisIndex = axis.indexOf(value)
+      return axisIndex < 0 ? [] : [{ rowIndex, axisIndex }]
+    }),
+  }))
 
   return (
     <div className="trend-panel__table">
       <div className="trend-panel__table-head">
         <div className="trend-panel__digits-head">
-          {TREND_DIGITS.map((digit) => (
-            <span key={`${label}-head-${digit}`}>{digit}</span>
+          {axis.map((value) => (
+            <span key={`${label}-head-${value}`}>{value}</span>
           ))}
         </div>
       </div>
@@ -656,40 +672,50 @@ const TrendGrid = memo(function TrendGrid({
         >
           <svg
             className="trend-panel__lines"
-            viewBox={`0 0 10 ${Math.max(rows.length, 1)}`}
+            viewBox={`0 0 ${axis.length} ${Math.max(rows.length, 1)}`}
             preserveAspectRatio="none"
             aria-hidden="true"
           >
-            <path
-              d={buildSmoothPath(points)}
-              className="trend-panel__polyline"
-              vectorEffect="non-scaling-stroke"
-            />
+            {lines.map((line) => (
+              <path
+                key={line.key}
+                d={buildSmoothPath(line.points, axis.length)}
+                stroke={line.color}
+                className="trend-panel__polyline"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
           </svg>
 
           <div className="trend-panel__dots" aria-hidden="true">
-            {points.map((point) => (
-              <span
-                key={`${label}-${rows[point.rowIndex].item.issue}-dot`}
-                style={{
-                  left: `${(point.digit + 0.5) * 10}%`,
-                  top: `calc(${point.rowIndex + 0.5} * 1.875rem)`,
-                }}
-              />
-            ))}
+            {lines.flatMap((line) =>
+              line.points.map((point) => (
+                <span
+                  key={`${label}-${line.key}-${point.rowIndex}`}
+                  style={{
+                    left: `${((point.axisIndex + 0.5) / axis.length) * 100}%`,
+                    top: `calc(${point.rowIndex + 0.5} * 1.875rem)`,
+                    borderColor: line.color,
+                  }}
+                />
+              )),
+            )}
           </div>
 
           <div className="trend-panel__grid">
-            {rows.map((row) => (
-              <div key={`${label}-${row.item.issue}-row`} className="trend-panel__grid-row">
-                {TREND_DIGITS.map((digit) => {
-                  const active = row.digits[position] === digit
+            {rows.map((row, rowIndex) => (
+              <div key={`${label}-${row.issue}-row`} className="trend-panel__grid-row">
+                {axis.map((value) => {
+                  const hits = series.filter((item) => item.values[rowIndex] === value)
+                  const back = hits.some((item) => item.tone === 'back')
                   return (
                     <span
-                      key={`${label}-${row.item.issue}-${digit}`}
-                      className={`trend-panel__cell ${active ? 'is-hit' : ''}`}
+                      key={`${label}-${row.issue}-${value}`}
+                      className={`trend-panel__cell${hits.length > 0 ? ' is-hit' : ''}${
+                        hits.length > 0 && back ? ' is-back' : ''
+                      }`}
                     >
-                      {digit}
+                      {value}
                     </span>
                   )
                 })}
@@ -710,21 +736,30 @@ function parseDigitValue(item: LotteryHistoryEntry, position: number) {
   return Number(value)
 }
 
+/** "01" / "35" → 1 / 35；非法值返回 null */
+function toBallValue(value: string | undefined) {
+  if (!value) {
+    return null
+  }
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : null
+}
+
 /**
  * 平滑折线：Catmull-Rom 转三次贝塞尔。
- * 坐标用「列 / 行」为单位（0–10、0–行数），由 viewBox 拉伸到实际尺寸。
+ * 坐标用「列 / 行」为单位，由 viewBox 拉伸到实际尺寸。
  */
-function buildSmoothPath(points: Array<{ rowIndex: number; digit: number }>) {
+function buildSmoothPath(points: Array<{ rowIndex: number; axisIndex: number }>, axisLength: number) {
   if (points.length === 0) {
     return ''
   }
 
-  const samples = points.map((point) => ({ x: point.digit + 0.5, y: point.rowIndex + 0.5 }))
+  const samples = points.map((point) => ({ x: point.axisIndex + 0.5, y: point.rowIndex + 0.5 }))
   if (samples.length === 1) {
     return `M ${samples[0].x} ${samples[0].y}`
   }
 
-  const clampX = (value: number) => Math.min(10, Math.max(0, value))
+  const clampX = (value: number) => Math.min(axisLength, Math.max(0, value))
   let path = `M ${samples[0].x.toFixed(3)} ${samples[0].y.toFixed(3)}`
 
   for (let index = 0; index < samples.length - 1; index += 1) {

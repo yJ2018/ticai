@@ -2280,7 +2280,8 @@ button:focus-visible,
 
 .trend-panel__digits-head {
   display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 
   span {
     min-width: 0;
@@ -2316,7 +2317,6 @@ button:focus-visible,
 
 .trend-panel__polyline {
   fill: none;
-  stroke: #f97316;
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -2382,7 +2382,8 @@ button:focus-visible,
 
 .trend-panel__grid-row {
   display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 .trend-panel__cell {
@@ -2402,6 +2403,41 @@ button:focus-visible,
   color: #fff;
   font-weight: 700;
   background: linear-gradient(180deg, #ef4444, #dc2626);
+}
+
+/* 大乐透后区：蓝色 */
+.trend-panel__cell.is-hit.is-back {
+  background: linear-gradient(180deg, #3b82f6, #2563eb);
+}
+
+/* 大乐透前区 35 列 / 后区 12 列，字号要收一点 */
+.trend-panel.is-wide {
+  .trend-panel__digits-head span,
+  .trend-panel__cell {
+    font-size: 0.6rem;
+  }
+}
+
+.trend-panel__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.6rem;
+  margin: 0 0 0.3rem;
+  color: #64748b;
+  font-size: 0.66rem;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  i {
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.16rem;
+    border-radius: 999px;
+  }
 }
 
 /* ── 大乐透开奖明细（非位次彩种） ─────────────────────── */
@@ -4426,7 +4462,8 @@ span.analysis-skeleton__pill--light {
 
 .history-page-skeleton__digits {
   display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 
   span {
     height: 2.125rem;

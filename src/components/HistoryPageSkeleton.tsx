@@ -1,6 +1,8 @@
 import { type LotteryHistoryGameType } from '../domain/lotteryHistory'
 
 const TREND_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+const FRONT_AXIS = Array.from({ length: 35 }, (_, index) => index + 1)
+const BACK_AXIS = Array.from({ length: 12 }, (_, index) => index + 1)
 
 type SkeletonMeta = {
   positional: boolean
@@ -62,79 +64,45 @@ export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGam
         style={{
           gridTemplateColumns: meta.positional
             ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr))`
-            : 'minmax(0, 1fr)',
+            : '5.1rem minmax(0, 35fr) minmax(0, 12fr)',
         }}
       >
-        {meta.positional ? (
-          <>
-            <section className="trend-axis">
-              <div className="trend-axis__spacer" />
-              <div className="trend-axis__header">
-                <span className="analysis-skeleton__bar" style={{ width: '4.5rem' }} />
-              </div>
-              <div className="history-page-skeleton__axis-grid" />
-            </section>
+        <section className="trend-axis">
+          <div className="trend-axis__spacer" />
+          <div className="trend-axis__header">
+            <span className="analysis-skeleton__bar" style={{ width: '4.5rem' }} />
+          </div>
+          <div className="history-page-skeleton__axis-grid" />
+        </section>
 
-            {Array.from({ length: meta.mainCount }, (_, panelIndex) => (
-              <section key={panelIndex} className="trend-panel">
-                <div className="trend-panel__header">
-                  <div className="analysis-skeleton__line-list">
-                    <span className="analysis-skeleton__bar" style={{ width: '3.8rem' }} />
-                    <span
-                      className="analysis-skeleton__bar analysis-skeleton__bar--title"
-                      style={{ width: '3.4rem' }}
-                    />
-                  </div>
-                  <span className="analysis-skeleton__bar" style={{ width: '3.2rem' }} />
-                </div>
-
-                <div className="trend-panel__table">
-                  <div className="trend-panel__table-head">
-                    <div className="history-page-skeleton__digits">
-                      {TREND_DIGITS.map((digit) => (
-                        <span key={digit} />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="history-page-skeleton__trend-grid" />
-                </div>
-              </section>
-            ))}
-          </>
-        ) : (
-          <section className="history-dlt">
-            <header className="history-dlt__head">
+        {(meta.positional
+          ? Array.from({ length: meta.mainCount }, () => TREND_DIGITS)
+          : [FRONT_AXIS, BACK_AXIS]
+        ).map((axis, panelIndex) => (
+          <section key={panelIndex} className="trend-panel">
+            <div className="trend-panel__header">
               <div className="analysis-skeleton__line-list">
-                <span className="analysis-skeleton__bar" style={{ width: '4.4rem' }} />
+                <span className="analysis-skeleton__bar" style={{ width: '3.8rem' }} />
                 <span
                   className="analysis-skeleton__bar analysis-skeleton__bar--title"
-                  style={{ width: '12rem' }}
+                  style={{ width: '3.4rem' }}
                 />
               </div>
-              <span className="analysis-skeleton__bar" style={{ width: '10rem' }} />
-            </header>
+              <span className="analysis-skeleton__bar" style={{ width: '3.2rem' }} />
+            </div>
 
-            <div className="history-dlt__table-wrap">
-              <div className="history-page-skeleton__dlt-rows">
-                {Array.from({ length: 8 }, (_, rowIndex) => (
-                  <div key={rowIndex} className="history-page-skeleton__dlt-row">
-                    <span className="analysis-skeleton__bar" style={{ width: '3.4rem' }} />
-                    <span className="analysis-skeleton__bar" style={{ width: '4.6rem' }} />
-                    <div className="history-page-skeleton__balls">
-                      {Array.from({ length: ballCount }, (_, ballIndex) => (
-                        <span
-                          key={ballIndex}
-                          className={ballIndex >= meta.mainCount ? 'is-back' : undefined}
-                        />
-                      ))}
-                    </div>
-                    <span className="analysis-skeleton__bar" style={{ width: '5rem' }} />
-                  </div>
-                ))}
+            <div className="trend-panel__table">
+              <div className="trend-panel__table-head">
+                <div className="history-page-skeleton__digits">
+                  {axis.map((value) => (
+                    <span key={value} />
+                  ))}
+                </div>
               </div>
+              <div className="history-page-skeleton__trend-grid" />
             </div>
           </section>
-        )}
+        ))}
       </div>
 
       <ul className="history-page__list history-page__mobile history-page-skeleton__mobile" aria-hidden="true">
