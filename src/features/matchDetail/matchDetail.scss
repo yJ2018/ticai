@@ -15,8 +15,8 @@
 .md-dialog {
   display: flex;
   flex-direction: column;
-  width: min(60rem, 94vw);
-  max-height: 86vh;
+  width: min(66rem, 95vw);
+  max-height: 88vh;
   overflow: hidden;
   border-radius: 1rem;
   background: #fff;
@@ -25,28 +25,32 @@
 
 .md-dialog__head {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.1rem 1.4rem 0.9rem;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 0.95rem 1.25rem 0.85rem;
+  border-bottom: 1px solid #e8edf5;
 
   h2 {
     margin: 0;
-    color: #111827;
-    font-size: 1.1rem;
+    color: #0f172a;
+    font-size: 1.02rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
   }
 
   p {
-    margin: 0.2rem 0 0;
-    color: #6b7280;
-    font-size: 0.82rem;
+    margin: 0.22rem 0 0;
+    color: #64748b;
+    font-size: 0.78rem;
   }
 }
 
 .md-dialog__body {
-  padding: 0 1.4rem 1.4rem;
+  padding: 0 1.25rem 1.25rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .md-close {
@@ -55,15 +59,20 @@
   height: 2rem;
   border: 0;
   border-radius: 50%;
-  background: #f3f4f6;
-  color: #4b5563;
+  background: #f1f5f9;
+  color: #475569;
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
 
   &:hover {
-    background: #e5e7eb;
-    color: #111827;
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
   }
 }
 
@@ -117,14 +126,15 @@
   min-height: 2.75rem;
   padding: 0 0.9rem;
   padding-top: env(safe-area-inset-top);
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e8edf5;
   background: #fff;
 
   strong {
     min-width: 0;
     overflow: hidden;
-    color: #111827;
+    color: #0f172a;
     font-size: 1rem;
+    font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -139,7 +149,7 @@
   height: 2rem;
   border: 0;
   background: transparent;
-  color: #111827;
+  color: #0f172a;
   cursor: pointer;
 
   svg {
@@ -149,104 +159,230 @@
 }
 
 .md-page .md-body,
-.md-page .md-loading,
 .md-page .md-empty-state {
   padding: 0.9rem 0.9rem 0;
 }
 
+/* ── 正文骨架 ───────────────────────────────────────────── */
+
 .md-body {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  padding-top: 0.9rem;
+  gap: 0.7rem;
+  padding-top: 0.85rem;
 }
 
 .md-hero {
-  padding: 0.9rem 1rem;
-  border: 1px solid #dbeafe;
-  border-radius: 0.85rem;
-  background: linear-gradient(180deg, #eff6ff, #fff);
+  padding: 0.95rem 1.05rem 0.85rem;
+  border: 1px solid #dbe6f5;
+  border-radius: 0.9rem;
+  background:
+    radial-gradient(120% 150% at 50% -20%, #e8f1ff 0%, #f7fbff 48%, #fff 100%);
 }
 
 .md-hero__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  color: #6b7280;
-  font-size: 0.78rem;
+  align-items: center;
+  gap: 0.4rem;
+  color: #64748b;
+  font-size: 0.76rem;
+
+  > span {
+    padding: 0.08rem 0.42rem;
+    border-radius: 999px;
+    background: #f1f5f9;
+  }
 }
 
 .md-hero__league {
-  color: #2563eb;
+  background: #e0edff !important;
+  color: #1d4ed8;
   font-weight: 600;
+}
+
+.md-hero__kickoff {
+  color: #475569;
+  font-variant-numeric: tabular-nums;
 }
 
 .md-hero__status {
   margin-left: auto;
-  padding: 0 0.4rem;
-  border-radius: 999px;
-  background: #eef2f7;
-  color: #4b5563;
+
+  &.is-live {
+    background: #fef2f2 !important;
+    color: #dc2626;
+    font-weight: 600;
+  }
+
+  &.is-done {
+    background: #f1f5f9 !important;
+    color: #475569;
+  }
+
+  &.is-cancelled {
+    background: #fff7ed !important;
+    color: #c2410c;
+  }
 }
 
 .md-hero__score {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin: 0.5rem 0 0.2rem;
+  gap: 0.75rem;
+  max-width: 34rem;
+  margin: 0.55rem auto 0.35rem;
 
   strong {
+    min-width: 2.6rem;
     color: #1d4ed8;
-    font-size: 1.5rem;
+    font-size: 1.65rem;
     font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    text-align: center;
   }
 
   strong.is-vs {
-    color: #9ca3af;
-    font-size: 1rem;
+    min-width: 2rem;
+    color: #94a3b8;
+    font-size: 0.95rem;
+    font-weight: 600;
   }
 }
 
 .md-hero__team {
-  max-width: 40%;
   overflow: hidden;
-  color: #111827;
-  font-size: 1.05rem;
+  color: #0f172a;
+  font-size: 1.08rem;
   font-weight: 700;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.md-hero__htft {
-  color: #2563eb;
-  font-size: 0.78rem;
+.md-hero__foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+  color: #64748b;
+  font-size: 0.74rem;
+
+  span {
+    color: #94a3b8;
+  }
+
+  b {
+    color: #1d4ed8;
+    font-weight: 700;
+  }
+}
+
+.md-footnote {
+  margin: 0.1rem 0 0.2rem;
+  color: #94a3b8;
+  font-size: 0.72rem;
   text-align: center;
 }
 
+/* ── 吸顶分区导航 ────────────────────────────────────────── */
+
+.md-nav {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: 0.25rem;
+  margin: 0 -0.25rem;
+  padding: 0.4rem 0.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid #f1f5f9;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(6px);
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.md-nav__chip {
+  flex: 0 0 auto;
+  padding: 0.24rem 0.62rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+  }
+
+  &.is-active {
+    background: #e0edff;
+    color: #1d4ed8;
+    font-weight: 600;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+  }
+}
+
+/* ── 板块卡片 ───────────────────────────────────────────── */
+
 .md-section {
-  padding: 0.8rem 0.9rem;
-  border: 1px solid #eef2f7;
-  border-radius: 0.85rem;
+  padding: 0.8rem 0.95rem 0.9rem;
+  border: 1px solid #e8edf5;
+  border-radius: 0.9rem;
   background: #fff;
+  scroll-margin-top: 3.4rem;
 }
 
 .md-section__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.55rem;
+  gap: 0.6rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
 
   h3 {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.42rem;
     margin: 0;
-    color: #111827;
-    font-size: 0.95rem;
+    color: #0f172a;
+    font-size: 0.94rem;
+    font-weight: 700;
+    white-space: nowrap;
+
+    &::before {
+      content: '';
+      width: 0.2rem;
+      height: 0.92rem;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #60a5fa, #2563eb);
+    }
   }
 
-  span {
-    color: #6b7280;
-    font-size: 0.74rem;
+  > span {
+    flex: 0 0 auto;
+    padding: 0.06rem 0.4rem;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 0.72rem;
     text-align: right;
   }
 }
@@ -254,7 +390,6 @@
 .md-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -263,69 +398,117 @@
 .md-list__row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #374151;
+  gap: 0.55rem;
+  padding: 0.34rem 0.1rem;
+  color: #334155;
   font-size: 0.82rem;
+
+  & + & {
+    border-top: 1px dashed #eef2f7;
+  }
 }
 
 .md-list__date {
   flex: 0 0 auto;
-  color: #6b7280;
+  color: #94a3b8;
+  font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
 }
 
 .md-list__league {
   flex: 0 0 auto;
   color: #2563eb;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
 }
 
-.md-list__teams {
+.md-match {
+  display: grid;
   flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
   min-width: 0;
+}
+
+.md-match__home,
+.md-match__away {
   overflow: hidden;
-  text-align: center;
+  color: #334155;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
 
-  b {
-    color: #111827;
+.md-match__home {
+  text-align: right;
+}
+
+.md-match__away {
+  text-align: left;
+}
+
+.md-match__score {
+  min-width: 2.4rem;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+
+  &.is-vs {
+    color: #94a3b8;
+    font-size: 0.74rem;
+    font-weight: 400;
   }
 }
 
 .md-list__half {
   flex: 0 0 auto;
-  color: #9ca3af;
+  color: #94a3b8;
   font-size: 0.72rem;
 }
 
 .md-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 0.85rem;
+}
+
+.md-side {
+  min-width: 0;
 }
 
 .md-side__title {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
   margin-bottom: 0.4rem;
-  color: #374151;
-  font-size: 0.8rem;
-  font-weight: 600;
+  padding: 0.28rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
 
-  span {
-    color: #9ca3af;
-    font-size: 0.72rem;
-    font-weight: 400;
-  }
+.md-side__team {
+  min-width: 0;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.md-side__count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 400;
 }
 
 .md-side__list {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -338,8 +521,13 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  color: #374151;
+  padding: 0.24rem 0.1rem;
+  color: #334155;
   font-size: 0.8rem;
+
+  & + & {
+    border-top: 1px dashed #f1f5f9;
+  }
 }
 
 .md-injury__name {
@@ -352,7 +540,7 @@
 
 .md-injury__pos {
   flex: 0 0 auto;
-  color: #9ca3af;
+  color: #94a3b8;
   font-size: 0.72rem;
 }
 
@@ -373,10 +561,11 @@
 
 .md-form__tag {
   flex: 0 0 auto;
-  width: 1.1rem;
+  width: 1.15rem;
   border-radius: 0.3rem;
   font-size: 0.7rem;
   font-style: normal;
+  line-height: 1.25rem;
   text-align: center;
 
   &.is-胜 {
@@ -385,8 +574,8 @@
   }
 
   &.is-平 {
-    background: #f3f4f6;
-    color: #4b5563;
+    background: #f1f5f9;
+    color: #475569;
   }
 
   &.is-负 {
@@ -396,20 +585,51 @@
 
   &.is-none {
     background: transparent;
-    color: #9ca3af;
+    color: #94a3b8;
   }
 }
 
 .md-shooter__stat {
   flex: 0 0 auto;
+  padding: 0 0.3rem;
+  border-radius: 0.3rem;
+  background: #eff6ff;
   color: #2563eb;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+
+  &.is-assist {
+    background: #f8fafc;
+    color: #64748b;
+  }
+}
+
+/* ── 阵容 ───────────────────────────────────────────────── */
+
+.md-tag {
+  padding: 0 0.34rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.68rem;
+  font-style: normal;
+  line-height: 1.25rem;
+
+  &.is-official {
+    background: #ecfdf5;
+    color: #047857;
+  }
+
+  &.is-guess {
+    background: #fff7ed;
+    color: #b45309;
+  }
 }
 
 .md-lineup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.26rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.06rem 0.45rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -418,16 +638,28 @@
 .md-lineup__row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  color: #374151;
-  font-size: 0.8rem;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.16rem 0.2rem;
+  border-radius: 0.35rem;
+  color: #334155;
+  font-size: 0.78rem;
+
+  &:hover {
+    background: #f8fafc;
+  }
 
   em {
-    flex: 0 0 1.4rem;
-    color: #9ca3af;
-    font-size: 0.72rem;
+    display: inline-flex;
+    flex: 0 0 1.35rem;
+    align-items: center;
+    justify-content: center;
+    height: 1.35rem;
+    border-radius: 0.35rem;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 0.66rem;
     font-style: normal;
-    text-align: right;
     font-variant-numeric: tabular-nums;
   }
 
@@ -441,72 +673,103 @@
 
   i {
     flex: 0 0 auto;
-    color: #6b7280;
-    font-size: 0.7rem;
+    color: #94a3b8;
+    font-size: 0.68rem;
     font-style: normal;
   }
 }
+
+.md-lineup__bench {
+  margin-top: 0.35rem;
+  padding-top: 0.3rem;
+  border-top: 1px dashed #eef2f7;
+
+  summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.12rem 0.2rem;
+    color: #2563eb;
+    font-size: 0.74rem;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::before {
+      content: '＋';
+      font-size: 0.7rem;
+    }
+  }
+
+  &[open] summary::before {
+    content: '－';
+  }
+
+  summary:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ── 表格 ───────────────────────────────────────────────── */
 
 .md-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
 
   th,
   td {
-    padding: 0.32rem 0.2rem;
+    padding: 0.34rem 0.2rem;
     text-align: center;
   }
 
   th {
-    color: #6b7280;
+    background: #f8fafc;
+    color: #64748b;
     font-weight: 500;
+  }
+
+  th:first-child {
+    border-radius: 0.4rem 0 0 0.4rem;
+  }
+
+  th:last-child {
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+
+  td {
+    color: #334155;
   }
 
   td:first-child,
   th:first-child {
+    padding-left: 0.5rem;
+    color: #0f172a;
+    font-weight: 600;
     text-align: left;
   }
 
   tbody tr + tr td {
     border-top: 1px solid #f1f5f9;
   }
+
+  .md-table__points {
+    color: #1d4ed8;
+    font-weight: 700;
+  }
 }
+
+/* ── 空态 / 加载 ────────────────────────────────────────── */
 
 .md-empty {
   margin: 0;
-  padding: 0.35rem 0;
-  color: #9ca3af;
+  padding: 0.45rem 0.1rem;
+  color: #94a3b8;
   font-size: 0.78rem;
-}
-
-.md-loading {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 1.6rem 0.2rem;
-  color: #6b7280;
-  font-size: 0.82rem;
-}
-
-.md-loading__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: #2563eb;
-  animation: md-pulse 1s ease-in-out infinite;
-}
-
-@keyframes md-pulse {
-  0%,
-  100% {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .md-empty-state {
@@ -517,20 +780,145 @@
   text-align: center;
 
   strong {
-    color: #111827;
+    color: #0f172a;
     font-size: 1rem;
   }
 
   p {
     margin: 0;
-    color: #6b7280;
+    color: #64748b;
     font-size: 0.82rem;
   }
 }
 
 .md-empty-state__hint {
-  color: #9ca3af !important;
+  color: #94a3b8 !important;
   font-size: 0.76rem !important;
+}
+
+/* ── 骨架屏 ─────────────────────────────────────────────── */
+
+.md-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.md-skeleton__bar {
+  display: block;
+  height: 0.68rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f7 20%, #f8fafc 40%, #eef2f7 60%);
+  background-size: 300% 100%;
+  animation: match-skeleton-shimmer 1.35s linear infinite;
+
+  &.is-chip {
+    height: 1.55rem;
+    border-radius: 999px;
+  }
+
+  &.is-title {
+    width: 6.4rem;
+    height: 0.86rem;
+  }
+
+  &.is-team {
+    width: min(100%, 11rem);
+    height: 1.1rem;
+    border-radius: 0.4rem;
+  }
+
+  &.is-vs {
+    width: 2rem;
+    height: 0.9rem;
+  }
+
+  &.is-wide {
+    flex: 1 1 auto;
+  }
+}
+
+.md-skeleton__hero {
+  padding: 0.95rem 1.05rem 0.85rem;
+  border: 1px solid #e8edf5;
+  border-radius: 0.9rem;
+  background: #fbfdff;
+}
+
+.md-skeleton__row {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.md-skeleton__score {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 44rem;
+  margin: 0.85rem auto 0.7rem;
+
+  > :first-child {
+    justify-self: start;
+  }
+
+  > :last-child {
+    justify-self: end;
+  }
+}
+
+.md-skeleton__hint {
+  margin: 0;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #eef2f7;
+  color: #94a3b8;
+  font-size: 0.74rem;
+}
+
+.md-skeleton__nav {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.md-skeleton__section {
+  padding: 0.8rem 0.95rem 0.9rem;
+  border: 1px solid #eef2f7;
+  border-radius: 0.9rem;
+}
+
+.md-skeleton__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.md-skeleton__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.md-skeleton__col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.md-skeleton__line {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 /* 对战数据入口：球队名做成可点击按钮（挂在赛事卡片头部） */
@@ -560,15 +948,49 @@
 @media (max-width: 47.99rem) {
   .md-columns {
     grid-template-columns: minmax(0, 1fr);
+    gap: 0.7rem;
+  }
+
+  .md-section__head {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.22rem;
+
+    h3 {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
+    > span {
+      text-align: left;
+    }
+  }
+
+  .md-lineup {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .md-modal {
     display: none;
   }
+
+  .md-nav {
+    margin: 0 -0.9rem;
+    padding: 0.4rem 0.9rem;
+  }
+
+  .md-hero__team {
+    font-size: 1rem;
+  }
+
+  .md-hero__score strong {
+    font-size: 1.4rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .md-loading__dot {
+  .md-skeleton__bar {
     animation: none;
   }
 }
