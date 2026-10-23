@@ -2410,6 +2410,28 @@ button:focus-visible,
   background: linear-gradient(180deg, #3b82f6, #2563eb);
 }
 
+/* 统计行：出现次数 / 当前遗漏 */
+.trend-panel__cell.is-stat {
+  height: 1.35rem;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fbfdff;
+  color: #64748b;
+  font-size: 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-panel__cell.is-stat.is-hot {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.trend-panel__stats-note {
+  margin: 0.3rem 0 0;
+  color: #94a3b8;
+  font-size: 0.64rem;
+  text-align: right;
+}
+
 /* 大乐透前区 35 列 / 后区 12 列，字号要收一点 */
 .trend-panel.is-wide {
   .trend-panel__digits-head span,

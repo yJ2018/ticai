@@ -432,7 +432,7 @@ export function HistoryPage() {
                       key: 'front',
                       label: '前区',
                       axis: FRONT_AXIS,
-                      caption: '前区 5 个号码（1–35）',
+                      caption: '前区 5 个号码（1–35）· 顶上两行：出现次数 / 当前遗漏',
                       series: FRONT_COLORS.map((color, index) => ({
                         key: `front-${index}`,
                         label: `第 ${index + 1} 球`,
@@ -445,7 +445,7 @@ export function HistoryPage() {
                       key: 'back',
                       label: '后区',
                       axis: BACK_AXIS,
-                      caption: '后区 2 个号码（1–12）',
+                      caption: '后区 2 个号码（1–12）· 顶上两行：出现次数 / 当前遗漏',
                       series: BACK_COLORS.map((color, index) => ({
                         key: `back-${index}`,
                         label: `第 ${index + 1} 球`,
@@ -464,7 +464,8 @@ export function HistoryPage() {
                       rows={state.items}
                       series={panel.series}
                       caption={panel.caption}
-                      showLegend
+                      showLines={false}
+                      showStats
                     />
                   ))}
             </div>
@@ -579,6 +580,10 @@ type TrendPanelProps = {
   forecast?: string
   badge?: string
   showLegend?: boolean
+  /** 是否把落点连成折线：位次彩种连线，大乐透按业界习惯只标命中 */
+  showLines?: boolean
+  /** 底部追加「出现次数 / 当前遗漏」两行统计 */
+  showStats?: boolean
 }
 
 const TrendPanel = memo(function TrendPanel({
@@ -590,6 +595,8 @@ const TrendPanel = memo(function TrendPanel({
   forecast,
   badge,
   showLegend = false,
+  showLines = true,
+  showStats = false,
 }: TrendPanelProps) {
   return (
     <section
@@ -620,7 +627,14 @@ const TrendPanel = memo(function TrendPanel({
         </div>
       )}
 
-      <TrendGrid label={label} axis={axis} rows={rows} series={series} />
+      <TrendGrid
+        label={label}
+        axis={axis}
+        rows={rows}
+        series={series}
+        showLines={showLines}
+        showStats={showStats}
+      />
     </section>
   )
 })
@@ -634,11 +648,15 @@ const TrendGrid = memo(function TrendGrid({
   axis,
   rows,
   series,
+  showLines = true,
+  showStats = false,
 }: {
   label: string
   axis: number[]
   rows: LotteryHistoryEntry[]
   series: TrendSeries[]
+  showLines?: boolean
+  showStats?: boolean
 }) {
   const lines = series.map((item) => ({
     ...item,
@@ -650,6 +668,47 @@ const TrendGrid = memo(function TrendGrid({
       return axisIndex < 0 ? [] : [{ rowIndex, axisIndex }]
     }),
   }))
+
+  // 业界通用的大乐透走势会带两行数字统计：出现次数、当前遗漏
+  const statsRows = showStats
+    ? (() => {
+        const counts = new Map<number, number>()
+        const gaps = new Map<number, number>()
+
+        for (const value of axis) {
+          let count = 0
+          let gap = rows.length
+          for (let index = 0; index < rows.length; index += 1) {
+            const hit = series.some((item) => item.values[index] === value)
+            if (hit) {
+              count += 1
+              if (gap === rows.length) {
+                gap = index
+              }
+            }
+          }
+          counts.set(value, count)
+          gaps.set(value, gap)
+        }
+
+        const hotThreshold = Math.max(2, Math.round(rows.length / axis.length) + 1)
+
+        return [
+          {
+            key: 'count',
+            title: `近 ${rows.length} 期出现次数`,
+            values: counts,
+            hot: (value: number) => (counts.get(value) ?? 0) >= hotThreshold,
+          },
+          {
+            key: 'gap',
+            title: '当前遗漏（多少期没出）',
+            values: gaps,
+            hot: (value: number) => gaps.get(value) === 0,
+          },
+        ]
+      })()
+    : []
 
   return (
     <div className="trend-panel__table">
@@ -670,39 +729,62 @@ const TrendGrid = memo(function TrendGrid({
             } as CSSProperties
           }
         >
-          <svg
-            className="trend-panel__lines"
-            viewBox={`0 0 ${axis.length} ${Math.max(rows.length, 1)}`}
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            {lines.map((line) => (
-              <path
-                key={line.key}
-                d={buildSmoothPath(line.points, axis.length)}
-                stroke={line.color}
-                className="trend-panel__polyline"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </svg>
+          {showLines && (
+            <>
+              <svg
+                className="trend-panel__lines"
+                viewBox={`0 0 ${axis.length} ${Math.max(rows.length, 1)}`}
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                {lines.map((line) => (
+                  <path
+                    key={line.key}
+                    d={buildSmoothPath(line.points, axis.length)}
+                    stroke={line.color}
+                    className="trend-panel__polyline"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+              </svg>
 
-          <div className="trend-panel__dots" aria-hidden="true">
-            {lines.flatMap((line) =>
-              line.points.map((point) => (
-                <span
-                  key={`${label}-${line.key}-${point.rowIndex}`}
-                  style={{
-                    left: `${((point.axisIndex + 0.5) / axis.length) * 100}%`,
-                    top: `calc(${point.rowIndex + 0.5} * 1.875rem)`,
-                    borderColor: line.color,
-                  }}
-                />
-              )),
-            )}
-          </div>
+              <div className="trend-panel__dots" aria-hidden="true">
+                {lines.flatMap((line) =>
+                  line.points.map((point) => (
+                    <span
+                      key={`${label}-${line.key}-${point.rowIndex}`}
+                      style={{
+                        left: `${((point.axisIndex + 0.5) / axis.length) * 100}%`,
+                        top: `calc(${point.rowIndex + 0.5} * 1.875rem)`,
+                        borderColor: line.color,
+                      }}
+                    />
+                  )),
+                )}
+              </div>
+            </>
+          )}
 
           <div className="trend-panel__grid">
+            {/* 统计行放最上面，滚动前就能看到出现次数与当前遗漏 */}
+            {showStats &&
+              statsRows.map((stat) => (
+                <div
+                  key={`${label}-stat-${stat.key}`}
+                  className="trend-panel__grid-row is-stat"
+                  title={stat.title}
+                >
+                  {axis.map((value) => (
+                    <span
+                      key={`${label}-stat-${stat.key}-${value}`}
+                      className={`trend-panel__cell is-stat${stat.hot(value) ? ' is-hot' : ''}`}
+                    >
+                      {stat.values.get(value) ?? 0}
+                    </span>
+                  ))}
+                </div>
+              ))}
+
             {rows.map((row, rowIndex) => (
               <div key={`${label}-${row.issue}-row`} className="trend-panel__grid-row">
                 {axis.map((value) => {
