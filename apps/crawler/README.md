@@ -180,6 +180,11 @@ npm run crawl:daemon
 > 权衡：凌晨场次（03:00 开赛）的**官方**阵容会在停售时段公布，默认会被闸门挡掉，只能拿到前一晚的预计阵容。
 > 如果更看重阵容完整度，设 `CRAWL_LINEUPS_GATE=0`，让阵容不受销售时段限制。
 
+> **跨零点场次**：赛程接口按「销售日」分组，凌晨 00:00–08:30 的场次归在前一天的期号里，
+> 真正的比赛日写在元素的 `matchDate` 上。`kickoff_at` 必须用它拼（`resolveMatchDate`）；
+> 只用 `businessDate + matchTime` 会把开赛时间整体提前 24 小时，`expire` 与 `matches` 的
+> 「已开赛兜底」会在开赛前一天把这些场次判成 `closed`，前端在售列表和阵容会一起消失。
+
 需要 `.env` 里配好 `DATABASE_URL`（云端库连接串）和 `DATABASE_SSL=1`。
 
 Windows 开机自启：
