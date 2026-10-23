@@ -259,3 +259,8 @@ function shutdown(signal) {
 
 process.on('SIGINT', () => shutdown('SIGINT'))
 process.on('SIGTERM', () => shutdown('SIGTERM'))
+
+// 常驻进程不能因为一次未捕获的拒绝就静默退出：记录后继续跑，下一轮照常调度。
+process.on('unhandledRejection', (reason) => {
+  console.error('[crawler] 未处理的 Promise 拒绝：', reason instanceof Error ? reason.message : reason)
+})

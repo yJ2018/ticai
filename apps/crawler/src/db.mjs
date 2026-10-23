@@ -5,7 +5,7 @@ import pg from 'pg'
 const { Pool } = pg
 
 export function createPool(database) {
-  return new Pool({
+  const pool = new Pool({
     connectionString: database.url,
     ssl: database.ssl,
     max: database.poolMax,
@@ -14,6 +14,15 @@ export function createPool(database) {
     // 单条语句上限：回灌大页时给足，但不至于无限挂着
     statement_timeout: 60_000,
   })
+
+  // 长跑进程会空闲很久，数据库/中间层可能单方面断开连接。
+  // pool 上的 'error' 事件没有监听器时，Node 会直接退出进程（exit code 1 且不一定有栈）——
+  // 这里吞掉并交给下一次查询自动重连。
+  pool.on('error', (error) => {
+    console.error('[db] 空闲连接异常（已忽略，下次查询会重连）：', error.message)
+  })
+
+  return pool
 }
 
 export async function withTransaction(pool, fn) {

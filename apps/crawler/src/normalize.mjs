@@ -9,6 +9,41 @@ import { createHash } from 'node:crypto'
 
 const NUMERIC_POOLS = ['had', 'hhad', 'ttg', 'crs', 'hafu']
 
+/**
+ * 真正的开赛日期。
+ *
+ * 赛程接口按「销售日」分组（businessDate），跨零点的场次归在前一天的期号里，
+ * 元素自带的 matchDate 才是实际的比赛日。只用 businessDate + matchTime 拼时间，
+ * 所有凌晨场次都会整体提前 24 小时——开赛前一天就被判成已停售，阵容随之消失。
+ * 只有上游没给 matchDate 时才退回 businessDate。
+ */
+export function resolveMatchDate(item, businessDate) {
+  const fallback = String(businessDate ?? '').trim().slice(0, 10)
+  const fromItem = String(item?.matchDate ?? '').trim().slice(0, 10)
+
+  if (!isDateOnly(fromItem)) {
+    return fallback
+  }
+  // 开赛日不会早于销售日：比销售日还早的一律当脏数据
+  if (isDateOnly(fallback) && fromItem < fallback) {
+    return fallback
+  }
+  return fromItem
+}
+
+/** 'YYYY-MM-DD' 且是真实存在的日期；'0000-00-00'、'2026-02-30' 都算脏数据。 */
+function isDateOnly(text) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return false
+  }
+  const stamp = Date.parse(`${text}T00:00:00+08:00`)
+  if (!Number.isFinite(stamp)) {
+    return false
+  }
+  // 加回 8 小时再取 UTC 日期，等于「这一天在北京时间下的日期」
+  return new Date(stamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 10) === text
+}
+
 /** 体彩的日期和时刻是分开给的，且都是北京时间；不补 +08:00 会整体差 8 小时。 */
 export function parseKickoff(businessDate, matchTime) {
   const date = String(businessDate ?? '').trim()
@@ -119,7 +154,7 @@ export function normalizeMatch(item, businessDate) {
     sportteryMatchId: Number(item?.matchId),
     businessDate: String(businessDate ?? '').slice(0, 10),
     matchNumStr: item?.matchNumStr ?? null,
-    kickoffAt: parseKickoff(businessDate, item?.matchTime),
+    kickoffAt: parseKickoff(resolveMatchDate(item, businessDate), item?.matchTime),
     leagueName: item?.leagueAllName ?? '未知联赛',
     homeTeamId: Number.isFinite(Number(item?.homeTeamId)) ? Number(item.homeTeamId) : null,
     awayTeamId: Number.isFinite(Number(item?.awayTeamId)) ? Number(item.awayTeamId) : null,

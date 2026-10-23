@@ -8,6 +8,7 @@ import {
   parseKickoff,
   parseMoney,
   parseNumbers,
+  resolveMatchDate,
   stableStringify,
 } from '../src/normalize.mjs'
 
@@ -21,6 +22,37 @@ test('parseKickoff: 补上 +08:00，避免 UTC 进程里差 8 小时', () => {
 test('parseKickoff: 非法日期直接抛错，不静默产出脏数据', () => {
   assert.throws(() => parseKickoff('2026/10/22', '20:00'), /businessDate/)
   assert.throws(() => parseKickoff(undefined, '20:00'), /businessDate/)
+})
+
+test('resolveMatchDate: 跨零点场次用 matchDate，缺失时才退回销售日', () => {
+  // 周五002 属于 10-23 的销售日，但实际是 10-24 00:30 开赛
+  assert.equal(resolveMatchDate({ matchDate: '2026-10-24' }, '2026-10-23'), '2026-10-24')
+  // 带时分秒也按前 10 位取
+  assert.equal(resolveMatchDate({ matchDate: '2026-10-24 00:30:00' }, '2026-10-23'), '2026-10-24')
+  // 上游没给 matchDate / 给了脏值 → 退回销售日
+  assert.equal(resolveMatchDate({}, '2026-10-23'), '2026-10-23')
+  assert.equal(resolveMatchDate({ matchDate: '0000-00-00' }, '2026-10-23'), '2026-10-23')
+})
+
+test('normalizeMatch: 凌晨场次的开赛时间不会被提前一天', () => {
+  const row = normalizeMatch(
+    {
+      matchId: 9101,
+      matchNumStr: '周五002',
+      matchDate: '2026-10-24',
+      matchTime: '00:30:00',
+      leagueAllName: '德乙',
+      homeTeamId: 2001,
+      awayTeamId: 2002,
+      homeTeamAbbName: '波鸿',
+      awayTeamAbbName: '沃夫斯堡',
+    },
+    '2026-10-23',
+  )
+
+  assert.equal(row.kickoffAt, '2026-10-24T00:30:00+08:00')
+  // 销售日仍是期号所属的那一天
+  assert.equal(row.businessDate, '2026-10-23')
 })
 
 test('parseNumbers: 大乐透 7 个号码拆成前区 5 + 后区 2', () => {
