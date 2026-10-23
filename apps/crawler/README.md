@@ -29,6 +29,7 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 | `history --backfill` | 从第 1 页翻到最后一页 | 一次性 |
 | `details` | 伤停 + 赛果；`--full` 抓全部 7 个源 | 按需 / 低频 |
 | `lineups` | 导入阵容 JSON（`--dry` 预演不落库） | 有数据时手动跑 |
+| `expire` | 本地状态收敛：已开赛的比赛标为停售（不发请求） | 与 matches 同频 |
 | `all` | matches + history（不含 details，它太贵） | — |
 
 `--every=N` 进入循环模式，单轮失败不会退出（网络抖动是常态）。

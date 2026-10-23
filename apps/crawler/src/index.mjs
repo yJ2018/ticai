@@ -5,6 +5,7 @@ import { createConfig, loadEnv } from './config.mjs'
 import { createPool } from './db.mjs'
 import { sleep } from './http.mjs'
 import { crawlDetails } from './tasks/details.mjs'
+import { expireStartedMatches } from './tasks/expire.mjs'
 import { crawlHistory } from './tasks/history.mjs'
 import { importLineups } from './tasks/lineups.mjs'
 import { crawlLineupsBrowser, dumpLineupPage } from './tasks/lineups-browser.mjs'
@@ -44,6 +45,7 @@ ticai crawler
   node src/index.mjs details [--full] [--limit=10] [--match=2042155] [--every=600]
   node src/index.mjs lineups --file=lineups.json [--dry]
   node src/index.mjs lineups-browser --fid=1502981 [--click=阵容] [--mobile]
+  node src/index.mjs expire
   node src/index.mjs all [--every=60]
 
 命令：
@@ -52,6 +54,7 @@ ticai crawler
   details   对战数据：伤停 + 赛果（--full 抓全部 7 个源）
   lineups   导入阵容（JSON），--dry 只预演不落库
   lineups-browser  用 Playwright 打开数据站，dump 页面与网络响应（探测阵容来源）
+  expire    本地状态收敛：已开赛的比赛标为停售（不发请求）
   all       两者都跑（不含 details，它太贵）
 
 说明：
@@ -64,7 +67,7 @@ if (hasFlag('help') || command === 'help') {
   process.exit(0)
 }
 
-if (!['matches', 'history', 'details', 'lineups', 'lineups-browser', 'all'].includes(command)) {
+if (!['matches', 'history', 'details', 'lineups', 'lineups-browser', 'expire', 'all'].includes(command)) {
   console.error(`未知命令：${command}\n\n${USAGE}`)
   process.exit(1)
 }
@@ -149,6 +152,11 @@ async function runOnce() {
       `[lineups] ${summary.matches} 场 · ${summary.players} 名球员 · 来源 ${summary.source}` +
         (summary.dryRun ? ' · 预演（已回滚）' : ''),
     )
+  }
+
+  if (command === 'expire') {
+    const summary = await expireStartedMatches({ pool })
+    console.log(`[expire] ${summary.closed} 场已开赛 → 停售`)
   }
 
   if (command === 'history' || command === 'all') {

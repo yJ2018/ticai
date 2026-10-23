@@ -5,6 +5,7 @@ import { formatClock, isBettingOpen } from './bet-window.mjs'
 import { createConfig, loadEnv } from './config.mjs'
 import { createPool } from './db.mjs'
 import { crawlDetails } from './tasks/details.mjs'
+import { expireStartedMatches } from './tasks/expire.mjs'
 import { crawlHistory } from './tasks/history.mjs'
 import { crawlLineupsBrowser } from './tasks/lineups-browser.mjs'
 import { crawlMatches } from './tasks/matches.mjs'
@@ -46,6 +47,16 @@ const LINEUPS_MS = config.lineupsMinutes * 60_000
 let queue = Promise.resolve()
 
 const TASKS = [
+  {
+    name: 'expire',
+    // 纯本地状态收敛，不发任何请求，所以不受销售时段闸门限制
+    gate: false,
+    everyMs: MATCHES_MS,
+    run: async () => {
+      const summary = await expireStartedMatches({ pool })
+      return `${summary.closed} 场已开赛 → 停售`
+    },
+  },
   {
     name: 'matches',
     // 非销售时段盘口不会变，抓了也是白跑
