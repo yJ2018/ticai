@@ -8,26 +8,10 @@ import { fetchHistoryPage } from '../sporttery.mjs'
  *
  * 每个彩种一条 crawl_run（source = sporttery.history:pl5），
  * 这样 /api/health 能分别显示四个彩种的新鲜度。
+ *
+ * 写库按「页」批量：一页 100 期一条多值 insert + 一条奖级 insert。
+ * 跨境库每次 round trip 都在 0.5s 上下，逐条 upsert 会让一页从 1s 变成 80s。
  */
-
-const UPSERT_DRAW = `
-  insert into lottery_draw
-    (game_no, issue, issue_seq, draw_date, main_numbers, extra_numbers, numbers_text,
-     sales_amount, pool_balance, pool_balance_after, raw)
-  values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-  on conflict (game_no, issue) do update set
-    issue_seq          = excluded.issue_seq,
-    draw_date          = excluded.draw_date,
-    main_numbers       = excluded.main_numbers,
-    extra_numbers      = excluded.extra_numbers,
-    numbers_text       = excluded.numbers_text,
-    sales_amount       = excluded.sales_amount,
-    pool_balance       = excluded.pool_balance,
-    pool_balance_after = excluded.pool_balance_after,
-    raw                = excluded.raw,
-    updated_at         = now()
-  returning id
-`
 
 const INSERT_PRIZES = `
   insert into lottery_prize_level
@@ -40,74 +24,143 @@ const INSERT_PRIZES = `
     total_amount = excluded.total_amount
 `
 
+const DRAW_COLUMNS = [
+  'game_no',
+  'issue',
+  'issue_seq',
+  'draw_date',
+  'main_numbers',
+  'extra_numbers',
+  'numbers_text',
+  'sales_amount',
+  'pool_balance',
+  'pool_balance_after',
+  'raw',
+]
+
 async function savePage(pool, game, list, log) {
-  let saved = 0
   let skipped = 0
+  const rows = []
+
+  for (const item of list) {
+    try {
+      rows.push(normalizeDraw(item, game))
+    } catch (error) {
+      skipped += 1
+      log(`  ! ${game.name} 跳过异常开奖 ${item?.lotteryDrawNum ?? '?'}: ${error.message}`)
+    }
+  }
+
+  if (rows.length === 0) {
+    return { saved: 0, skipped }
+  }
 
   await withTransaction(pool, async (client) => {
+    // 跨境写库：一行一次 round trip 太慢（100 期要 80s），改成一页一条多值 insert
+    const placeholders = rows
+      .map((_, rowIndex) => {
+        const base = rowIndex * DRAW_COLUMNS.length
+        const values = DRAW_COLUMNS.map((__, columnIndex) => `$${base + columnIndex + 1}`)
+        return `(${values.join(', ')})`
+      })
+      .join(', ')
+
+    const params = rows.flatMap((row) => [
+      row.gameNo,
+      row.issue,
+      row.issueSeq,
+      row.drawDate,
+      row.mainNumbers,
+      row.extraNumbers,
+      row.numbersText,
+      row.salesAmount,
+      row.poolBalance,
+      row.poolBalanceAfter,
+      JSON.stringify(row.raw ?? {}),
+    ])
+
+    const { rows: inserted } = await client.query(
+      `insert into lottery_draw (${DRAW_COLUMNS.join(', ')})
+       values ${placeholders}
+       on conflict (game_no, issue) do update set
+         issue_seq          = excluded.issue_seq,
+         draw_date          = excluded.draw_date,
+         main_numbers       = excluded.main_numbers,
+         extra_numbers      = excluded.extra_numbers,
+         numbers_text       = excluded.numbers_text,
+         sales_amount       = excluded.sales_amount,
+         pool_balance       = excluded.pool_balance,
+         pool_balance_after = excluded.pool_balance_after,
+         raw                = excluded.raw,
+         updated_at         = now()
+       returning id, issue`,
+      params,
+    )
+
+    const idByIssue = new Map(inserted.map((row) => [row.issue, row.id]))
     const drawIds = []
     const prizeRows = []
 
-    for (const item of list) {
-      let row
-      try {
-        row = normalizeDraw(item, game)
-      } catch (error) {
-        skipped += 1
-        log(`  ! ${game.name} 跳过异常开奖 ${item?.lotteryDrawNum ?? '?'}: ${error.message}`)
+    for (const row of rows) {
+      const drawId = idByIssue.get(row.issue)
+      if (!drawId) {
         continue
       }
-
-      const { rows } = await client.query(UPSERT_DRAW, [
-        row.gameNo,
-        row.issue,
-        row.issueSeq,
-        row.drawDate,
-        row.mainNumbers,
-        row.extraNumbers,
-        row.numbersText,
-        row.salesAmount,
-        row.poolBalance,
-        row.poolBalanceAfter,
-        row.raw,
-      ])
-
-      const drawId = rows[0].id
       drawIds.push(drawId)
-      saved += 1
-
       for (const prize of row.prizes) {
         prizeRows.push({ drawId, ...prize })
       }
     }
 
-    if (drawIds.length > 0) {
-      // 奖级整体替换：上游删掉一个奖级时，delete+insert 比逐条 upsert 更不容易残留
-      await client.query('delete from lottery_prize_level where draw_id = any($1::bigint[])', [drawIds])
+    if (drawIds.length === 0) {
+      return
+    }
 
-      if (prizeRows.length > 0) {
-        await client.query(INSERT_PRIZES, [
-          prizeRows.map((row) => row.drawId),
-          prizeRows.map((row) => row.prizeKey),
-          prizeRows.map((row) => row.sortNo),
-          prizeRows.map((row) => row.stakeCount),
-          prizeRows.map((row) => row.prizeAmount),
-          prizeRows.map((row) => row.totalAmount),
-        ])
-      }
+    // 奖级整体替换：上游删掉一个奖级时，delete+insert 比逐条 upsert 更不容易残留
+    await client.query('delete from lottery_prize_level where draw_id = any($1::bigint[])', [drawIds])
+
+    if (prizeRows.length > 0) {
+      await client.query(INSERT_PRIZES, [
+        prizeRows.map((row) => row.drawId),
+        prizeRows.map((row) => row.prizeKey),
+        prizeRows.map((row) => row.sortNo),
+        prizeRows.map((row) => row.stakeCount),
+        prizeRows.map((row) => row.prizeAmount),
+        prizeRows.map((row) => row.totalAmount),
+      ])
     }
   })
 
-  return { saved, skipped }
+  return { saved: rows.length, skipped }
 }
 
-export async function crawlHistory({ pool, config, backfill = false, maxPages, log = console.log }) {
-  const games = await loadGames(pool, config.gameNos)
-  if (games.length === 0) {
+export async function crawlHistory({
+  pool,
+  config,
+  backfill = false,
+  maxPages,
+  delayMs,
+  jitterMs,
+  gameKeys,
+  log = console.log,
+}) {
+  const allGames = await loadGames(pool, config.gameNos)
+  if (allGames.length === 0) {
     throw new Error('lottery_game 里没有启用的彩种，请先执行 npm run db:seed')
   }
 
+  const games =
+    Array.isArray(gameKeys) && gameKeys.length > 0
+      ? allGames.filter((game) => gameKeys.includes(game.gameKey))
+      : allGames
+  if (games.length === 0) {
+    throw new Error(`CRAWL_GAMES 里没有这些彩种：${gameKeys.join(', ')}`)
+  }
+
   const pageLimit = Math.min(maxPages ?? config.maxPages, config.maxPages)
+  // 回灌是长跑，按页限速：base + 0~jitter 的随机间隔，别让请求节奏像机器
+  const pageDelay = Number.isFinite(delayMs) ? Math.max(0, delayMs) : config.delayMs
+  const pageJitter = Number.isFinite(jitterMs) ? Math.max(0, jitterMs) : Math.round(pageDelay * 0.5)
   const summary = []
 
   for (const game of games) {
@@ -135,13 +188,20 @@ export async function crawlHistory({ pool, config, backfill = false, maxPages, l
         saved += pageResult.saved
         skipped += pageResult.skipped
 
+        if (backfill) {
+          log(
+            `  ${game.gameKey} ${page}/${pages} 页 · 写入 ${pageResult.saved} 期` +
+              (pageResult.skipped > 0 ? ` · 跳过 ${pageResult.skipped}` : ''),
+          )
+        }
+
         if (!backfill) {
           break
         }
 
         page += 1
         if (page <= pages) {
-          await sleep(config.delayMs)
+          await sleep(pageDelay + Math.floor(Math.random() * pageJitter))
         }
       } while (page <= pages)
 
@@ -158,7 +218,7 @@ export async function crawlHistory({ pool, config, backfill = false, maxPages, l
     }
 
     if (games.indexOf(game) < games.length - 1) {
-      await sleep(config.delayMs)
+      await sleep(pageDelay)
     }
   }
 

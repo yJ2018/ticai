@@ -15,8 +15,12 @@ export DATABASE_URL=postgres://...            # 或写进根 .env
 node apps/crawler/src/index.mjs matches       # 抓一次在售赛程
 node apps/crawler/src/index.mjs history       # 抓四个彩种最新一页
 node apps/crawler/src/index.mjs history --backfill   # 逐页回灌历史
+node apps/crawler/src/index.mjs history --backfill --game=qxc,dlt --delay=4500   # 只补某几个彩种并放慢
 node apps/crawler/src/index.mjs all --every=60       # 循环跑
 ```
+
+`--delay=<ms>` 控制每页间隔（默认 `CRAWL_DELAY_MS`，另外加 0~50% 的随机抖动）；
+`--game=pl5,qxc` 只回灌指定彩种；两者配合可以把回灌压到很轻的请求节奏。
 
 首次使用前先把库建好：`npm run db:migrate`。
 

@@ -42,7 +42,7 @@ const USAGE = `
 ticai crawler
 
   node src/index.mjs matches [--every=60]
-  node src/index.mjs history [--backfill] [--pages=N] [--every=600]
+  node src/index.mjs history [--backfill] [--pages=N] [--game=pl5,qxc] [--delay=3000] [--every=600]
   node src/index.mjs details [--full] [--limit=10] [--match=2042155] [--every=600]
   node src/index.mjs lineups --file=lineups.json [--dry]
   node src/index.mjs lineups-browser --fid=1502981 [--click=阵容] [--mobile]
@@ -84,6 +84,11 @@ if (!config.database.url && command !== 'lineups-browser') {
 const everySeconds = Number(flagValue('every', '0')) || 0
 const backfill = hasFlag('backfill')
 const pagesArg = Number(flagValue('pages', '0')) || undefined
+const delayArg = Number(flagValue('delay', '0')) || undefined
+const gameKeys = (flagValue('game', '') || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean)
 
 let stopping = false
 
@@ -173,6 +178,8 @@ async function runOnce() {
       config,
       backfill,
       maxPages: pagesArg,
+      delayMs: delayArg,
+      gameKeys,
     })
     for (const item of results) {
       if (item.error) {
