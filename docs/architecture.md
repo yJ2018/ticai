@@ -249,6 +249,9 @@ D:\ticai
    │  ├─ aiAnalysis.ts         # 单场提示词构建、推荐摘要解析
    │  ├─ useBetSlip.ts         # 选择态、串关、注数/金额/最高奖金
    │  ├─ betSlipMath.ts        # 纯函数：组合乘积、税率、过关上限、标签格式化
+   │  ├─ parlayModel.ts        # 一键串关模型：去水 → 拟合 λ → 泊松 → EV → 三选
+   │  ├─ useAutoParlay.ts      # 分析流水线状态机（分批 + 进度）
+   │  ├─ AutoParlayPanel.tsx   # 分析过程可视化（步骤、进度、串关明细）
    │  ├─ MatchPoolList.tsx     # 赛事卡片 + 赔率选项 + 混合过关展开 + AI 按钮
    │  ├─ BetSlipFooter.tsx     # 底部投注栏（过关/倍数/金额）
    │  ├─ PlanModal.tsx         # 方案弹层（截图专用元信息）
@@ -792,7 +795,7 @@ flowchart LR
 | 应用入口 / 外壳 | [src/main.tsx](../src/main.tsx)、[src/App.tsx](../src/App.tsx) |
 | 缓存路由 | [src/router/KeepAliveRoutes.tsx](../src/router/KeepAliveRoutes.tsx) |
 | 投注页 | [src/pages/HomePage.tsx](../src/pages/HomePage.tsx) |
-| 投注逻辑 | [src/features/betting/useBetSlip.ts](../src/features/betting/useBetSlip.ts)、[betSlipMath.ts](../src/features/betting/betSlipMath.ts) |
+| 投注逻辑 | [src/features/betting/useBetSlip.ts](../src/features/betting/useBetSlip.ts)、[betSlipMath.ts](../src/features/betting/betSlipMath.ts)、[parlayModel.ts](../src/features/betting/parlayModel.ts) |
 | 投注组件 | [MatchPoolList.tsx](../src/features/betting/MatchPoolList.tsx)、[MatchListSkeleton.tsx](../src/features/betting/MatchListSkeleton.tsx)、[BetSlipFooter.tsx](../src/features/betting/BetSlipFooter.tsx)、[PlanModal.tsx](../src/features/betting/PlanModal.tsx)、[SnapshotOverlay.tsx](../src/features/betting/SnapshotOverlay.tsx) |
 | 单场 AI | [AiAnalysisPanel.tsx](../src/features/betting/AiAnalysisPanel.tsx)、[useMatchAiAnalysis.ts](../src/features/betting/useMatchAiAnalysis.ts)、[aiAnalysis.ts](../src/features/betting/aiAnalysis.ts) |
 | 方案 AI | [ParlayAiAnalysisPanel.tsx](../src/features/betting/ParlayAiAnalysisPanel.tsx)、[useParlayAiAnalysis.ts](../src/features/betting/useParlayAiAnalysis.ts)、[parlayAiAnalysis.ts](../src/features/betting/parlayAiAnalysis.ts) |

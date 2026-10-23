@@ -23,6 +23,15 @@ export type MatchCardMixedSection = {
   groups: MatchCardOptionGroup[]
 }
 
+/** 全玩法原始赔率：一键串关的模型需要 1X2 / 总进球，而不只是当前玩法。 */
+export type MatchMarkets = {
+  had?: MatchItem['had']
+  hhad?: MatchItem['hhad']
+  ttg?: MatchItem['ttg']
+  crs?: MatchItem['crs']
+  hafu?: MatchItem['hafu']
+}
+
 export type MatchCard = {
   id: number
   title: string
@@ -33,6 +42,7 @@ export type MatchCard = {
   awayTeam?: string
   homeTeamId?: number
   matchNo?: string
+  markets?: MatchMarkets
   optionGroups?: MatchCardOptionGroup[]
   mixedSections?: MatchCardMixedSection[]
 }
@@ -65,6 +75,13 @@ function toMatchCard(match: MatchItem, businessDate: string, poolType: MatchPool
     awayTeam: away,
     homeTeamId: match.homeTeamId,
     matchNo: match.matchNumStr,
+    markets: {
+      had: match.had,
+      hhad: match.hhad,
+      ttg: match.ttg,
+      crs: match.crs,
+      hafu: match.hafu,
+    },
     optionGroups: toOptionGroups(match, poolType),
     mixedSections: toMixedSections(match, poolType),
   }

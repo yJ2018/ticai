@@ -56,53 +56,6 @@ export function getMaxParlayLegs(poolType: MatchPoolType) {
   return getPassTypeOptions(poolType).length + 1
 }
 
-export type AutoPick = {
-  matchId: number
-  optionKey: string
-  optionLabel: string
-  odd: number
-  /** 赔率隐含概率，只用来排序，不是真实胜率 */
-  probability: number
-}
-
-/**
- * 一键串关：每场挑出最可能命中的选项（赔率最低的那一注），
- * 再按命中概率排序，取到该玩法的关卡上限。
- *
- * 只是把"选哪几场、选哪一注"的机械活干完，不替代分析和人的判断。
- */
-export function buildAutoParlayPicks(items: MatchCard[], poolType: MatchPoolType): AutoPick[] {
-  const maxLegs = getMaxParlayLegs(poolType)
-  const candidates: AutoPick[] = []
-
-  for (const item of items) {
-    let best: AutoPick | null = null
-
-    for (const option of flattenOptionGroups(item)) {
-      const odd = Number(option.value)
-      if (!Number.isFinite(odd) || odd <= 1) {
-        continue
-      }
-      if (!best || odd < best.odd) {
-        best = {
-          matchId: item.id,
-          optionKey: option.key,
-          optionLabel: formatPlanOptionLabel(poolType, option, item),
-          odd,
-          probability: 1 / odd,
-        }
-      }
-    }
-
-    if (best) {
-      candidates.push(best)
-    }
-  }
-
-  candidates.sort((left, right) => right.probability - left.probability)
-  return candidates.slice(0, maxLegs)
-}
-
 export function getMaxPassTypeByCount(options: string[], selectedCount: number) {
   for (let index = options.length - 1; index >= 0; index -= 1) {
     const option = options[index]

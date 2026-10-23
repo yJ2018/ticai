@@ -11,7 +11,10 @@ import { ParlayAiAnalysisPanel } from '../features/betting/ParlayAiAnalysisPanel
 import { useMatchAiAnalysis } from '../features/betting/useMatchAiAnalysis'
 import { useParlayAiAnalysis } from '../features/betting/useParlayAiAnalysis'
 import { useBetSlip } from '../features/betting/useBetSlip'
-import { PLAN_MODAL_ANIMATION_MS, buildAutoParlayPicks, formatMoney, getSportteryTaxInfo } from '../features/betting/betSlipMath'
+import { useAutoParlay } from '../features/betting/useAutoParlay'
+import { AutoParlayPanel } from '../features/betting/AutoParlayPanel'
+import { type ParlayLeg } from '../features/betting/parlayModel'
+import { PLAN_MODAL_ANIMATION_MS, formatMoney, getSportteryTaxInfo } from '../features/betting/betSlipMath'
 
 const poolTabs: Array<{ key: MatchPoolType; label: string }> = [
   { key: 'had', label: '胜平负' },
@@ -53,6 +56,7 @@ export function HomePage() {
   const betSlip = useBetSlip(items, activePool)
   const aiAnalysis = useMatchAiAnalysis(activePool)
   const parlayAi = useParlayAiAnalysis()
+  const autoParlay = useAutoParlay()
 
   useEffect(() => {
     loadMatches()
@@ -136,6 +140,7 @@ export function HomePage() {
     setIsMultiplePanelOpen(false)
     aiAnalysis.close()
     parlayAi.close()
+    autoParlay.close()
     closePlanModal()
   }
 
@@ -269,17 +274,15 @@ export function HomePage() {
   }
 
   /**
-   * 一键串关：按当前玩法给每场挑一注最可能的，再按概率排序取到关卡上限。
-   * 只是把机械的挑选干完，选完仍然可以手动改，也可以直接走"查看方案 / AI 分析"。
+   * 一键串关：先跑一遍赔率 → λ → 泊松 → EV 的分析，把过程画在面板里，
+   * 用户确认后再写进投注单。
    */
   function handleAutoParlay() {
     if (activeCache.loading) {
       setToastText('比赛还在加载，稍等一下')
       return
     }
-
-    const picks = buildAutoParlayPicks(items, activePool)
-    if (picks.length < 2) {
+    if (items.length < 2) {
       setToastText('当前玩法可选场次不足 2 场')
       return
     }
@@ -287,8 +290,15 @@ export function HomePage() {
     closeAllPanels()
     aiAnalysis.close()
     parlayAi.close()
-    betSlip.applyAutoPicks(picks)
-    setToastText(`已选 ${picks.length} 场 · ${picks.length}串1`)
+    void autoParlay.start(items, activePool)
+  }
+
+  function applyAutoParlay(legs: ParlayLeg[]) {
+    betSlip.applyAutoPicks(
+      legs.map((leg) => ({ matchId: leg.matchId, optionKey: leg.pick.key })),
+    )
+    setToastText(`已应用 ${legs.length} 场 · ${legs.length}串1`)
+    autoParlay.close()
   }
 
   async function captureSnapshot() {
@@ -488,6 +498,13 @@ export function HomePage() {
         anchor={parlayAi.anchor}
         onClose={parlayAi.close}
         onRetry={parlayAi.retry}
+      />
+
+      <AutoParlayPanel
+        state={autoParlay.state}
+        poolLabel={poolTabs.find((tab) => tab.key === activePool)?.label ?? ''}
+        onApply={applyAutoParlay}
+        onClose={autoParlay.close}
       />
 
       {(isPassPanelOpen || isMultiplePanelOpen) && (

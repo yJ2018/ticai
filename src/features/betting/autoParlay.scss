@@ -1,0 +1,496 @@
+/* 一键串关分析面板 */
+
+.auto-parlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.auto-parlay__card {
+  display: flex;
+  flex-direction: column;
+  width: min(46rem, 95vw);
+  min-height: 24rem;
+  max-height: 88vh;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, 0.28);
+}
+
+.auto-parlay__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem 0.8rem;
+  border-bottom: 1px solid #e8edf5;
+
+  h2 {
+    margin: 0.15rem 0 0;
+    color: #0f172a;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+}
+
+.auto-parlay__eyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.auto-parlay__close {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+}
+
+.auto-parlay__progress {
+  height: 3px;
+  background: #eef2f7;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(90deg, #60a5fa, #2563eb);
+    transition: width 0.25s ease;
+  }
+}
+
+.auto-parlay__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0.85rem 1.25rem 0.4rem;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: 1.35rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.22rem 0;
+    color: #94a3b8;
+    font-size: 0.8rem;
+
+    i {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.35rem;
+      height: 1.35rem;
+      border-radius: 50%;
+      background: #f1f5f9;
+      color: #94a3b8;
+      font-size: 0.7rem;
+      font-style: normal;
+      font-weight: 600;
+    }
+
+    em {
+      color: #94a3b8;
+      font-size: 0.72rem;
+      font-style: normal;
+    }
+
+    &.is-active {
+      color: #1e293b;
+      font-weight: 600;
+
+      i {
+        background: #dbeafe;
+      }
+    }
+
+    &.is-done {
+      color: #334155;
+
+      i {
+        background: #dcfce7;
+        color: #15803d;
+      }
+
+      em {
+        color: #64748b;
+      }
+    }
+  }
+}
+
+.auto-parlay__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #2563eb;
+  animation: auto-parlay-pulse 1s ease-in-out infinite;
+}
+
+@keyframes auto-parlay-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.auto-parlay__running {
+  margin: 0;
+  padding: 0.2rem 1.25rem 0.9rem;
+  color: #64748b;
+  font-size: 0.76rem;
+
+  b {
+    color: #1d4ed8;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.auto-parlay__result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-height: 0;
+  padding: 0.4rem 1.25rem 1.1rem;
+  overflow-y: auto;
+}
+
+.auto-parlay__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+
+  > div {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #e8edf5;
+    border-radius: 0.6rem;
+    background: #f8fafc;
+  }
+
+  span {
+    display: block;
+    color: #64748b;
+    font-size: 0.7rem;
+  }
+
+  b {
+    display: block;
+    margin-top: 0.1rem;
+    color: #0f172a;
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .is-good {
+    color: #047857;
+  }
+
+  .is-bad {
+    color: #dc2626;
+  }
+}
+
+.auto-parlay__risk {
+  &.is-低 {
+    color: #047857;
+  }
+
+  &.is-中 {
+    color: #b45309;
+  }
+
+  &.is-高 {
+    color: #dc2626;
+  }
+}
+
+.auto-parlay__table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e8edf5;
+  border-radius: 0.7rem;
+}
+
+.auto-parlay__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  white-space: nowrap;
+
+  th {
+    padding: 0.42rem 0.5rem;
+    background: #f8fafc;
+    color: #64748b;
+    font-weight: 500;
+    text-align: left;
+  }
+
+  td {
+    padding: 0.42rem 0.5rem;
+    border-top: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+  }
+
+  .is-index {
+    width: 1.6rem;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .is-match {
+    max-width: 13rem;
+
+    strong {
+      display: inline-block;
+      margin-right: 0.35rem;
+      color: #0f172a;
+    }
+
+    span {
+      display: inline-block;
+      max-width: 9rem;
+      overflow: hidden;
+      color: #475569;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
+    }
+  }
+
+  .is-num {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .is-good {
+    color: #047857;
+  }
+
+  .is-bad {
+    color: #dc2626;
+  }
+}
+
+.auto-parlay__role {
+  margin-right: 0.3rem;
+  padding: 0 0.28rem;
+  border-radius: 0.3rem;
+  font-size: 0.66rem;
+  font-style: normal;
+
+  &.is-primary {
+    background: #e0edff;
+    color: #1d4ed8;
+  }
+
+  &.is-steady {
+    background: #f1f5f9;
+    color: #475569;
+  }
+}
+
+/* 桌面用表格，窄屏用卡片列表 */
+.auto-parlay__legs {
+  display: none;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #e8edf5;
+    border-radius: 0.6rem;
+    background: #fbfdff;
+  }
+}
+
+.auto-parlay__leg-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  color: #0f172a;
+  font-size: 0.8rem;
+
+  strong {
+    flex: 0 0 auto;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    color: #334155;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.auto-parlay__leg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.74rem;
+
+  b {
+    color: #1d4ed8;
+    font-size: 0.8rem;
+  }
+
+  .is-good {
+    color: #047857;
+  }
+
+  .is-bad {
+    color: #dc2626;
+  }
+}
+
+.auto-parlay__note {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
+.auto-parlay__alt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed #f5d7a1;
+  border-radius: 0.6rem;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.75rem;
+  line-height: 1.5;
+
+  span {
+    min-width: 0;
+  }
+
+  button {
+    flex: 0 0 auto;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #f0c987;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #92400e;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #fef3c7;
+    }
+  }
+}
+
+.auto-parlay__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+
+  button {
+    padding: 0.45rem 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.6rem;
+    background: #fff;
+    color: #334155;
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+
+    &:hover {
+      background: #f8fafc;
+    }
+
+    &.is-primary {
+      border-color: transparent;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0.2rem 0.6rem rgba(37, 99, 235, 0.28);
+
+      &:hover {
+        box-shadow: 0 0.3rem 0.85rem rgba(37, 99, 235, 0.34);
+      }
+    }
+  }
+}
+
+@media (max-width: 47.99rem) {
+  .auto-parlay {
+    align-items: flex-end;
+    padding: 1rem 0.6rem calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .auto-parlay__card {
+    width: 100%;
+    max-height: 90dvh;
+    border-radius: 1rem 1rem 0.6rem 0.6rem;
+  }
+
+  .auto-parlay__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auto-parlay__steps li {
+    grid-template-columns: 1.35rem minmax(0, 1fr);
+
+    em {
+      display: none;
+    }
+  }
+
+  /* 窄屏放不下 7 列：表格换成卡片列表 */
+  .auto-parlay__table-wrap {
+    display: none;
+  }
+
+  .auto-parlay__legs {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-parlay__dot {
+    animation: none;
+  }
+
+  .auto-parlay__progress span {
+    transition: none;
+  }
+}
