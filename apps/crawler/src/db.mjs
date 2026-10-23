@@ -11,8 +11,8 @@ export function createPool(database) {
     max: database.poolMax,
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 10_000,
-    // 单条语句上限：回灌大页时给足，但不至于无限挂着
-    statement_timeout: 60_000,
+    // 单条语句上限：跨境写库时 49 场批量 upsert 能到 90s 以上，60s 会直接撞线
+    statement_timeout: database.statementTimeoutMs ?? 180_000,
   })
 
   // 长跑进程会空闲很久，数据库/中间层可能单方面断开连接。

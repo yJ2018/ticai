@@ -50,6 +50,7 @@ export function createConfig() {
       url: process.env.DATABASE_URL ?? '',
       ssl: ssl === '1' || ssl === 'true' ? { rejectUnauthorized: false } : false,
       poolMax: intEnv('CRAWLER_POOL_MAX', 4),
+      statementTimeoutMs: intEnv('CRAWL_STATEMENT_TIMEOUT_MS', 180_000),
     },
     sportteryBase: (process.env.SPORTTERY_BASE || 'https://webapi.sporttery.cn').replace(/\/$/, ''),
     // 两个请求之间至少隔这么久，别把体彩当自家接口打
@@ -66,6 +67,8 @@ export function createConfig() {
     // 竞彩销售时段（北京时间），非销售时段不抓比赛相关数据
     betWindowWeekday: process.env.BET_WINDOW_WEEKDAY || '11:00-22:00',
     betWindowWeekend: process.env.BET_WINDOW_WEEKEND || '11:00-23:00',
+    // 单条语句上限：跨境写库 + 49 场批量 upsert 时 60s 会撞线
+    statementTimeoutMs: intEnv('CRAWL_STATEMENT_TIMEOUT_MS', 180_000),
     // 阵容是唯一可能想脱离销售时段抓的（凌晨场次的官方名单在停售时段公布）
     lineupsGate: (process.env.CRAWL_LINEUPS_GATE ?? '1') !== '0',
     // 每日预热：北京时间几点整跑一轮「仅官方数据」（不受销售时段限制）

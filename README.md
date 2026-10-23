@@ -141,6 +141,7 @@ npm run crawl:history      # 抓四个彩种最新一页
 | `BET_WINDOW_WEEKDAY` | `11:00-22:00` | 平日销售时段（北京时间） |
 | `BET_WINDOW_WEEKEND` | `11:00-23:00` | 周末销售时段 |
 | `CRAWL_LINEUPS_GATE` | `1` | 阵容是否也遵守销售时段 |
+| `CRAWL_STATEMENT_TIMEOUT_MS` | `180000` | 单条 SQL 上限；跨境写库时批量 upsert 能超 90 秒 |
 
 > 未配置聚合数据密钥时，赛事与开奖功能仍可正常使用，仅天气/星座接口不可用。
 
