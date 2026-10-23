@@ -94,7 +94,9 @@ npm run crawl:history      # 抓四个彩种最新一页
 | `npm run ai:check` | 直连 DeepSeek 自检密钥与模型连通性 |
 | `npm run architecture:update` | 按当前文件清单重新生成架构图 |
 | `npm run hooks:install` | 安装 pre-commit / pre-push hooks |
-| `npm run deploy:local` | 本地构建并发布前端到 Vercel 生产 |
+| `npm run deploy` | 发布前端 + API 到 Vercel 生产 |
+| `npm run deploy:local` | 只发布前端（本地构建 + 预构建产物） |
+| `npm run deploy:api` | 只发布 API（上传 `apps/api` 源码，Vercel 侧构建） |
 
 ## 环境变量
 
@@ -237,25 +239,28 @@ npm run db:verify      # 结构与约束自检
 | `ticai` | 前端静态资源 | `dist`，SPA fallback |
 | `ticai-service` | API（Serverless Function） | `apps/api/api/index.js` + 全路径 rewrite |
 
-前端通过构建期变量 `VITE_API_BASE` 指向 API。发布前端：
+前端通过构建期变量 `VITE_API_BASE` 指向 API。
 
 ```bash
-npm run deploy:local
+npm run deploy          # 前端 + API 一起发（最常用）
+npm run deploy:local    # 只发前端
+npm run deploy:api      # 只发 API
 ```
 
-脚本会：用 `VITE_API_BASE` 构建 → 校验 bundle 里确实包含该地址 → 在临时目录用预构建产物上传（不上传源码与 `.env`）→ 发布后清理临时目录。
+- `deploy:local`：用 `VITE_API_BASE` 构建 → 校验 bundle 里确实包含该地址 → 在临时目录用预构建产物上传（不上传源码与 `.env`）→ 发布后清理临时目录。
+- `deploy:api`：把 `apps/api` 的源码（`api/`、`src/`、`package.json`、`vercel.json`）铺到临时目录上传，Vercel 侧装 `pg` 并把所有路径重写到 `api/index.js`；发布后尽力探一次 `/healthz` 与 `/api/matches`（本机 DNS 解析不了 Vercel 域名时只告警，不算失败）。
 
-API 项目单独部署（`apps/api` 为根目录）：Vercel 会按 `apps/api/package.json` 安装 `pg`，`vercel.json` 把所有路径重写到 `api/index.js`。
+两个脚本都走 `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`，不读写仓库根的 `.vercel`（该目录可能被安全软件或沙箱锁住）。
 
 ### 推送自动发布
 
 hook 源文件在 `scripts/git-hooks/`，克隆后执行一次 `npm run hooks:install`：
 
 - `pre-commit`：生成 `docs/architecture.svg/.png` 并加入提交，然后扫描暂存区密钥；
-- `pre-push`：推送到 `main` 时先本地构建并发布前端，默认发布失败**不阻止**推送。
+- `pre-push`：推送到 `main` 时依次发布前端与 API，默认某一步失败**不阻止**推送。
 
 ```bash
-git push                    # 自动构建 + 发布前端
+git push                    # 自动发布前端 + API
 SKIP_DEPLOY=1 git push      # 本次跳过发布
 DEPLOY_STRICT=1 git push    # 发布失败则阻止推送
 ```

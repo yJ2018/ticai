@@ -30,7 +30,9 @@
     "crawl:lineups": "node apps/crawler/src/index.mjs lineups-browser --run",
     "crawl:test": "node --test apps/crawler/test",
     "hooks:install": "node scripts/install-git-hooks.mjs",
-    "deploy:local": "node scripts/deploy-local.mjs"
+    "deploy": "npm run deploy:local && npm run deploy:api",
+    "deploy:local": "node scripts/deploy-local.mjs",
+    "deploy:api": "node scripts/deploy-api.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

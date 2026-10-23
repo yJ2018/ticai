@@ -223,7 +223,8 @@ D:\ticai
 │  ├─ update-architecture.mjs  # 按文件清单生成 architecture.svg/.png
 │  ├─ install-git-hooks.mjs    # 安装 pre-commit / pre-push hooks
 │  ├─ git-hooks/               # 进仓库的 hook 源文件
-│  └─ deploy-local.mjs         # 临时目录构建 + Vercel 预构建部署
+│  ├─ deploy-local.mjs         # 临时目录构建 + Vercel 预构建部署（前端）
+│  └─ deploy-api.mjs           # 临时目录上传源码 + Vercel 构建（API）
 └─ src
    ├─ main.tsx                 # createRoot + BrowserRouter + 全局样式
    ├─ App.tsx                  # 顶栏 + 导航 + <AppRouter/>
@@ -796,7 +797,7 @@ flowchart LR
 | 单场 AI | [AiAnalysisPanel.tsx](../src/features/betting/AiAnalysisPanel.tsx)、[useMatchAiAnalysis.ts](../src/features/betting/useMatchAiAnalysis.ts)、[aiAnalysis.ts](../src/features/betting/aiAnalysis.ts) |
 | 方案 AI | [ParlayAiAnalysisPanel.tsx](../src/features/betting/ParlayAiAnalysisPanel.tsx)、[useParlayAiAnalysis.ts](../src/features/betting/useParlayAiAnalysis.ts)、[parlayAiAnalysis.ts](../src/features/betting/parlayAiAnalysis.ts) |
 | AI 本地缓存 | [aiAnalysisCache.ts](../src/features/betting/aiAnalysisCache.ts)（`localStorage`，3 小时 TTL） |
-| 自动交付 | [scripts/update-architecture.mjs](../scripts/update-architecture.mjs)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs)、[scripts/git-hooks](../scripts/git-hooks)、[AGENTS.md](../AGENTS.md) |
+| 自动交付 | [scripts/update-architecture.mjs](../scripts/update-architecture.mjs)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs)、[scripts/deploy-api.mjs](../scripts/deploy-api.mjs)、[scripts/git-hooks](../scripts/git-hooks)、[AGENTS.md](../AGENTS.md) |
 | 开奖缓存 | [src/service/historyService.ts](../src/service/historyService.ts) |
 | IndexedDB 仓储 | [src/storage/historyDb.ts](../src/storage/historyDb.ts) |
 | 预测算法 | [src/domain/historyPrediction.ts](../src/domain/historyPrediction.ts) |

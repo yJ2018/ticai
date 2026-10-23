@@ -1,5 +1,5 @@
 #!/bin/sh
-# 推送到 main 前，本地构建并发布 Vercel 预构建产物。
+# 推送到 main 前，本地构建并发布前端（ticai）与 API（ticai-service）。
 # 跳过一次：SKIP_DEPLOY=1 git push
 # 部署失败即阻止推送：DEPLOY_STRICT=1 git push
 
@@ -27,16 +27,22 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 0
 fi
 
-echo "[deploy] main push detected: building locally and deploying..."
-node "$(git rev-parse --show-toplevel)/scripts/deploy-local.mjs"
+echo "[deploy] main push detected: deploying frontend + api..."
+root="$(git rev-parse --show-toplevel)"
+node "$root/scripts/deploy-local.mjs"
 status=$?
 
+if [ "$status" -eq 0 ]; then
+  node "$root/scripts/deploy-api.mjs"
+  status=$?
+fi
+
 if [ "$status" -ne 0 ]; then
-  echo "[deploy] Local deploy failed."
+  echo "[deploy] Deploy failed."
   if [ "$DEPLOY_STRICT" = "1" ]; then
     echo "[deploy] DEPLOY_STRICT=1: aborting push."
     exit 1
   fi
-  echo "[deploy] Push continues. Retry later with: npm run deploy:local"
+  echo "[deploy] Push continues. Retry later with: npm run deploy"
 fi
 exit 0

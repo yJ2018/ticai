@@ -9,18 +9,21 @@
    - `docs/architecture.png`
 2. 若本次改动涉及行为、数据流、接口或模块职责变化，手动补充 `docs/architecture.md` 的 Mermaid / 文字说明，不能只依赖自动文件清单图。
 3. 运行 `npm run build` 和 `npm run check:secrets`。
-4. 提交后执行 `git push`；`pre-push` hook 会对 `main` 自动执行 `npm run deploy:local`，发布 Vercel 生产环境。
+4. 提交后执行 `git push`；`pre-push` hook 会对 `main` 自动发布**前端与 API**（`npm run deploy`），两端都进 Vercel 生产环境。
+5. 用户说"部署"时，默认按 `npm run deploy` 处理：前端、API 都要发，不能只发一个。
 
 ## Git hooks
 
 - hook 源文件在 `scripts/git-hooks/`，跨机器克隆后执行一次 `npm run hooks:install`。
 - `pre-commit`：先生成架构图，再扫描 staged 密钥。
 - `pre-push`：
+  - 依次执行 `deploy-local.mjs`（前端）与 `deploy-api.mjs`（API）；
   - `SKIP_DEPLOY=1 git push` 跳过本次部署；
   - `DEPLOY_STRICT=1 git push` 部署失败时阻止推送；
-  - 默认部署失败仍继续推送，并提示手动重试 `npm run deploy:local`。
+  - 默认部署失败仍继续推送，并提示手动重试 `npm run deploy`。
 - 部署脚本使用临时目录 + `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`，不依赖仓库根 `.vercel`；需要本机已执行 `npx vercel login`。
-- 发布构建会用 `VITE_API_BASE`（默认 `https://ticai-service.vercel.app`）并校验 bundle 中存在该地址；前端只连自有 API，体彩由本地爬虫访问（云厂商出口 IP 会被 WAF 拦截）。
+- 前端发布：构建用 `VITE_API_BASE`（默认 `https://ticai-service.vercel.app`）并校验 bundle 中存在该地址；前端只连自有 API，体彩由本地爬虫访问（云厂商出口 IP 会被 WAF 拦截）。
+- API 发布：`deploy-api.mjs` 上传 `apps/api` 源码，发布后尽力探 `/healthz` 与 `/api/matches`（本机 DNS 被污染时只告警）。
 
 ## 仓库结构
 
