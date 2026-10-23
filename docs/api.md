@@ -106,6 +106,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
             "awayTeamAbbName": "马赛",
             "homeTeamId": 1276,
             "awayTeamId": 182,
+            "matchDate": "2026-10-23",
             "matchTime": "00:45:00",
             "had": { "h": "3.65", "d": "3.80", "a": "1.69" },
             "hhad": { "h": "1.95", "d": "3.40", "a": "3.10", "goalLine": "+1" },
@@ -121,6 +122,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 ```
 
 - 无赔率的场次不会出现玩法字段（前端显示 `--`）。
+- `businessDate` 是**销售日**（期号所属的那一天），`matchDate` 是**真实比赛日**：凌晨 00:00–08:30 的场次两者差一天，展示时间要用 `matchDate`。
 - 最多返回 500 场，按 `businessDate`、开赛时间升序。
 
 ### 2.2 `GET /api/history`

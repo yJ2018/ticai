@@ -65,6 +65,8 @@ export function toMatchEnvelope(rows) {
       awayTeamAbbName: row.away_name ?? undefined,
       homeTeamId: toNumber(row.home_team_sporttery_id),
       awayTeamId: toNumber(row.away_team_sporttery_id),
+      // 真实比赛日：和 businessDate（销售日）不同，凌晨场次会差一天
+      matchDate: row.match_date ?? undefined,
       matchTime: row.match_time ?? undefined,
       // 五个玩法原样透传，前端按 poolType 自己取
       had: odds.had,

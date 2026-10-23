@@ -111,6 +111,8 @@ export type MatchItem = {
   awayTeamAbbName?: string
   homeTeamId?: number
   awayTeamId?: number
+  /** 真实比赛日（YYYY-MM-DD）。凌晨场次与 businessDate 不同，缺失时退回分组日期 */
+  matchDate?: string
   matchTime?: string
   ttg?: TtgOdds
   crs?: CrsOdds

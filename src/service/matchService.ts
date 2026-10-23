@@ -51,7 +51,9 @@ function toMatchCard(match: MatchItem, businessDate: string, poolType: MatchPool
   const league = match.leagueAllName ?? '未知联赛'
   const home = match.homeTeamAbbName ?? '主队'
   const away = match.awayTeamAbbName ?? '客队'
-  const kickoff = `${businessDate} ${match.matchTime ?? '--:--:--'}`
+  // 跨零点的场次归在前一天的期号里，展示时间要用真实比赛日
+  const kickoffDate = match.matchDate || businessDate
+  const kickoff = `${kickoffDate} ${match.matchTime ?? '--:--:--'}`
 
   return {
     id: match.matchId,

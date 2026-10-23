@@ -7,6 +7,7 @@ const matchRow = (overrides = {}) => ({
   sporttery_match_id: '9001',
   business_date: '2026-10-22',
   match_num_str: '周四001',
+  match_date: '2026-10-22',
   match_time: '20:00:00',
   league_name: '英超',
   home_team_sporttery_id: '1001',
@@ -43,6 +44,23 @@ test('matches: 字段名回到体彩原始结构，bigint 转成 number', () => 
   assert.equal(item.awayTeamId, 1002)
   assert.equal(item.matchTime, '20:00:00')
   assert.equal(item.had.h, '2.10')
+})
+
+test('matches: 同时给出销售日与真实比赛日（凌晨场次两者不同）', () => {
+  const group = toMatchEnvelope([
+    matchRow({
+      match_num_str: '周五002',
+      business_date: '2026-10-23',
+      match_date: '2026-10-24',
+      match_time: '00:30:00',
+    }),
+  ]).value.matchInfoList[0]
+
+  // 分组仍按销售日（期号所属的那一天）
+  assert.equal(group.businessDate, '2026-10-23')
+  const item = group.subMatchList[0]
+  assert.equal(item.matchDate, '2026-10-24')
+  assert.equal(item.matchTime, '00:30:00')
 })
 
 test('matches: 没有赔率时不产出空玩法字段', () => {

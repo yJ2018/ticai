@@ -19,6 +19,8 @@ const MATCHES_SQL = `
       'YYYY-MM-DD'
     ) as business_date,
     m.match_num_str,
+    -- 真实比赛日：跨零点场次的 business_date 是前一天，前端要用这个拼时间
+    to_char(m.kickoff_at at time zone 'Asia/Shanghai', 'YYYY-MM-DD') as match_date,
     to_char(m.kickoff_at at time zone 'Asia/Shanghai', 'HH24:MI:SS') as match_time,
     m.league_name,
     ht.sporttery_id  as home_team_sporttery_id,
