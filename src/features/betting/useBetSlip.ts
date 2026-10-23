@@ -10,6 +10,7 @@ import {
   getPassNeed,
   getPassTypeOptions,
   sumCombinationProducts,
+  type AutoPick,
   type PlanEntry,
 } from './betSlipMath'
 
@@ -30,6 +31,7 @@ export type BetSlip = {
   maxBonus: number
   multiple: number
   setMultiple: (value: number) => void
+  applyAutoPicks: (picks: AutoPick[]) => void
   reset: () => void
 }
 
@@ -203,6 +205,17 @@ export function useBetSlip(items: MatchCard[], activePool: MatchPoolType): BetSl
     setHasManualPassSelection(false)
   }
 
+  /** 一键串关：整份替换选择，并回到"自动取最大过关"的状态。 */
+  function applyAutoPicks(picks: AutoPick[]) {
+    const next: Record<number, string[]> = {}
+    for (const pick of picks) {
+      next[pick.matchId] = [pick.optionKey]
+    }
+    setSelectedOptionKeys(next)
+    setManualPassTypes([])
+    setHasManualPassSelection(false)
+  }
+
   return {
     selectedOptionKeys,
     expandedMixedIds,
@@ -220,6 +233,7 @@ export function useBetSlip(items: MatchCard[], activePool: MatchPoolType): BetSl
     maxBonus,
     multiple,
     setMultiple,
+    applyAutoPicks,
     reset,
   }
 }

@@ -11,7 +11,7 @@ import { ParlayAiAnalysisPanel } from '../features/betting/ParlayAiAnalysisPanel
 import { useMatchAiAnalysis } from '../features/betting/useMatchAiAnalysis'
 import { useParlayAiAnalysis } from '../features/betting/useParlayAiAnalysis'
 import { useBetSlip } from '../features/betting/useBetSlip'
-import { PLAN_MODAL_ANIMATION_MS, formatMoney, getSportteryTaxInfo } from '../features/betting/betSlipMath'
+import { PLAN_MODAL_ANIMATION_MS, buildAutoParlayPicks, formatMoney, getSportteryTaxInfo } from '../features/betting/betSlipMath'
 
 const poolTabs: Array<{ key: MatchPoolType; label: string }> = [
   { key: 'had', label: '胜平负' },
@@ -268,6 +268,29 @@ export function HomePage() {
     setIsMultiplePanelOpen(true)
   }
 
+  /**
+   * 一键串关：按当前玩法给每场挑一注最可能的，再按概率排序取到关卡上限。
+   * 只是把机械的挑选干完，选完仍然可以手动改，也可以直接走"查看方案 / AI 分析"。
+   */
+  function handleAutoParlay() {
+    if (activeCache.loading) {
+      setToastText('比赛还在加载，稍等一下')
+      return
+    }
+
+    const picks = buildAutoParlayPicks(items, activePool)
+    if (picks.length < 2) {
+      setToastText('当前玩法可选场次不足 2 场')
+      return
+    }
+
+    closeAllPanels()
+    aiAnalysis.close()
+    parlayAi.close()
+    betSlip.applyAutoPicks(picks)
+    setToastText(`已选 ${picks.length} 场 · ${picks.length}串1`)
+  }
+
   async function captureSnapshot() {
     if (isCapturingSnapshot || typeof window === 'undefined') {
       return
@@ -406,18 +429,32 @@ export function HomePage() {
   return (
     <section className="home-page">
       <header className="home-page__nav">
-        <nav className="home-page__pool-nav">
-          {poolTabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={tab.key === activePool ? 'is-active' : ''}
-              onClick={() => switchPool(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+        <div className="home-page__nav-main">
+          <nav className="home-page__pool-nav">
+            {poolTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={tab.key === activePool ? 'is-active' : ''}
+                onClick={() => switchPool(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+          <button
+            type="button"
+            className="home-page__auto"
+            onClick={handleAutoParlay}
+            disabled={activeCache.loading || items.length < 2}
+            title="按当前玩法自动选出最可能的场次，串到关卡上限"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M13.2 2.2 4.6 13.7h5.6l-1 8.1 8.8-11.6h-5.7l.9-8Z" fill="currentColor" />
+            </svg>
+            <span>一键串关</span>
+          </button>
+        </div>
       </header>
 
       <div className="home-page__body">

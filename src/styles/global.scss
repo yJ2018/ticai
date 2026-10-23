@@ -258,12 +258,27 @@ button:focus-visible,
   box-shadow: 0 0.2rem 0.75rem rgba(15, 23, 42, 0.06);
 }
 
+.home-page__nav-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .home-page__pool-nav {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: nowrap;
   justify-content: space-between;
   gap: 0;
-  width: 100%;
+  width: auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   button {
     flex: 0 0 auto;
@@ -311,6 +326,66 @@ button:focus-visible,
     button {
       flex: 0 0 auto;
       min-width: 5rem;
+    }
+  }
+}
+
+/* 一键串关：按当前玩法自动选场次 */
+.home-page__auto {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.7rem;
+  border: 0;
+  border-radius: 0.625rem;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 0.2rem 0.6rem rgba(37, 99, 235, 0.28);
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease;
+
+  svg {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  &:hover {
+    box-shadow: 0 0.3rem 0.85rem rgba(37, 99, 235, 0.34);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 47.99rem) {
+  .home-page__pool-nav button {
+    padding: 0.4rem 0.4rem;
+    font-size: 0.78rem;
+  }
+
+  .home-page__auto {
+    padding: 0.38rem 0.5rem;
+    font-size: 0.74rem;
+
+    svg {
+      display: none;
     }
   }
 }
