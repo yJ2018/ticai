@@ -191,9 +191,14 @@ function collectStats() {
   const sourceFiles = srcFiles.filter((file) => ['.ts', '.tsx'].includes(extname(file)))
   const scssFiles = srcFiles.filter((file) => extname(file) === '.scss')
   const serverFiles = [
-    ...walkFiles(resolve(root, 'server')),
-    ...walkFiles(resolve(root, 'api')),
-  ].filter((file) => ['.mjs', '.js'].includes(extname(file)))
+    ...walkFiles(resolve(root, 'apps/api')),
+    ...walkFiles(resolve(root, 'apps/crawler')),
+  ].filter(
+    (file) =>
+      ['.mjs', '.js'].includes(extname(file)) &&
+      !file.includes('node_modules') &&
+      !/[\\/]tests?[\\/]/.test(file),
+  )
 
   return {
     sourceCount: sourceFiles.length,
@@ -319,16 +324,16 @@ function buildSvg() {
     `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" fill="#94a3b8"/></marker></defs>`,
     `<rect width="${WIDTH}" height="${height}" fill="#f5f7fa"/>`,
     `<text x="40" y="56" font-size="26" font-weight="700" fill="#0f172a">体彩助手 · ticai 全栈架构图</text>`,
-    `<text x="40" y="80" font-size="12.5" fill="#64748b">React 19 · TypeScript 6 · Vite 8 · Zustand 5　＋　零依赖 Node BFF　—　第三方请求与密钥全部收敛到服务端</text>`,
+    `<text x="40" y="80" font-size="12.5" fill="#64748b">React 19 · TypeScript 6 · Vite 8 · Zustand 5　＋　独立 API（apps/api）＋ 本地爬虫（apps/crawler）</text>`,
     `<text x="${WIDTH - 40}" y="55" text-anchor="end" font-size="11" fill="#475569">src ${formatNumber(stats.sourceCount)} 文件 / ${formatNumber(stats.sourceLines)} 行</text>`,
     `<text x="${WIDTH - 40}" y="74" text-anchor="end" font-size="11" fill="#475569">SCSS ${stats.scssCount} 文件 / ${formatNumber(stats.scssLines)} 行</text>`,
-    `<text x="${WIDTH - 40}" y="93" text-anchor="end" font-size="11" fill="#475569">server + api ${stats.serverCount} 文件 / ${formatNumber(stats.serverLines)} 行</text>`,
+    `<text x="${WIDTH - 40}" y="93" text-anchor="end" font-size="11" fill="#475569">apps ${stats.serverCount} 文件 / ${formatNumber(stats.serverLines)} 行</text>`,
     `<text x="40" y="98" font-size="10.5" fill="#94a3b8">自动生成：scripts/update-architecture.mjs　·　方框 = 仓库内代码　·　箭头 = 依赖方向</text>`,
     `<line x1="40" y1="108" x2="${WIDTH - 40}" y2="108" stroke="#e2e8f0"/>`,
   ].join('\n')
 
   const footer = [
-    `<text x="40" y="${footerY}" font-size="10.5" fill="#94a3b8">数据来源：按当前 src/pages、src/features/betting、server、api 文件清单生成；新增模块会自动出现在图中。</text>`,
+    `<text x="40" y="${footerY}" font-size="10.5" fill="#94a3b8">数据来源：按当前 src、apps/api、apps/crawler 文件清单生成；新增模块会自动出现在图中。</text>`,
     `<text x="${WIDTH - 40}" y="${footerY}" text-anchor="end" font-size="10.5" fill="#94a3b8">提交前 hook 同步 SVG / PNG</text>`,
   ].join('\n')
 
