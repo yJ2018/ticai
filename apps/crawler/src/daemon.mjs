@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { formatClock, isBettingOpen } from './bet-window.mjs'
+import { formatClock, isBettingOpen, msUntilWindowOpen } from './bet-window.mjs'
 import { createConfig, loadEnv } from './config.mjs'
 import { createPool } from './db.mjs'
 import { msUntilNextDaily } from './daily-schedule.mjs'
@@ -149,7 +149,9 @@ function enqueue(task) {
 const kickoffs = []
 const intervals = []
 
-/** 到点先过销售时段闸门；关盘就不入队，避免占着串行队列。 */
+/** 到点先过销售时段闸门；关盘就不入队，并排一个「开盘即补跑」的定时器。 */
+const catchUps = new Map()
+
 function tick(task) {
   if (stopping) {
     return
@@ -161,6 +163,17 @@ function tick(task) {
         `[${stamp()}] ${task.name.padEnd(8)} 跳过：非销售时段 ${status.clock.label}` +
           `（销售 ${formatClock(status.window.start)}-${formatClock(status.window.end)}）`,
       )
+
+      // 10:58 跳过、11:28 才轮到下一轮的话，开盘后半小时都是旧数据；
+      // 这里按开盘时刻补一次，不算额外的抓取频率。
+      if (!catchUps.has(task.name)) {
+        const delay = msUntilWindowOpen(new Date(), config) + 5_000
+        const timer = setTimeout(() => {
+          catchUps.delete(task.name)
+          tick(task)
+        }, delay)
+        catchUps.set(task.name, timer)
+      }
       return
     }
   }
@@ -228,6 +241,10 @@ function shutdown(signal) {
   if (dailyTimer) {
     clearTimeout(dailyTimer)
   }
+  for (const timer of catchUps.values()) {
+    clearTimeout(timer)
+  }
+  catchUps.clear()
 
   const deadline = Date.now() + 60_000
   const timer = setInterval(async () => {

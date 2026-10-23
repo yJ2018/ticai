@@ -29,7 +29,8 @@ const UPSERT_MATCH = `
     (sporttery_match_id, business_date, match_num_str, kickoff_at, league_id, league_name,
      home_team_id, away_team_id, home_name, away_name, status, sell_status,
      last_seen_at, raw, updated_at)
-  values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'scheduled', 'on_sale', now(), $11, now())
+  values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'scheduled',
+          case when $4 <= now() then 'closed' else 'on_sale' end, now(), $11, now())
   on conflict (sporttery_match_id) do update set
     business_date = excluded.business_date,
     match_num_str = excluded.match_num_str,
@@ -40,7 +41,8 @@ const UPSERT_MATCH = `
     away_team_id  = excluded.away_team_id,
     home_name     = excluded.home_name,
     away_name     = excluded.away_name,
-    sell_status   = 'on_sale',
+    -- 体彩列表在结算前仍会返回已开赛的比赛，不能让它把本地停售状态改回在售
+    sell_status   = case when excluded.kickoff_at <= now() then 'closed' else 'on_sale' end,
     last_seen_at  = now(),
     raw           = excluded.raw,
     updated_at    = now()
