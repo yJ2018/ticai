@@ -30,9 +30,21 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 | `details` | 伤停 + 赛果；`--full` 抓全部 7 个源 | 按需 / 低频 |
 | `lineups` | 导入阵容 JSON（`--dry` 预演不落库） | 有数据时手动跑 |
 | `expire` | 本地状态收敛：已开赛的比赛标为停售（不发请求） | 与 matches 同频 |
+| `official` | 只刷体彩官网数据：赛程赔率 + 开奖 + 伤停赛果（不含阵容） | 每天 09:00 |
 | `all` | matches + history（不含 details，它太贵） | — |
 
 `--every=N` 进入循环模式，单轮失败不会退出（网络抖动是常态）。
+
+### 每天 09:00 预热
+
+`npm run crawl:daemon` 会在**北京时间每天 09:00** 跑一轮 `official`：停售收敛 → 赛程赔率 → 开奖 → 伤停赛果，正好赶在 11:00 开盘前把库刷成最新的。
+
+- 只取**体彩官网**的数据，阵容（500.com）不在内；
+- 这一轮**不受销售时段闸门限制**（它就是这个用途）；
+- `official` 也可以手动跑：`npm run crawl -- official`；
+- 改时间用 `CRAWL_DAILY_HOUR`（默认 9）。
+
+> 不用 daemon 的话，也可以用系统计划任务在 9:00 直接跑 `npm run crawl -- official`，别和 daemon 同时开就行（会重复抓同一批数据）。
 
 ## 抓什么、不抓什么
 

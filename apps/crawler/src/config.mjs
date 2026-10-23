@@ -68,6 +68,8 @@ export function createConfig() {
     betWindowWeekend: process.env.BET_WINDOW_WEEKEND || '11:00-23:00',
     // 阵容是唯一可能想脱离销售时段抓的（凌晨场次的官方名单在停售时段公布）
     lineupsGate: (process.env.CRAWL_LINEUPS_GATE ?? '1') !== '0',
+    // 每日预热：北京时间几点整跑一轮「仅官方数据」（不受销售时段限制）
+    dailyHour: Math.min(intEnv('CRAWL_DAILY_HOUR', 9), 23),
     retries: intEnv('CRAWL_RETRIES', 2),
     historyPageSize: intEnv('CRAWL_HISTORY_PAGE_SIZE', 100),
     maxPages: intEnv('CRAWL_MAX_PAGES', 200),

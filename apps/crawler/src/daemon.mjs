@@ -4,11 +4,13 @@ import { fileURLToPath } from 'node:url'
 import { formatClock, isBettingOpen } from './bet-window.mjs'
 import { createConfig, loadEnv } from './config.mjs'
 import { createPool } from './db.mjs'
+import { msUntilNextDaily } from './daily-schedule.mjs'
 import { crawlDetails } from './tasks/details.mjs'
 import { expireStartedMatches } from './tasks/expire.mjs'
 import { crawlHistory } from './tasks/history.mjs'
 import { crawlLineupsBrowser } from './tasks/lineups-browser.mjs'
 import { crawlMatches } from './tasks/matches.mjs'
+import { crawlOfficialData, describeOfficialResult } from './tasks/official.mjs'
 
 /**
  * 本地常驻爬虫：抓取在本机完成，写入云端数据库。
@@ -96,6 +98,13 @@ const TASKS = [
       return `${summary.matched} 场候选 · 入库 ${summary.found} · 球员 ${summary.players}`
     },
   },
+  {
+    name: 'official',
+    // 每天定时预热，开盘前把官网数据刷一遍；不受销售时段限制
+    gate: false,
+    everyMs: 0,
+    run: async () => describeOfficialResult(await crawlOfficialData({ pool, config })),
+  },
 ]
 
 function stamp() {
@@ -159,7 +168,11 @@ function tick(task) {
 }
 
 TASKS.forEach((task, index) => {
-  // 错开首次执行，避免三条链路同时打上游
+  // everyMs = 0 的任务（每日预热）由独立定时器调度，不进周期循环
+  if (!task.everyMs) {
+    return
+  }
+  // 错开首次执行，避免几条链路同时打上游
   kickoffs.push(
     setTimeout(() => {
       tick(task)
@@ -167,6 +180,23 @@ TASKS.forEach((task, index) => {
     }, index * 5_000),
   )
 })
+
+// 每日预热：北京时间 config.dailyHour:00 跑一轮「仅官方数据」
+const dailyTask = TASKS.find((task) => task.name === 'official')
+let dailyTimer = null
+
+function scheduleDaily() {
+  const delay = msUntilNextDaily(config.dailyHour, 0)
+  console.log(
+    `  每日预热: 每天 ${String(config.dailyHour).padStart(2, '0')}:00（北京时间，约 ${Math.round(delay / 60_000)} 分钟后）`,
+  )
+  dailyTimer = setTimeout(() => {
+    enqueue(dailyTask)
+    scheduleDaily()
+  }, delay)
+}
+
+scheduleDaily()
 
 console.log('─'.repeat(64))
 console.log('ticai 本地爬虫已启动（抓取在本机，写入云端数据库）')
@@ -194,6 +224,9 @@ function shutdown(signal) {
   }
   for (const handle of intervals) {
     clearInterval(handle)
+  }
+  if (dailyTimer) {
+    clearTimeout(dailyTimer)
   }
 
   const deadline = Date.now() + 60_000

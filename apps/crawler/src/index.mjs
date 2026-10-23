@@ -10,6 +10,7 @@ import { crawlHistory } from './tasks/history.mjs'
 import { importLineups } from './tasks/lineups.mjs'
 import { crawlLineupsBrowser, dumpLineupPage } from './tasks/lineups-browser.mjs'
 import { crawlMatches } from './tasks/matches.mjs'
+import { crawlOfficialData, describeOfficialResult } from './tasks/official.mjs'
 
 /**
  * 爬虫入口。
@@ -46,6 +47,7 @@ ticai crawler
   node src/index.mjs lineups --file=lineups.json [--dry]
   node src/index.mjs lineups-browser --fid=1502981 [--click=阵容] [--mobile]
   node src/index.mjs expire
+  node src/index.mjs official
   node src/index.mjs all [--every=60]
 
 命令：
@@ -55,6 +57,7 @@ ticai crawler
   lineups   导入阵容（JSON），--dry 只预演不落库
   lineups-browser  用 Playwright 打开数据站，dump 页面与网络响应（探测阵容来源）
   expire    本地状态收敛：已开赛的比赛标为停售（不发请求）
+  official  只刷体彩官网数据：赛程赔率 + 开奖 + 伤停赛果（不含阵容）
   all       两者都跑（不含 details，它太贵）
 
 说明：
@@ -67,7 +70,7 @@ if (hasFlag('help') || command === 'help') {
   process.exit(0)
 }
 
-if (!['matches', 'history', 'details', 'lineups', 'lineups-browser', 'expire', 'all'].includes(command)) {
+if (!['matches', 'history', 'details', 'lineups', 'lineups-browser', 'expire', 'official', 'all'].includes(command)) {
   console.error(`未知命令：${command}\n\n${USAGE}`)
   process.exit(1)
 }
@@ -157,6 +160,11 @@ async function runOnce() {
   if (command === 'expire') {
     const summary = await expireStartedMatches({ pool })
     console.log(`[expire] ${summary.closed} 场已开赛 → 停售`)
+  }
+
+  if (command === 'official') {
+    const result = await crawlOfficialData({ pool, config })
+    console.log(`[official] ${describeOfficialResult(result)}`)
   }
 
   if (command === 'history' || command === 'all') {
