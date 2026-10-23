@@ -25,7 +25,7 @@
 | 形态 | SPA 静态托管 + 独立 API 服务（两个 Vercel 项目，`VITE_API_BASE` 连接） |
 | 前端规模 | TS/TSX 60 个文件；SCSS 单文件 5 300+ 行 |
 | 服务端规模 | `apps/api`：11 个接口、提示词与官方数据装配；`apps/crawler`：赛程/开奖/伤停/阵容四条链路 |
-| 数据层 | PostgreSQL 18 张表：API 只读，爬虫只写（`db/README.md`） |
+| 数据层 | PostgreSQL 16 张表 + 2 个视图：API 只读，爬虫只写（`db/README.md`） |
 | 构建产物 | `dist/assets/index-*.js` ≈ 570 KB + 84 KB CSS + 2 个 Worker chunk |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（内置 `fetch` / `AbortSignal.timeout`） |
 | 依赖 | 前端：React 19、React Router 6、Zustand 5、html2canvas、Sass；服务端仅 `pg`；爬虫可选 `playwright`（阵容） |
@@ -764,7 +764,7 @@ flowchart LR
 | 项 | 改造前 | 改造后 |
 | --- | --- | --- |
 | 接口来源 | BFF 实时透传体彩 | 爬虫写库，API 只读库（`apps/api`） |
-| 数据存储 | 无 | PostgreSQL 18 张表：彩票域、足球域、对战源、可观测性 |
+| 数据存储 | 无 | PostgreSQL 16 张表 + 2 个视图：彩票域、足球域、对战源、可观测性 |
 | 爬虫 | 无 | `apps/crawler`：赛程/赔率、四彩种开奖、伤停、赛果、阵容 |
 | 阵容 | 无来源 | 500.com + Playwright（有头），按场次号匹配，11 首发 + 替补 |
 | AI 分析 | 前端拼 messages 发 `/api/ai-chat` | `POST /api/ai-analysis` 只收 `matchId + pool`，提示词与官方数据下沉服务端 |
