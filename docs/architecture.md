@@ -37,7 +37,7 @@
 | 路由 | 页面 | 核心能力 | 数据来源 |
 | --- | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、串关注数/金额/最高奖金/税、首屏骨架屏、方案级 AI 串关分析、高清快照 | `GET /api/matches` |
-| `/history` | 开奖历史 | 排列五开奖列表、走势图、首屏骨架屏、预测摘要 | `GET /api/history` + IndexedDB |
+| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比）、首屏骨架屏、预测摘要 | `GET /api/history` + IndexedDB |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏 | 本地 IndexedDB 数据 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | 本地 IndexedDB 数据 |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
@@ -234,7 +234,7 @@ D:\ticai
    │  └─ AppRouter.tsx / types.ts
    ├─ pages
    │  ├─ HomePage.tsx          # 511 行：状态编排 + 组合子组件 + 方案弹层
-   │  ├─ HistoryPage.tsx       # 385 行
+   │  ├─ HistoryPage.tsx       # 917 行：走势矩阵 + 大乐透右栏指标 + 分页
    │  ├─ HistoryAnalysisPage   # 720 行（仍未拆分）
    │  ├─ MathTrendAnalysisPage # 437 行（仍未拆分）
    │  └─ HoroscopePage / AboutPage / ProfilePage
@@ -267,6 +267,7 @@ D:\ticai
    ├─ domain
    │  ├─ historyPrediction.ts  # 1064 行预测算法（纯函数）
    │  ├─ lotteryHistory.ts     # ★ 开奖记录 / 缓存元数据类型
+   │  ├─ dltIndicators.ts      # 大乐透前区逐期指标（和值/跨度/奇偶比/大小比/三区比）
    │  ├─ sporttery.ts / constellation.ts / weather.ts / counter.ts
    ├─ workers                  # 2 个 Worker 协议实现
    ├─ api
@@ -278,6 +279,7 @@ D:\ticai
    ├─ styles/global.scss
    ├─ components/AnalysisPageSkeleton.tsx # 分析页一屏骨架
    ├─ components/HistoryPageSkeleton.tsx  # 开奖历史页骨架
+   ├─ components/DltIndicatorRail.tsx     # 大乐透右栏逐期指标（与号码矩阵逐行对齐）
    └─ assets/                  # 未被引用的图片（可删）
 ```
 
@@ -399,6 +401,8 @@ flowchart TD
 - 7755 期全量预测从主线程 `useMemo` 迁移到 `historyAnalysisWorker`，避免首屏计算卡死；
 - 预测按「样本数 + 首期 + 末期」签名去重，翻页时复用同一份分析结果，不重复跑全量回测；
 - 走势表格的 `TrendGrid` 用 `memo` 隔离，Worker 返回预测时只更新表头预测/回测摘要，不重建 5×30×10 个单元格。
+- 大乐透前区逐期指标由 `domain/dltIndicators.ts` 纯函数计算（和值、跨度、奇偶比、大小比、三区比），`DltIndicatorRail` 渲染为桌面右栏，移动端卡片复用同一套口径；
+- 桌面四列（期号轴 / 前区 / 后区 / 指标栏）共用行高（表头 2.125rem、统计区 2.7rem、每期 1.875rem）逐行对齐，期号轴左侧标注「出现次数 / 当前遗漏」；64–75rem 收窄号码字号，避免 35 列两位数挤压。
 
 存储设计（`src/storage/historyDb.ts`）：
 
@@ -804,6 +808,7 @@ flowchart LR
 | 开奖缓存 | [src/service/historyService.ts](../src/service/historyService.ts) |
 | IndexedDB 仓储 | [src/storage/historyDb.ts](../src/storage/historyDb.ts) |
 | 预测算法 | [src/domain/historyPrediction.ts](../src/domain/historyPrediction.ts) |
+| 开奖逐期指标 | [src/domain/dltIndicators.ts](../src/domain/dltIndicators.ts)、[src/components/DltIndicatorRail.tsx](../src/components/DltIndicatorRail.tsx) |
 | 传输层 | [src/api/httpClient.ts](../src/api/httpClient.ts)、[src/api/sportteryApi.ts](../src/api/sportteryApi.ts) |
 | 数据库 schema | [db/migrations/0001_init.sql](../db/migrations/0001_init.sql) |
 | 彩种种子 | [db/seed/001_lottery_games.sql](../db/seed/001_lottery_games.sql) |

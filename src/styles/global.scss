@@ -2213,6 +2213,35 @@ button:focus-visible,
   }
 }
 
+/* 大乐透移动端卡片：桌面右栏的逐期指标搬进卡片，避免手机上缺失 */
+.history-card__indicators {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.history-card__indicator {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  border-radius: 999px;
+  padding: 0.24rem 0.6rem;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.7rem;
+
+  strong {
+    color: #0f172a;
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.history-card__indicator-label {
+  font-size: 0.66rem;
+}
+
 .trend-panel {
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.94);
@@ -2238,6 +2267,7 @@ button:focus-visible,
 
 .trend-panel__eyebrow {
   display: block;
+  margin: 0;
   color: #2563eb;
   font-size: 0.7rem;
   font-weight: 700;
@@ -2462,6 +2492,103 @@ button:focus-visible,
   }
 }
 
+/* ── 大乐透右栏：和值 / 跨度 / 奇偶比 / 大小比 / 三区比 ───────
+   与号码矩阵共用表头 2.125rem、统计区 2.7rem、逐期行 1.875rem，
+   三列（期号轴 / 号码矩阵 / 指标栏）才能逐行严格对齐。 */
+.dlt-metrics {
+  min-width: 0;
+}
+
+.dlt-metrics__table {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #fff;
+}
+
+.dlt-metrics__head {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+
+  span {
+    height: 2.125rem;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.58rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+}
+
+.dlt-metrics__summary {
+  height: 2.7rem;
+  padding: 0.18rem 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: center;
+  gap: 0.1rem 0.45rem;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fbfdff;
+  color: #64748b;
+  font-size: 0.56rem;
+  line-height: 1.35;
+
+  span {
+    white-space: nowrap;
+  }
+}
+
+.dlt-metrics__summary-label {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.dlt-metrics__summary-empty {
+  color: #94a3b8;
+}
+
+.dlt-metrics__body {
+  background: #fcfdff;
+}
+
+.dlt-metrics__row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+
+  span {
+    height: 1.875rem;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid #edf2f7;
+    border-bottom: 1px solid #edf2f7;
+    background: rgba(255, 255, 255, 0.78);
+    color: #334155;
+    font-size: 0.64rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .is-sum {
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  &:last-child span {
+    border-bottom: none;
+  }
+}
+
 /* ── 大乐透开奖明细（非位次彩种） ─────────────────────── */
 
 .history-dlt {
@@ -2663,6 +2790,25 @@ button:focus-visible,
 
 .trend-axis__row:last-child {
   border-bottom: none;
+}
+
+/* 大乐透：期号轴补两行统计标签，和号码矩阵顶部的出现 / 遗漏行逐行对齐 */
+.trend-axis__stats {
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  background: #fbfdff;
+
+  span {
+    height: 1.35rem;
+    padding: 0 0.45rem;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+    color: #64748b;
+    font-size: 0.6rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
 }
 
 .history-page__pager {
@@ -4506,6 +4652,51 @@ span.analysis-skeleton__pill--light {
     #fcfdff;
 }
 
+/* 大乐透骨架：出现/遗漏两行占位 + 右侧指标栏 */
+.history-page-skeleton__stats {
+  height: 2.7rem;
+  border-bottom: 1px solid #f1f5f9;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 21px, #f1f5f9 21px 21.6px),
+    #fbfdff;
+}
+
+.history-page-skeleton__metric-head {
+  height: 2.125rem;
+  border-bottom: 1px solid #e2e8f0;
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0 calc(20% - 1px),
+      #e2e8f0 calc(20% - 1px) 20%
+    ),
+    #f8fafc;
+}
+
+.history-page-skeleton__metric-grid {
+  height: 34rem;
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0 calc(20% - 1px),
+      #edf2f7 calc(20% - 1px) 20%
+    ),
+    repeating-linear-gradient(to bottom, transparent 0 29px, #edf2f7 29px 30px),
+    #fcfdff;
+}
+
+.history-page-skeleton__indicator-row {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+
+  span {
+    height: 1.55rem;
+    border-radius: 999px;
+  }
+}
+
 .history-page-skeleton__balls {
   margin-top: 0.8rem;
   display: flex;
@@ -4674,9 +4865,35 @@ span.analysis-skeleton__pill--light {
     white-space: normal;
   }
 
+  /* 大乐透左右两栏固定表头高度：号码矩阵、期号轴、指标栏逐行对齐 */
+  .history-page__desktop.is-dlt .trend-panel__header {
+    height: 3.6rem;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 号码矩阵的表格上边框 + 表头下边框共 2px，期号轴补同样的偏移 */
+  .history-page__desktop.is-dlt .trend-axis {
+    padding-top: calc(0.5rem + 2px);
+  }
+
+  .history-page__desktop.is-dlt .trend-axis__body {
+    border-top: none;
+  }
+
   .trend-panel__table {
     flex: 1;
     min-height: 0;
+  }
+}
+
+/* 1024–1200px：右栏占位后号码矩阵变窄，字号再收一点，避免两位数挤在一起 */
+@media (min-width: 64rem) and (max-width: 75rem) {
+  .history-page__desktop.is-dlt .trend-panel.is-wide {
+    .trend-panel__digits-head span,
+    .trend-panel__cell {
+      font-size: 0.54rem;
+    }
   }
 }
 

@@ -12,7 +12,14 @@ import {
   analyzeHistoryPrediction,
   type HistoryPredictionAnalysis,
 } from '../domain/historyPrediction'
+import {
+  formatDltBigSmall,
+  formatDltOddEven,
+  formatDltZones,
+  getDltFrontIndicators,
+} from '../domain/dltIndicators'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
+import { DltIndicatorRail } from '../components/DltIndicatorRail'
 import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
 
 const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [
@@ -291,7 +298,7 @@ export function HistoryPage() {
           <h2>体彩开奖查询</h2>
         </div>
         <p className="history-page__desc">
-          排列五、七星彩按位次看走势，大乐透按前后区看开奖明细；数据来自体彩官方接口。
+          排列五、七星彩按位次看走势，大乐透看前后区号码矩阵，并附前区和值、奇偶比、三区比等逐期指标；数据来自体彩官方接口。
         </p>
       </header>
 
@@ -383,16 +390,22 @@ export function HistoryPage() {
 
             <div
               key={`desktop-${activeGame}-${state.pageNo}`}
-              className={`history-page__desktop ${pageAnimClass}`}
+              className={`history-page__desktop ${pageAnimClass}${meta.positional ? '' : ' is-dlt'}`}
               style={{
                 gridTemplateColumns: meta.positional
                   ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr))`
-                  : '5.1rem minmax(0, 35fr) minmax(0, 12fr)',
+                  : '5.1rem minmax(0, 35fr) minmax(0, 12fr) 12.8rem',
               }}
             >
               <section className="trend-axis">
                 <div className="trend-axis__spacer" aria-hidden="true" />
                 <div className="trend-axis__header">期号 / 日期</div>
+                {!meta.positional && (
+                  <div className="trend-axis__stats">
+                    <span>出现次数</span>
+                    <span>当前遗漏</span>
+                  </div>
+                )}
                 <div className="trend-axis__body">
                   {trendRows.map((row) => (
                     <div key={`desktop-meta-${row.item.issue}`} className="trend-axis__row">
@@ -427,47 +440,52 @@ export function HistoryPage() {
                       />
                     )
                   })
-                : [
-                    {
-                      key: 'front',
-                      label: '前区',
-                      axis: FRONT_AXIS,
-                      caption: '前区 5 个号码（1–35）· 顶上两行：出现次数 / 当前遗漏',
-                      series: FRONT_COLORS.map((color, index) => ({
-                        key: `front-${index}`,
-                        label: `第 ${index + 1} 球`,
-                        color,
-                        tone: 'front' as const,
-                        values: state.items.map((item) => toBallValue(item.numbers[index])),
-                      })),
-                    },
-                    {
-                      key: 'back',
-                      label: '后区',
-                      axis: BACK_AXIS,
-                      caption: '后区 2 个号码（1–12）· 顶上两行：出现次数 / 当前遗漏',
-                      series: BACK_COLORS.map((color, index) => ({
-                        key: `back-${index}`,
-                        label: `第 ${index + 1} 球`,
-                        color,
-                        tone: 'back' as const,
-                        values: state.items.map((item) =>
-                          toBallValue(item.numbers[meta.mainCount + index]),
-                        ),
-                      })),
-                    },
-                  ].map((panel) => (
-                    <TrendPanel
-                      key={`${activeGame}-${panel.key}`}
-                      label={panel.label}
-                      axis={panel.axis}
-                      rows={state.items}
-                      series={panel.series}
-                      caption={panel.caption}
-                      showLines={false}
-                      showStats
-                    />
-                  ))}
+                : (
+                    <>
+                      {[
+                        {
+                          key: 'front',
+                          label: '前区',
+                          axis: FRONT_AXIS,
+                          caption: '前区 1–35 选 5',
+                          series: FRONT_COLORS.map((color, index) => ({
+                            key: `front-${index}`,
+                            label: `第 ${index + 1} 球`,
+                            color,
+                            tone: 'front' as const,
+                            values: state.items.map((item) => toBallValue(item.numbers[index])),
+                          })),
+                        },
+                        {
+                          key: 'back',
+                          label: '后区',
+                          axis: BACK_AXIS,
+                          caption: '后区 1–12 选 2',
+                          series: BACK_COLORS.map((color, index) => ({
+                            key: `back-${index}`,
+                            label: `第 ${index + 1} 球`,
+                            color,
+                            tone: 'back' as const,
+                            values: state.items.map((item) =>
+                              toBallValue(item.numbers[meta.mainCount + index]),
+                            ),
+                          })),
+                        },
+                      ].map((panel) => (
+                        <TrendPanel
+                          key={`${activeGame}-${panel.key}`}
+                          label={panel.label}
+                          axis={panel.axis}
+                          rows={state.items}
+                          series={panel.series}
+                          caption={panel.caption}
+                          showLines={false}
+                          showStats
+                        />
+                      ))}
+                      <DltIndicatorRail rows={state.items} />
+                    </>
+                  )}
             </div>
 
             <div
@@ -475,53 +493,81 @@ export function HistoryPage() {
               className={`history-page__mobile ${pageAnimClass}`}
             >
               <ul className="history-page__list">
-                {state.items.map((item) => (
-                  <li key={item.issue} className="history-card">
-                    <div className="history-card__head">
-                      <div>
-                        <span className="history-card__issue-label">第 {item.issue} 期</span>
-                        <strong>{item.drawDate}</strong>
+                {state.items.map((item) => {
+                  const indicators = meta.positional ? null : getDltFrontIndicators(item.numbers)
+                  return (
+                    <li key={item.issue} className="history-card">
+                      <div className="history-card__head">
+                        <div>
+                          <span className="history-card__issue-label">第 {item.issue} 期</span>
+                          <strong>{item.drawDate}</strong>
+                        </div>
+                        <span className="history-card__game-tag">{meta.label}</span>
                       </div>
-                      <span className="history-card__game-tag">{meta.label}</span>
-                    </div>
 
-                    <div className="history-card__numbers" aria-label={`第${item.issue}期开奖号码`}>
-                      {item.numbers.map((num, index) => {
-                        const isExtra = index >= meta.mainCount
-                        const isSpecial = meta.specialLast && index === meta.mainCount - 1
-                        return (
-                          <span
-                            key={`${item.issue}-${index}-${num}`}
-                            className={`history-card__ball${isExtra ? ' is-extra' : ''}${
-                              isSpecial ? ' is-special' : ''
-                            }`}
-                          >
-                            {num}
+                      <div className="history-card__numbers" aria-label={`第${item.issue}期开奖号码`}>
+                        {item.numbers.map((num, index) => {
+                          const isExtra = index >= meta.mainCount
+                          const isSpecial = meta.specialLast && index === meta.mainCount - 1
+                          return (
+                            <span
+                              key={`${item.issue}-${index}-${num}`}
+                              className={`history-card__ball${isExtra ? ' is-extra' : ''}${
+                                isSpecial ? ' is-special' : ''
+                              }`}
+                            >
+                              {num}
+                            </span>
+                          )
+                        })}
+                      </div>
+
+                      {indicators && (
+                        <div className="history-card__indicators" aria-label="前区逐期指标">
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">和值</span>
+                            <strong>{indicators.sum}</strong>
                           </span>
-                        )
-                      })}
-                    </div>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">跨度</span>
+                            <strong>{indicators.span}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">奇偶</span>
+                            <strong>{formatDltOddEven(indicators)}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">大小</span>
+                            <strong>{formatDltBigSmall(indicators)}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">三区</span>
+                            <strong>{formatDltZones(indicators)}</strong>
+                          </span>
+                        </div>
+                      )}
 
-                    <div className="history-card__meta">
-                      <div className="history-card__meta-item">
-                        <span>销售额</span>
-                        <strong>{item.salesAmount}</strong>
+                      <div className="history-card__meta">
+                        <div className="history-card__meta-item">
+                          <span>销售额</span>
+                          <strong>{item.salesAmount}</strong>
+                        </div>
+                        <div className="history-card__meta-item">
+                          <span>一等奖注数</span>
+                          <strong>{item.firstPrizeCount}</strong>
+                        </div>
+                        <div className="history-card__meta-item">
+                          <span>一等奖奖金</span>
+                          <strong>{item.firstPrizeAmount}</strong>
+                        </div>
+                        <div className="history-card__meta-item">
+                          <span>奖池</span>
+                          <strong>{item.poolAmount}</strong>
+                        </div>
                       </div>
-                      <div className="history-card__meta-item">
-                        <span>一等奖注数</span>
-                        <strong>{item.firstPrizeCount}</strong>
-                      </div>
-                      <div className="history-card__meta-item">
-                        <span>一等奖奖金</span>
-                        <strong>{item.firstPrizeAmount}</strong>
-                      </div>
-                      <div className="history-card__meta-item">
-                        <span>奖池</span>
-                        <strong>{item.poolAmount}</strong>
-                      </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           </>

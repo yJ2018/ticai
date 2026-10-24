@@ -59,12 +59,14 @@ export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGam
       )}
 
       <div
-        className="history-page__desktop history-page-skeleton__desktop"
+        className={`history-page__desktop history-page-skeleton__desktop${
+          meta.positional ? '' : ' is-dlt'
+        }`}
         aria-hidden="true"
         style={{
           gridTemplateColumns: meta.positional
             ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr))`
-            : '5.1rem minmax(0, 35fr) minmax(0, 12fr)',
+            : '5.1rem minmax(0, 35fr) minmax(0, 12fr) 12.8rem',
         }}
       >
         <section className="trend-axis">
@@ -72,6 +74,7 @@ export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGam
           <div className="trend-axis__header">
             <span className="analysis-skeleton__bar" style={{ width: '4.5rem' }} />
           </div>
+          {!meta.positional && <div className="history-page-skeleton__stats" />}
           <div className="history-page-skeleton__axis-grid" />
         </section>
 
@@ -99,10 +102,32 @@ export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGam
                   ))}
                 </div>
               </div>
+              {!meta.positional && <div className="history-page-skeleton__stats" />}
               <div className="history-page-skeleton__trend-grid" />
             </div>
           </section>
         ))}
+
+        {!meta.positional && (
+          <section className="trend-panel">
+            <div className="trend-panel__header">
+              <div className="analysis-skeleton__line-list">
+                <span className="analysis-skeleton__bar" style={{ width: '3.8rem' }} />
+                <span
+                  className="analysis-skeleton__bar analysis-skeleton__bar--title"
+                  style={{ width: '3.4rem' }}
+                />
+              </div>
+              <span className="analysis-skeleton__bar" style={{ width: '4.8rem' }} />
+            </div>
+
+            <div className="trend-panel__table">
+              <div className="history-page-skeleton__metric-head" />
+              <div className="history-page-skeleton__stats" />
+              <div className="history-page-skeleton__metric-grid" />
+            </div>
+          </section>
+        )}
       </div>
 
       <ul className="history-page__list history-page__mobile history-page-skeleton__mobile" aria-hidden="true">
@@ -126,6 +151,13 @@ export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGam
                 />
               ))}
             </div>
+            {!meta.positional && (
+              <div className="history-page-skeleton__indicator-row">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <span key={index} className="analysis-skeleton__bar" style={{ width: '3.1rem' }} />
+                ))}
+              </div>
+            )}
             <div className="history-card__meta">
               {Array.from({ length: 4 }, (_, metaIndex) => (
                 <span key={metaIndex} className="analysis-skeleton__bar" />
