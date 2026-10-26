@@ -1,4 +1,4 @@
-# SEO：为什么 Google 搜不到，以及怎么让它能搜到
+﻿# SEO：为什么 Google 搜不到，以及怎么让它能搜到
 
 ## 1. 诊断（改之前）
 
@@ -30,7 +30,7 @@
 
 1. **检查部署保护**：Vercel → 项目 `ticai` → Settings → Deployment Protection，Production 不要开启 Vercel Authentication。
 2. **Google Search Console**：<https://search.google.com/search-console> 添加资源
-   - 推荐「网址前缀」方式 `https://ticai-eight.vercel.app`，用 HTML 标签验证时，把给的 `<meta name="google-site-verification" ...>` 贴到 `index.html` 的 `<head>` 里重新部署；
+   - 推荐「网址前缀」方式 `https://yujun426.online`，用 HTML 标签验证时，把给的 `<meta name="google-site-verification" ...>` 贴到 `index.html` 的 `<head>` 里重新部署；
    - 或「域名」方式，在 Vercel 域名的 DNS 里加 TXT 记录。
 3. **提交 sitemap**：GSC → 索引 → 站点地图，填 `sitemap.xml`。
 4. **请求编入索引**：GSC → 网址检查，分别对 `/` 和 `/results` 点「请求编入索引」。
@@ -42,17 +42,17 @@
 
 ```bash
 # 看 robots 和 sitemap 是否真的以文件返回，而不是 index.html
-curl -s https://ticai-eight.vercel.app/robots.txt
-curl -s https://ticai-eight.vercel.app/sitemap.xml | head
+curl -s https://yujun426.online/robots.txt
+curl -s https://yujun426.online/sitemap.xml | head
 
 # 模拟 Googlebot
 curl -s -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
-  https://ticai-eight.vercel.app/ | grep -E "<title>|description|canonical"
+  https://yujun426.online/ | grep -E "<title>|description|canonical"
 ```
 
 - GSC「网址检查」里看「已渲染的 HTML」是否带 title/description；
 - 用 <https://search.google.com/test/rich-results> 检查 JSON-LD；
-- 一两周后再查 `site:ticai-eight.vercel.app`。
+- 一两周后再查 `site:yujun426.online`。
 
 > 本机对 `*.vercel.app` 的 DNS 被污染（解析到 Facebook IP），本地 `curl` 访问不了属于正常现象，不影响 Google 抓取。
 

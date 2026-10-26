@@ -1,4 +1,4 @@
-User-agent: *
+﻿User-agent: *
 Allow: /
 
 # Private pages (require login)
@@ -8,4 +8,4 @@ Disallow: /login
 Disallow: /auth/
 Disallow: /profile
 
-Sitemap: https://ticai-eight.vercel.app/sitemap.xml
+Sitemap: https://yujun426.online/sitemap.xml

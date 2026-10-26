@@ -1,4 +1,4 @@
-export const SITE_URL = 'https://ticai-eight.vercel.app'
+﻿export const SITE_URL = 'https://yujun426.online'
 export const SITE_NAME = '体彩助手'
 
 export const DEFAULT_DESCRIPTION =
