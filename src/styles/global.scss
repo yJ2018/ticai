@@ -1212,6 +1212,19 @@ button:focus-visible,
   font-size: 0.74rem;
 }
 
+/* 理论最高奖金已按单注限额封顶时的角标 */
+.bet-meta__cap-mark {
+  display: inline-block;
+  margin-left: 0.28rem;
+  padding: 0.02rem 0.32rem;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 0.64rem;
+  line-height: 1.5;
+  vertical-align: 0.08rem;
+}
+
 .bet-summary {
   flex: 1 1 auto;
   min-width: 0;

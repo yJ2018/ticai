@@ -9,6 +9,8 @@ import {
   getMaxPassTypeFromOptions,
   getPassNeed,
   getPassTypeOptions,
+  getPassTypePayoutLimit,
+  sumCappedCombinationPayouts,
   sumCombinationProducts,
   type PlanEntry,
 } from './betSlipMath'
@@ -28,6 +30,9 @@ export type BetSlip = {
   planEntries: PlanEntry[]
   betAmount: number
   maxBonus: number
+  /** 未按体彩单注限额封顶的原始理论值，用来判断是否提示「已封顶」 */
+  maxBonusUncapped: number
+  isMaxBonusCapped: boolean
   multiple: number
   setMultiple: (value: number) => void
   applyAutoPicks: (picks: Array<{ matchId: number; optionKey: string }>) => void
@@ -142,19 +147,21 @@ export function useBetSlip(items: MatchCard[], activePool: MatchPoolType): BetSl
   )
 
   const betAmount = totalUnits * 2 * multiple
-  const maxBonus = Number(
-    (
-      selectedPassTypes.reduce((sum, passType) => {
-        const passNeed = getPassNeed(passType)
-        if (passNeed < 2 || selectedCount < passNeed) {
-          return sum
-        }
-        return sum + sumCombinationProducts(selectedMatchMetrics.map((item) => item.maxOdd), passNeed)
-      }, 0) *
-      2 *
-      multiple
-    ).toFixed(2),
-  )
+  const maxOdds = selectedMatchMetrics.map((item) => item.maxOdd)
+  let rawMaxBonus = 0
+  let cappedMaxBonus = 0
+  for (const passType of selectedPassTypes) {
+    const passNeed = getPassNeed(passType)
+    if (passNeed < 2 || selectedCount < passNeed) {
+      continue
+    }
+    // 体彩按「单注」封顶，倍数等于多注：每一注各自封顶后再乘倍数
+    rawMaxBonus += sumCombinationProducts(maxOdds, passNeed) * 2 * multiple
+    cappedMaxBonus += sumCappedCombinationPayouts(maxOdds, passNeed, getPassTypePayoutLimit(passType), multiple)
+  }
+  const maxBonus = Number(cappedMaxBonus.toFixed(2))
+  const maxBonusUncapped = Number(rawMaxBonus.toFixed(2))
+  const isMaxBonusCapped = maxBonusUncapped - maxBonus > 0.005
 
   // 已选场次变少时，自动剔除不再合法的过关方式
   useEffect(() => {
@@ -249,6 +256,8 @@ export function useBetSlip(items: MatchCard[], activePool: MatchPoolType): BetSl
     planEntries,
     betAmount,
     maxBonus,
+    maxBonusUncapped,
+    isMaxBonusCapped,
     multiple,
     setMultiple,
     applyAutoPicks,

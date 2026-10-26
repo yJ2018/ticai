@@ -5,12 +5,29 @@
  *   - 每注 2 元，倍数相乘；
  *   - 过关（n串1）：一注里的 n 场全中才算中；复式每场多选，按组合拆成多注；
  *   - 一场多选时最多只有一个选项能中，所以中奖注数 = 命中组合数；
- *   - 奖金 = Σ(命中组合的赔率连乘) × 2 × 倍数。
+ *   - 奖金 = Σ(命中组合的赔率连乘) × 2 × 倍数；
+ *   - 单注奖金按过关场次封顶：单场 10 万、2/3 串 20 万、4/5 串 50 万、6 串以上 100 万，
+ *     倍数算多注，每一注各自封顶后相加（与实体票面「本票最高可能固定奖金」一致）。
  *
  * 赛果缺失（还没开奖）一律 pending，不猜。
  */
 
 const PASS_TYPE_PATTERN = /^(\d+)串1$/
+
+/** 单注奖金限额（元），按过关场次 */
+export function getPayoutLimit(need) {
+  const count = Number(need) || 0
+  if (count >= 6) {
+    return 1_000_000
+  }
+  if (count >= 4) {
+    return 500_000
+  }
+  if (count >= 2) {
+    return 200_000
+  }
+  return 100_000
+}
 
 export function parsePassType(passType) {
   const match = PASS_TYPE_PATTERN.exec(String(passType ?? '').trim())
@@ -26,9 +43,10 @@ export function formatPassType(passType) {
  * 复式注数与理论最高奖金。
  *
  * units   = Σ_k Σ_组合 Π(该场选项数)
- * maxBonus= Σ_k Σ_组合 Π(该场最大赔率) × 2 × 倍数
+ * maxBonus= Σ_k Σ_组合 min(Π(该场最大赔率) × 2, 单注限额_k) × 倍数
  *
- * 两组组合和都用「每场一个因子」的初等对称和 DP，O(n·k)，不用枚举组合。
+ * 注数用「每场一个因子」的初等对称和 DP，O(n·k)；
+ * 最高奖金按过关组合枚举（竞彩最多 8 场，组合数很小），逐注套用限额。
  */
 export function computePlanMetrics({ groups, passTypes, multiple = 1 }) {
   const factors = groups.map((group) => ({
@@ -37,7 +55,6 @@ export function computePlanMetrics({ groups, passTypes, multiple = 1 }) {
   }))
   const maxK = Math.max(0, ...passTypes.map(parsePassType))
   const countSum = elementarySums(factors.map((item) => item.count), maxK)
-  const oddsSum = elementarySums(factors.map((item) => item.maxOdds), maxK)
 
   let units = 0
   let maxBonus = 0
@@ -47,7 +64,12 @@ export function computePlanMetrics({ groups, passTypes, multiple = 1 }) {
       continue
     }
     units += countSum[need] ?? 0
-    maxBonus += (oddsSum[need] ?? 0) * 2 * multiple
+
+    const limit = getPayoutLimit(need)
+    for (const combo of combinations(factors, need)) {
+      const oddsProduct = combo.reduce((product, item) => product * item.maxOdds, 1)
+      maxBonus += Math.min(oddsProduct * 2, limit) * multiple
+    }
   }
 
   return {
@@ -187,6 +209,7 @@ export function settleBet({ bet, legs, results }) {
       continue
     }
 
+    const limit = getPayoutLimit(need)
     let wonUnits = 0
     let passPayout = 0
 
@@ -196,7 +219,8 @@ export function settleBet({ bet, legs, results }) {
       }
       const odds = combo.reduce((product, group) => product * Number(group.winning[0].odds || 0), 1)
       wonUnits += 1
-      passPayout += 2 * multiple * odds
+      // 每一注（2 元 × 1 倍）先按单注限额封顶，倍数算多注
+      passPayout += Math.min(2 * odds, limit) * multiple
     }
 
     passPayout = Number(passPayout.toFixed(2))

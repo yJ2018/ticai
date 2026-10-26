@@ -17,6 +17,7 @@ type BetSlipFooterProps = {
   onConfirmMultiple: () => void
   betAmount: number
   maxBonus: number
+  isMaxBonusCapped: boolean
   onShowMaxBonusTax: () => void
   onClear: () => void
   onOpenPlan: () => void
@@ -43,6 +44,7 @@ export function BetSlipFooter({
   onConfirmMultiple,
   betAmount,
   maxBonus,
+  isMaxBonusCapped,
   onShowMaxBonusTax,
   onClear,
   onOpenPlan,
@@ -133,8 +135,14 @@ export function BetSlipFooter({
           <div className="bet-meta">
             <span className="bet-meta__label-small">投注金额</span> <strong>{betAmount}</strong> 元
           </div>
-          <button type="button" className="bet-meta bet-meta--button" onClick={onShowMaxBonusTax}>
+          <button
+            type="button"
+            className="bet-meta bet-meta--button"
+            onClick={onShowMaxBonusTax}
+            title={isMaxBonusCapped ? '已按体彩单注奖金限额封顶' : undefined}
+          >
             <span className="bet-meta__label-small">理论最高奖金</span> <strong>{maxBonus}</strong> 元
+            {isMaxBonusCapped && <span className="bet-meta__cap-mark">封顶</span>}
           </button>
         </div>
         <button type="button" className="btn-primary btn-action-equal bet-plan__trigger" onClick={onOpenPlan}>

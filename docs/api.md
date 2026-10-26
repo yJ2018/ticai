@@ -436,6 +436,9 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 保存一份投注单（方案快照）。**注数、金额、最高奖金由服务端重算**，不信任客户端传值。
 
+`maxBonus` 与结算奖金都按体彩单注限额封顶：单场 10 万、2/3 串 20 万、4/5 串 50 万、6 串及以上 100 万；
+倍数按多注处理，每一注各自封顶后相加。
+
 ```json
 {
   "title": "周日两场",

@@ -18,5 +18,14 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // vite preview 同样转发，方便用生产构建做本地验收
+    preview: {
+      proxy: {
+        '/api': {
+          target: apiTarget,
+          changeOrigin: false,
+        },
+      },
+    },
   }
 })

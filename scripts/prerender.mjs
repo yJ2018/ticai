@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 /**
@@ -12,8 +12,8 @@ import { dirname, resolve } from 'node:path'
  *   - dist/index.html 保持 SPA 壳，供登录后 / 动态路由回落，不预渲染
  *
  * 依赖：
- *   - 本地 API（127.0.0.1:3001）可访问；不可访问就跳过，不阻断构建；
- *   - 本机装有 Playwright 浏览器；没有就跳过。
+ *   - 本地 API（127.0.0.1:3001）可访问；不可访问时用 SPA 壳兜底，保证 rewrite 目标不 404；
+ *   - 本机装有 Playwright 浏览器；没有时同样兜底。
  *
  * 页面里的 /api 请求会被拦到本地 API，因此即使构建产物里的 VITE_API_BASE 指向生产域名
  * （本机 DNS 被污染）也能拿到数据。
@@ -62,8 +62,7 @@ async function waitForServer(url, timeoutMs = 20000) {
   return false
 }
 
-async function launchBrowser() {
-  let chromium
+async function launchBrowser() {  let chromium
   try {
     ;({ chromium } = await import('playwright'))
   } catch {
@@ -81,9 +80,23 @@ async function launchBrowser() {
   }
 }
 
+/**
+ * 预渲染跑不起来时，把 SPA 壳复制到每个目标路径：
+ * vercel.json 的 rewrite 指向这些文件，缺文件会 404，所以必须有兜底。
+ */
+async function writeShellFallback(reason) {
+  const shell = await readFile(resolve(ROOT, 'dist/index.html'), 'utf8')
+  for (const route of PUBLIC_ROUTES) {
+    const target = resolve(ROOT, 'dist', route.out)
+    await mkdir(dirname(target), { recursive: true })
+    await writeFile(target, shell, 'utf8')
+  }
+  console.log(`[prerender] ${reason}，已用 SPA 壳兜底（${PUBLIC_ROUTES.length} 个文件）`)
+}
+
 async function main() {
   if (!(await apiAlive())) {
-    console.log('[prerender] 本地 API 未启动，跳过预渲染（不影响构建）')
+    await writeShellFallback('本地 API 未启动')
     return
   }
 
@@ -102,14 +115,14 @@ async function main() {
   process.on('exit', stopPreview)
 
   if (!(await waitForServer(`http://localhost:${PORT}/`))) {
-    console.log('[prerender] preview 服务启动失败，跳过预渲染')
+    await writeShellFallback('preview 服务启动失败')
     stopPreview()
     return
   }
 
   const browser = await launchBrowser()
   if (!browser) {
-    console.log('[prerender] 没有可用的浏览器，跳过预渲染')
+    await writeShellFallback('没有可用的浏览器')
     stopPreview()
     return
   }
@@ -179,7 +192,7 @@ async function main() {
   stopPreview()
   console.log(`[prerender] 完成 ${rendered}/${PUBLIC_ROUTES.length}`)
   if (rendered === 0) {
-    process.exitCode = 1
+    await writeShellFallback('所有页面预渲染失败')
   }
 }
 

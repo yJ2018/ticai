@@ -104,6 +104,52 @@ export function sumCombinationProducts(values: number[], choose: number) {
   return total
 }
 
+/**
+ * 竞彩单注奖金限额（元），按过关场次：
+ * 单场 10 万；2/3 串 20 万；4/5 串 50 万；6 串及以上 100 万。
+ * 倍数按「多注」处理：每一注各自封顶，所以总额 = 单注封顶 × 倍数。
+ */
+export function getPassTypePayoutLimit(passType: string) {
+  const need = getPassNeed(passType)
+  if (need >= 6) {
+    return 1_000_000
+  }
+  if (need >= 4) {
+    return 500_000
+  }
+  if (need >= 2) {
+    return 200_000
+  }
+  return 100_000
+}
+
+export const PAYOUT_LIMIT_RULE = '竞彩单注奖金限额：单场 10 万、2/3 串 20 万、4/5 串 50 万、6 串以上 100 万'
+
+/**
+ * 理论最高奖金：每个过关组合算一注（2 元），单注按对应限额封顶后再乘倍数。
+ */
+export function sumCappedCombinationPayouts(values: number[], choose: number, limit: number, multiple: number) {
+  if (choose <= 0 || values.length < choose) {
+    return 0
+  }
+
+  let total = 0
+
+  function walk(startIndex: number, depth: number, product: number) {
+    if (depth === choose) {
+      total += Math.min(product * 2, limit) * multiple
+      return
+    }
+
+    for (let index = startIndex; index <= values.length - (choose - depth); index += 1) {
+      walk(index + 1, depth + 1, product * values[index])
+    }
+  }
+
+  walk(0, 0, 1)
+  return total
+}
+
 /** 单注 2 元；单次中奖收入超过 10000 元按 20% 计税 */
 export function getSportteryTaxInfo(amount: number): SportteryTaxInfo {
   if (amount <= 10000) {

@@ -626,6 +626,10 @@ export function HomePage() {
   }
 
   function showMaxBonusTax() {
+    if (betSlip.isMaxBonusCapped) {
+      setToastText('已按体彩单注限额封顶：2/3 串单注 20 万、4/5 串 50 万、6 串以上 100 万，倍数另计')
+      return
+    }
     if (betSlip.maxBonus <= 0) {
       setToastText('当前暂无可计算税额的奖金')
       return
@@ -759,6 +763,7 @@ export function HomePage() {
         onConfirmMultiple={confirmMultiple}
         betAmount={betSlip.betAmount}
         maxBonus={betSlip.maxBonus}
+        isMaxBonusCapped={betSlip.isMaxBonusCapped}
         onShowMaxBonusTax={showMaxBonusTax}
         onClear={clearPlan}
         onOpenPlan={openPlanModal}
