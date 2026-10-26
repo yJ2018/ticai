@@ -8,10 +8,6 @@
   },
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/prerender/home.html"
-    },
-    {
       "source": "/results",
       "destination": "/prerender/results.html"
     },
@@ -36,8 +32,8 @@
       "destination": "/prerender/about.html"
     },
     {
-      "source": "/((?!api/|assets/|prerender/|robots.txt|sitemap.xml|og-cover.png|favicon.svg|icons.svg).*)",
-      "destination": "/index.html"
+      "source": "/((?!api/|assets/|prerender/|spa.html|robots.txt|sitemap.xml|og-cover.png|favicon.svg|icons.svg).*)",
+      "destination": "/spa.html"
     }
   ],
   "headers": [

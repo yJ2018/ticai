@@ -33,6 +33,8 @@ function buildCorsHeaders(req, config) {
       'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
       // authorization：登录后的接口用 Bearer token
       'access-control-allow-headers': 'content-type,accept,authorization,x-session-token',
+      // 跨域时自定义响应头默认不可读，前端要读数据更新时间/比赛数
+      'access-control-expose-headers': 'x-data-as-of,x-match-count',
       'access-control-max-age': '86400',
       vary: 'Origin',
     }

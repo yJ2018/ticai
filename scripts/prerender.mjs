@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+﻿import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
@@ -23,9 +23,10 @@ const ROOT = process.cwd()
 const API_ORIGIN = 'http://127.0.0.1:3001'
 const PORT = 4174
 const PUBLIC_ROUTES = [
-  // 首页单独放一个文件，由 rewrite 提供；dist/index.html 保持干净的 SPA 壳，
-  // 避免 /login、/my-bets、/match/:id 这类深链先闪一下首页内容
-  { path: '/', out: 'prerender/home.html' },
+  // 首页就是 dist/index.html：Vercel 的静态文件优先于 rewrite，`/` 只会读 index.html，
+  // 所以把预渲染结果直接写回 index.html；同时把构建出的干净壳另存为 spa.html，
+  // 供 /login、/my-bets、/match/:id 这类动态路由回落，避免深链先闪首页内容。
+  { path: '/', out: 'index.html' },
   { path: '/results', out: 'prerender/results.html' },
   { path: '/history', out: 'prerender/history.html' },
   { path: '/history-analysis', out: 'prerender/history-analysis.html' },
@@ -84,22 +85,27 @@ async function launchBrowser() {  let chromium
  * 预渲染跑不起来时，把 SPA 壳复制到每个目标路径：
  * vercel.json 的 rewrite 指向这些文件，缺文件会 404，所以必须有兜底。
  */
-async function writeShellFallback(reason) {
-  const shell = await readFile(resolve(ROOT, 'dist/index.html'), 'utf8')
+async function writeShellFallback(reason, shell, spaShellPath) {
   for (const route of PUBLIC_ROUTES) {
     const target = resolve(ROOT, 'dist', route.out)
     await mkdir(dirname(target), { recursive: true })
     await writeFile(target, shell, 'utf8')
   }
-  console.log(`[prerender] ${reason}，已用 SPA 壳兜底（${PUBLIC_ROUTES.length} 个文件）`)
+  await writeFile(spaShellPath, shell, 'utf8')
+  console.log(`[prerender] ${reason}，已用 SPA 壳兜底（${PUBLIC_ROUTES.length} 个文件 + spa.html）`)
 }
 
 async function main() {
+  const shellPath = resolve(ROOT, 'dist/index.html')
+  const spaShellPath = resolve(ROOT, 'dist/spa.html')
+  const shell = await readFile(shellPath, 'utf8')
+  // 先把干净壳另存一份：首页预渲染会覆盖 index.html，动态路由回落到 spa.html
+  await writeFile(spaShellPath, shell, 'utf8')
+
   if (!(await apiAlive())) {
-    await writeShellFallback('本地 API 未启动')
+    await writeShellFallback('本地 API 未启动', shell, spaShellPath)
     return
   }
-
   const preview = spawn(
     process.execPath,
     ['node_modules/vite/bin/vite.js', 'preview', '--port', String(PORT), '--strictPort'],
@@ -115,14 +121,14 @@ async function main() {
   process.on('exit', stopPreview)
 
   if (!(await waitForServer(`http://localhost:${PORT}/`))) {
-    await writeShellFallback('preview 服务启动失败')
+    await writeShellFallback('preview 服务启动失败', shell, spaShellPath)
     stopPreview()
     return
   }
 
   const browser = await launchBrowser()
   if (!browser) {
-    await writeShellFallback('没有可用的浏览器')
+    await writeShellFallback('没有可用的浏览器', shell, spaShellPath)
     stopPreview()
     return
   }
@@ -192,7 +198,7 @@ async function main() {
   stopPreview()
   console.log(`[prerender] 完成 ${rendered}/${PUBLIC_ROUTES.length}`)
   if (rendered === 0) {
-    await writeShellFallback('所有页面预渲染失败')
+    await writeShellFallback('所有页面预渲染失败', shell, spaShellPath)
   }
 }
 
