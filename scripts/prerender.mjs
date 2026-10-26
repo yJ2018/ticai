@@ -7,8 +7,9 @@ import { dirname, resolve } from 'node:path'
  *
  * 纯 SPA 的 HTML 里没有正文，Google 需要排队执行 JS 才看得到内容；
  * 这里用 Playwright 打开构建产物，等接口数据渲染完，把整页 HTML 落盘：
- *   - `/`            → dist/index.html
- *   - 其它公开路由   → dist/prerender/<name>.html（由 vercel.json 的 rewrite 指向）
+ *   - `/`            → dist/prerender/home.html（由 vercel.json 的 rewrite 提供）
+ *   - 其它公开路由   → dist/prerender/<name>.html（同上）
+ *   - dist/index.html 保持 SPA 壳，供登录后 / 动态路由回落，不预渲染
  *
  * 依赖：
  *   - 本地 API（127.0.0.1:3001）可访问；不可访问就跳过，不阻断构建；
@@ -22,7 +23,9 @@ const ROOT = process.cwd()
 const API_ORIGIN = 'http://127.0.0.1:3001'
 const PORT = 4174
 const PUBLIC_ROUTES = [
-  { path: '/', out: 'index.html' },
+  // 首页单独放一个文件，由 rewrite 提供；dist/index.html 保持干净的 SPA 壳，
+  // 避免 /login、/my-bets、/match/:id 这类深链先闪一下首页内容
+  { path: '/', out: 'prerender/home.html' },
   { path: '/results', out: 'prerender/results.html' },
   { path: '/history', out: 'prerender/history.html' },
   { path: '/history-analysis', out: 'prerender/history-analysis.html' },

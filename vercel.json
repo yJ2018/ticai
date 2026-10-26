@@ -8,6 +8,10 @@
   },
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/prerender/home.html"
+    },
+    {
       "source": "/results",
       "destination": "/prerender/results.html"
     },

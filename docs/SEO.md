@@ -65,13 +65,17 @@ curl -s -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.h
 3. 页面里的 `/api/**` 请求被拦截到本地 API（绕开本机对 `*.vercel.app` 的 DNS 污染）；
 4. 预置免责声明 localStorage，避免「仅供娱乐」弹层被写进静态 HTML；
 5. 等 `networkidle` + 700ms 后落盘：
-   - `/` → `dist/index.html`
+   - `/` → `dist/prerender/home.html`
    - `/results`、`/history`、`/history-analysis`、`/math-trend-analysis`、`/horoscope`、`/about`
      → `dist/prerender/<name>.html`
 
-`vercel.json` 用显式 rewrite 把这几条路由指到预渲染文件（`/results` → `/prerender/results.html`），
-其余路径仍回落到 SPA 的 `index.html`。这样 Googlebot 拿到的 HTML 里就有标题、正文数据、canonical，
-不依赖 JS 渲染；用户访问时 React 挂载会接管成实时数据。
+`dist/index.html` 保持干净的 SPA 壳（不预渲染），供登录后页面和 `/match/:id` 等动态路由回落，
+这样深链不会先闪一下首页内容。
+
+`vercel.json` 用显式 rewrite 把首页和这几条路由指到预渲染文件（`/` → `/prerender/home.html`、
+`/results` → `/prerender/results.html`），其余路径仍回落到 SPA 的 `index.html`。
+这样 Googlebot 拿到的 HTML 里就有标题、正文数据、canonical，不依赖 JS 渲染；
+用户访问时 React 挂载会接管成实时数据。
 
 预渲染是**构建时快照**：数据会停留在构建那一刻。部署频率越高、快照越新；需要刷新时执行 `npm run prerender` 再发布。
 比赛详情（`/match/:id`）、登录后页面（`/my-bets` 等）不做预渲染。
