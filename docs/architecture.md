@@ -321,10 +321,11 @@ flowchart LR
    比赛详情页等拿到队名后再覆盖一次标题。静态入口在 `index.html`（OG / JSON-LD / noscript），
    `public/robots.txt` 与 `public/sitemap.xml` 由 Vercel 直接作为静态文件返回。
 7. **构建时预渲染**：`npm run build` 末尾跑 `scripts/prerender.mjs`，用 Playwright 打开 `vite preview`，
-   把 `/`、`/results`、`/history`、`/history-analysis`、`/math-trend-analysis`、`/horoscope`、`/about`
-   落成 `dist/prerender/*.html`，Vercel 用显式 rewrite 指向这些文件；`dist/index.html` 保持 SPA 壳，
-   供 `/match/:id`、登录后页面等动态路由回落。
-   本地 API 不在线或没装浏览器时自动跳过，不影响构建。
+   把 `/` 直接写回 `dist/index.html`（Vercel 静态文件优先于 rewrite），其余公开路由
+   `/results`、`/history`、`/history-analysis`、`/math-trend-analysis`、`/horoscope`、`/about`
+   落成 `dist/prerender/*.html` 并由显式 rewrite 提供；构建出的干净壳另存为 `dist/spa.html`，
+   供 `/match/:id`、登录后页面等动态路由回落，避免深链先闪首页内容。
+   本地 API 不在线或没装浏览器时用 SPA 壳兜底，不影响构建。
 4. 精确匹配为主；`/match/:matchId` 是唯一的动态路由（`cache: false`），切换不同 `matchId` 时组件不卸载，但 `useMatchDetail` 会按 id 重新拉取。
 5. 副作用常驻：页面的定时器与后台请求在切走后仍运行（`historyService` 的后台补页就是全局单例，不受影响）。
 
