@@ -5,6 +5,7 @@ import { type MatchCard } from '../service/matchService'
 import { MatchDetailContent } from '../features/matchDetail/MatchDetailContent'
 import { buildDetailView } from '../features/matchDetail/matchDetailView'
 import { useMatchDetail } from '../features/matchDetail/useMatchDetail'
+import { applyPageMeta } from '../features/seo/seo'
 import '../features/matchDetail/matchDetail.scss'
 
 type MatchDetailLocationState = { match?: MatchCard } | null
@@ -52,6 +53,17 @@ export function MatchDetailPage() {
     : view
       ? `${view.homeName} vs ${view.awayName}`
       : '对战数据'
+
+  // 比分页的标题更具体：等队名拿到后再覆盖一次 App 里的通用 meta
+  useEffect(() => {
+    if (!Number.isFinite(numericId)) {
+      return
+    }
+    applyPageMeta(`/match/${numericId}`, {
+      title: `${title} · 竞彩赔率与数据分析`,
+      description: `${title}：竞彩足球赛前数据、赔率走势与历史交锋分析，附胜平负与比分参考。`,
+    })
+  }, [numericId, title])
 
   return (
     <div className="md-page">

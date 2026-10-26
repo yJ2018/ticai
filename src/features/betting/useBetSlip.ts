@@ -31,6 +31,12 @@ export type BetSlip = {
   multiple: number
   setMultiple: (value: number) => void
   applyAutoPicks: (picks: Array<{ matchId: number; optionKey: string }>) => void
+  /** 用已保存的投注单回填：多选（复式）、过关方式、倍数一次到位 */
+  applySavedPlan: (plan: {
+    selections: Record<number, string[]>
+    passTypes: string[]
+    multiple: number
+  }) => void
   reset: () => void
 }
 
@@ -215,6 +221,19 @@ export function useBetSlip(items: MatchCard[], activePool: MatchPoolType): BetSl
     setHasManualPassSelection(false)
   }
 
+  /** 回填已保存的投注单：复式选择、过关方式、倍数一起恢复。 */
+  function applySavedPlan(plan: {
+    selections: Record<number, string[]>
+    passTypes: string[]
+    multiple: number
+  }) {
+    setSelectedOptionKeys(plan.selections)
+    setExpandedMixedIds([])
+    setManualPassTypes(plan.passTypes)
+    setHasManualPassSelection(plan.passTypes.length > 0)
+    setMultiple(Math.min(50, Math.max(1, Math.round(plan.multiple) || 1)))
+  }
+
   return {
     selectedOptionKeys,
     expandedMixedIds,
@@ -233,6 +252,7 @@ export function useBetSlip(items: MatchCard[], activePool: MatchPoolType): BetSl
     multiple,
     setMultiple,
     applyAutoPicks,
+    applySavedPlan,
     reset,
   }
 }

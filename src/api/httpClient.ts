@@ -19,7 +19,14 @@ type RequestOptions = {
 
 const DEFAULT_TIMEOUT_MS = 15_000
 
-export async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
+/**
+ * 与 `request` 相同，但把响应头一起返回。
+ * 赛事接口用 `x-data-as-of` 告诉前端「库里的数据是什么时候的」，页面才能显示真实新鲜度。
+ */
+export async function requestWithMeta<T>(
+  url: string,
+  options: RequestOptions = {},
+): Promise<{ data: T; headers: Headers }> {
   const timeoutSignal = AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
   const signal =
     options.signal && typeof AbortSignal.any === 'function'
@@ -51,14 +58,19 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
   }
 
   if (response.status === 204) {
-    return undefined as T
+    return { data: undefined as T, headers: response.headers }
   }
 
   try {
-    return (await response.json()) as T
+    return { data: (await response.json()) as T, headers: response.headers }
   } catch {
     throw new ApiError('接口返回格式异常', response.status)
   }
+}
+
+export async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
+  const { data } = await requestWithMeta<T>(url, options)
+  return data
 }
 
 async function readErrorMessage(response: Response) {

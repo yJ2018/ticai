@@ -234,9 +234,357 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 ---
 
-## 3. AI 接口
+### 2.4 `GET /api/results`
 
-### 3.1 `POST /api/ai-analysis`（推荐）
+赛果开奖。数据由本地爬虫 `npm run crawl -- results` 从体彩官网赛果开奖接口
+（`getUniformMatchResultV1`）写入 `match_result` 表，一次请求拿一整天，替代过去「逐场抓近期赛果」。
+
+| 参数 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `date` | `YYYY-MM-DD` | 今天（北京时间） | 结束日期；非法值回退到今天 |
+| `days` | 1–30 | 3 | 从 `date` 往前数几天（含当天） |
+| `limit` | 1–500 | 200 | 最多返回条数 |
+
+按**真实开赛时间**（`match.kickoff_at`，关联不到时退回销售日）筛选与升序排列，
+所以「凌晨场次」不会因为销售日不同被分到前一天。
+
+```json
+{
+  "success": true,
+  "data": {
+    "from": "2026-10-23",
+    "to": "2026-10-25",
+    "updatedAt": "2026-10-25T14:00:00.000Z",
+    "count": 52,
+    "items": [
+      {
+        "matchId": 2042217,
+        "matchNo": "周日005",
+        "matchDate": "2026-10-24",
+        "leagueName": "荷兰甲级联赛",
+        "homeName": "福图纳锡塔德",
+        "awayName": "SBV精英",
+        "homeScore": 1,
+        "awayScore": 0,
+        "homeHalfScore": 0,
+        "awayHalfScore": 0,
+        "goalLine": -1,
+        "had": "h",
+        "hhad": "d",
+        "ttg": 1,
+        "crs": "s01s00",
+        "hafu": "dh",
+        "settled": true,
+        "status": "2",
+        "poolStatus": "Payout"
+      }
+    ]
+  }
+}
+```
+
+字段口径：
+
+- `had` / `hhad`：`h` `d` `a`，**主队视角**；`hhad` 已经加过 `goalLine`。
+- `ttg`：总进球，0–7，`7` 表示 7 球及以上。
+- `crs`：比分玩法的选项 key，与前端 `optionKey` 完全一致（`s02s01`、`s1sh` 等）。
+- `hafu`：半全场，`hh` `hd` … `aa`。
+- `settled=false` 时比分与全部结果字段都是 `null`，表示还没开奖。
+
+---
+
+## 3. 登录与投注记录
+
+登录是**可选**能力：不登录也能看赛事 / 开奖 / 分析，登录后才能保存投注单并自动判中奖。
+
+### 3.1 认证方式
+
+- 登录成功后拿到 `token`（30 天有效），后续请求带 `Authorization: Bearer <token>`。
+- 服务端只存 token 的 sha256，退出登录即吊销。
+- 需要登录的接口在未登录 / token 失效时返回 `401`：
+
+```json
+{ "success": false, "errorMessage": "请先登录" }
+```
+
+#### 密码怎么传、怎么存
+
+浏览器提交的是**明文密码**（HTTPS 的加密在传输层，不在应用层）——这是所有密码登录的通用做法，
+不存在「前端可逆加密」能真正提升安全性的方案（密钥也在前端）。真正决定安全的是下面四条：
+
+| 环节 | 做法 |
+| --- | --- |
+| 传输 | 认证接口强制 HTTPS：请求既不是 TLS、Host 也不是本机/内网地址时返回 `403`（`AUTH_ALLOW_INSECURE=1` 可临时放行，仅调试用） |
+| 存储 | `scrypt(password, 随机 16 字节盐, 64)`，库里只存 `scrypt$<salt>$<hash>`，无法反推 |
+| 日志 | 请求日志只记 `method / path / status / 耗时`，**从不记录请求体**；响应也不回显密码 |
+| 防爆破 | 同 IP 15 次/分、同邮箱 8 次/分（注册 10 次/小时/IP）；未知邮箱也会跑一次 scrypt，响应时间不泄露邮箱是否存在 |
+
+> 本地用 `http://127.0.0.1:5199` 调试时，密码在回环网卡上是明文——只有你自己这台机器能看到。
+> 用 `vite --host` 暴露到局域网时请确保信任同网段设备，或改用 HTTPS 隧道（如 cloudflared）。
+
+### 3.2 `POST /api/auth/code`
+
+发邮箱验证码。
+
+```json
+{ "email": "me@example.com", "purpose": "register" }
+```
+
+`purpose`：`register`（注册验证）或 `login`（免密登录）。响应：
+
+```json
+{ "success": true, "data": { "sent": true, "delivered": true, "expiresInSeconds": 600 } }
+```
+
+- 未配置 `RESEND_API_KEY` 时 `delivered=false`，验证码只写服务端日志；
+  本地 `MAIL_DEV_ECHO=1` 会额外返回 `devCode`（**线上必须关闭**）。
+- 限流：同邮箱 60 秒冷却、每小时 6 次；同 IP 每小时 20 次，超出返回 `429`。
+
+### 3.3 `POST /api/auth/register`
+
+```json
+{ "email": "me@example.com", "password": "至少8位", "code": "123456" }
+```
+
+成功返回会话：
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "…",
+    "expiresAt": "2026-11-24T14:01:38.537Z",
+    "expiresInDays": 30,
+    "user": { "id": "1", "email": "me@example.com", "createdAt": "2026-10-25T14:01:36.311Z" }
+  }
+}
+```
+
+### 3.4 `POST /api/auth/login`
+
+两种形态，二选一：
+
+```json
+{ "email": "me@example.com", "password": "……" }
+```
+
+```json
+{ "email": "me@example.com", "code": "123456" }
+```
+
+密码错误返回 `401 邮箱或密码不正确`；验证码错误/过期/超次返回 `400` / `429`。
+
+### 3.5 `POST /api/auth/logout`、`GET /api/auth/me`
+
+- `logout`：吊销当前 token，返回 `{ "ok": true }`。
+- `me`：返回当前登录用户，用于刷新页面后校验本地 token。
+
+### 3.6 `GET /api/bets`
+
+「我的投注」列表，需要登录。
+
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| `limit` | 30 | 1–100 |
+| `offset` | 0 | 分页 |
+| `pool` | 空 | 只看含某玩法的单：`had` / `hhad` / `ttg` / `crs` / `hafu` |
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "12",
+        "title": "2场 · 2串1",
+        "passTypes": ["2串1"],
+        "multiple": 2,
+        "units": 1,
+        "amount": 4,
+        "maxBonus": 15.64,
+        "placedAt": "2026-10-25T14:10:00.000Z",
+        "matchCount": 2,
+        "status": "won",
+        "payout": 15.64,
+        "passTypeDetails": [{ "passType": "2串1", "need": 2, "totalUnits": 1, "wonUnits": 1, "payout": 15.64 }],
+        "legs": [
+          {
+            "id": "21",
+            "sportteryMatchId": 2042217,
+            "matchNo": "周日005",
+            "homeName": "福图纳锡塔德",
+            "awayName": "SBV精英",
+            "pool": "had",
+            "optionKey": "h",
+            "optionLabel": "胜",
+            "odds": 2.3,
+            "goalLine": null,
+            "outcome": "won",
+            "result": { "settled": true, "homeScore": 1, "awayScore": 0, "homeHalfScore": 0, "awayHalfScore": 0 }
+          }
+        ]
+      }
+    ],
+    "stats": { "total": 1, "pending": 0, "won": 1, "lost": 0, "amount": 4, "payout": 15.64 }
+  }
+}
+```
+
+`status`：`pending`（还有场次没开奖）/ `won` / `lost`；`stats` 只在 `offset=0` 时返回。
+
+### 3.7 `POST /api/bets`
+
+保存一份投注单（方案快照）。**注数、金额、最高奖金由服务端重算**，不信任客户端传值。
+
+```json
+{
+  "title": "周日两场",
+  "passTypes": ["2串1"],
+  "multiple": 2,
+  "legs": [
+    {
+      "sportteryMatchId": 2042217,
+      "matchNumStr": "周日005",
+      "leagueName": "荷甲",
+      "homeName": "福图纳锡塔德",
+      "awayName": "SBV精英",
+      "kickoffAt": "2026-10-25T19:00:00+08:00",
+      "pool": "had",
+      "optionKey": "h",
+      "optionLabel": "胜",
+      "odds": 2.3,
+      "goalLine": null
+    },
+    { "sportteryMatchId": 2042216, "pool": "had", "optionKey": "h", "odds": 1.7 }
+  ]
+}
+```
+
+限制：最多 60 个选项 / 15 场 / 6 种过关方式；`odds` 必须 ≥ 1；`multiple` 1–50。
+同一场选多个选项就是复式，`units` 按组合数计算。
+
+响应 `201`，body 与列表中的单条结构一致（已带实时结算）。
+
+### 3.8 `GET /api/bets/:id`、`DELETE /api/bets/:id`
+
+详情 / 删除（只能操作自己的单，越权返回 `404`）。
+
+### 3.9 结算规则
+
+- 赛果来自 `match_result`；缺失即 `pending`，不提前判负。
+- 每注 2 元，奖金 = 命中组合的赔率连乘 × 2 × 倍数。
+- 让球胜平负按**下注时**的 `goalLine` 重算（2:1、让一球 → 1:1 → 让球平）。
+- 复式每场多选时，最多只有一个选项能中，中奖注数 = 命中组合数。
+- 比分玩法覆盖官方全部选项，包括「胜其它 / 平其它 / 负其它」。
+
+### 3.10 微信登录与绑定
+
+账号与登录方式已经拆开：`app_user` 是账号，`user_identity` 是「某种登录方式」。
+邮箱是一个身份，微信是另一个身份；同一个账号可以同时拥有两者。
+
+| 概念 | 说明 |
+| --- | --- |
+| `provider` | `email` / `wechat` |
+| `channel` | `email` / `wechat_web`（开放平台扫码）/ `wechat_mp`（公众号网页授权） |
+| `provider_uid` | 邮箱（小写）或微信 openid |
+| `union_id` | 微信 unionid，同一开放平台下跨应用识别同一个人 |
+
+#### `GET /api/auth/wechat/config`
+
+公开接口，前端据此决定入口形态：
+
+```json
+{
+  "success": true,
+  "data": {
+    "enabled": true,
+    "channels": ["wechat_web", "wechat_mp"],
+    "redirectUri": "https://ticai-service.vercel.app/api/auth/wechat/callback",
+    "missing": []
+  }
+}
+```
+
+未配置时 `enabled` 为 `false`，`missing` 列出缺的环境变量（`WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_REDIRECT_URI`），
+`start` 等接口返回 `503`；前端在登录页与账号页改为展示「接入步骤」。
+
+#### `GET /api/auth/wechat/start?mode=login|bind`
+
+返回授权地址，前端直接跳转（新窗口/当前窗口都行）：
+
+```json
+{ "success": true, "data": { "authorizeUrl": "https://open.weixin.qq.com/connect/qrconnect?..." } }
+```
+
+- `mode=login`：扫码后登录；身份不存在时**自动建一个无邮箱账号**。
+- `mode=bind`：必须带 `Authorization`，把微信绑到当前账号（不会新建账号）。
+
+state 由服务端 HMAC 签名，内含 `mode`、渠道、绑定用户 id 与 10 分钟过期时间，防 CSRF 与串号。
+
+#### `GET /api/auth/wechat/callback?code&state`
+
+微信跳回来的地址（需与平台登记一致）。服务端完成 code → openid 交换后：
+
+- 成功：`302` 到 `${APP_WEB_BASE}/auth/wechat?ticket=<一次性票据>&mode=login|bind`；
+- 失败：`302` 到同地址并带 `error=`（中文原因）。
+
+**URL 里只有 2 分钟、一次性的 ticket，不是会话 token**，避免 token 进浏览器历史与反代日志。
+
+#### `POST /api/auth/wechat/session`
+
+```json
+{ "ticket": "…" }
+```
+
+消费票据并建立正式会话，响应与 `/api/auth/login` 相同（`token` / `expiresAt` / `user`）。票据重复使用返回 `400`。
+
+#### `GET /api/auth/identities`、`DELETE /api/auth/identities/:provider`
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      { "provider": "email", "channel": "email", "nickname": "me", "uidHint": "", "lastLoginAt": "2026-10-25T15:00:00.000Z" },
+      { "provider": "wechat", "channel": "wechat_web", "nickname": "微信昵称", "uidHint": "…abcd", "lastLoginAt": null }
+    ]
+  }
+}
+```
+
+- openid 只回末四位（`uidHint`）。
+- 解绑时如果只剩最后一种登录方式，返回 `400 至少保留一种登录方式`。
+
+#### 未接入微信时
+
+服务端没有 `WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_REDIRECT_URI` 时：
+
+- `/api/auth/wechat/config` 返回 `enabled: false` 与 `missing: [...]`；
+- 登录页的「微信登录」按钮不跳转，改为弹出**接入步骤**（注册开放平台 → 创建网站应用 →
+  配置回调域与环境变量 → 重新部署）；
+- 账号页显示「查看接入步骤」；
+- 邮箱注册 / 密码登录 / 验证码登录 / 投注 / 结算完全不受影响。
+
+接入步骤（详细版）：
+
+1. 在 open.weixin.qq.com 注册并完成开发者资质认证（企业主体，需要已备案域名）；
+2. 创建「网站应用」，授权回调域只填 API 域名（不带 `https://` 与路径）；
+3. 部署环境配置：
+
+   ```bash
+   WECHAT_APP_ID=应用 AppID
+   WECHAT_APP_SECRET=应用 AppSecret
+   WECHAT_REDIRECT_URI=https://<API 域名>/api/auth/wechat/callback
+   APP_WEB_BASE=https://<前端域名>
+   ```
+
+4. 重新部署 API 并刷新页面，`enabled` 变为 `true`，按钮直接跳扫码授权。
+
+---
+
+## 4. AI 接口
+
+### 4.1 `POST /api/ai-analysis`（推荐）
 
 **只收比赛 ID 和玩法**，其余全部服务端装配：比赛信息、最新赔率、官方数据（伤停/交锋/近况/排名）、比赛地天气、系统提示词。
 
@@ -305,7 +653,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 **限流**：`AI_RATE_LIMIT_PER_MIN`（默认 10 次/分钟/IP），超出返回 `429`。
 
-### 3.2 `POST /api/ai-parlay`（串关）
+### 4.2 `POST /api/ai-parlay`（串关）
 
 **只收选中的场次与选项**，联赛、开赛时间、赔率、伤停由服务端按 `matchId` 从库里补；系统提示词也在服务端。
 
@@ -345,7 +693,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 **与遗留接口的区别**：`/api/ai-chat` 需要客户端自带完整 `messages`，改提示词要发版且请求体大；本接口只传结构化参数，提示词可随时在服务端迭代。
 
-### 3.3 `POST /api/ai-chat`（遗留）
+### 4.3 `POST /api/ai-chat`（遗留）
 
 通用的 DeepSeek 代理，由客户端自带 `messages`。**前端已不再调用**（单场走 `/api/ai-analysis`、串关走 `/api/ai-parlay`），保留给脚本与第三方调试。
 
@@ -359,11 +707,11 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 ---
 
-## 4. 代理接口
+## 5. 代理接口
 
 这三个接口不落库，直接转发聚合数据（Juhe），带 TTL 缓存。
 
-### 4.1 `GET /api/horoscope`
+### 5.1 `GET /api/horoscope`
 
 | 参数 | 说明 |
 | --- | --- |
@@ -372,7 +720,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 响应为统一信封，`data` 是聚合数据原始 body。缓存 10 分钟。缺密钥返回 `503`。
 
-### 4.2 `GET /api/weather`
+### 5.2 `GET /api/weather`
 
 | 参数 | 说明 |
 | --- | --- |
@@ -381,7 +729,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 缓存 10 分钟。缺密钥返回 `503`。
 
-### 4.3 `GET /api/ip`
+### 5.3 `GET /api/ip`
 
 无参数，按连接 IP 查询归属地（私有网段不传 `ip`，由上游按来源判断）。
 
@@ -392,7 +740,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 未配置 `JUHE_IP_KEY` 时返回 `details: {}`，前端回退默认城市。缓存 30 分钟。
 **注意**：服务前面必须有可信反代；直连公网时设 `TRUST_PROXY=0`，否则 `x-forwarded-for` 可伪造。
 
-### 4.4 `GET /api/venue-weather`
+### 5.4 `GET /api/venue-weather`
 
 主队城市由 DeepSeek 解析，天气来自 Open-Meteo。
 
@@ -407,9 +755,9 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 ---
 
-## 5. 运维接口
+## 6. 运维接口
 
-### 5.1 `GET /api/health`（readiness）
+### 6.1 `GET /api/health`（readiness）
 
 ```json
 {
@@ -425,7 +773,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 数据库不可用时返回 `503`。**不暴露上游地址、模型名与密钥状态。**
 
-### 5.2 `GET /healthz`（liveness）
+### 6.2 `GET /healthz`（liveness）
 
 ```json
 { "ok": true, "uptimeSeconds": 3600 }
@@ -435,7 +783,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 ---
 
-## 6. 前端接入
+## 7. 前端接入
 
 所有请求都经过 `src/api/base.ts` 的 `apiUrl()`：
 
@@ -451,10 +799,13 @@ VITE_API_BASE=https://ticai-api.vercel.app
 
 ---
 
-## 7. 变更记录
+## 8. 变更记录
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-25 | 新增 `/api/results`：赛果开奖入库（`match_result`），由爬虫 `results` 链路写入，替代逐场抓近期赛果 |
+| 2026-10-25 | 新增可选登录：`/api/auth/code|register|login|logout|me`，Resend 发邮箱验证码，Bearer 会话 |
+| 2026-10-25 | 新增 `/api/bets` 系列：保存投注单、按玩法筛选、按赛果自动判中奖与奖金 |
 | 2026-10-22 | 新增 `/api/ai-analysis`：只收 `matchId + pool`，提示词与官方数据下沉服务端；前端请求数 3 → 1 |
 | 2026-10-22 | 新增 `/api/match-detail`：对战详情 7 个板块，缺失返回 `null` + `missing` |
 | 2026-10-22 | `/api/matches`、`/api/history` 改为读库；金额字段双写修复旧前端显示 |

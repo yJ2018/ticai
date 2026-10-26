@@ -32,8 +32,14 @@ export async function getPool(config) {
         connectionString: config.database.url,
         ssl: config.database.ssl,
         max: config.database.poolMax,
-        idleTimeoutMillis: 10_000,
-        connectionTimeoutMillis: 8_000,
+        // 远端库建连约 5–7s（TLS + 代理），不要把空闲连接关得太快：
+        // 10s 会让每次隔一会儿的请求都重新握手，历史接口因此动辄 7s；
+        // 默认保留 30 分钟，可用 DATABASE_IDLE_TIMEOUT_MS 调整。
+        idleTimeoutMillis: config.database.idleTimeoutMs ?? 1_800_000,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10_000,
+        // 跨境到 db.prisma.io 的 TLS 握手实测 5–8s，给足余量，避免冷启动直接超时
+        connectionTimeoutMillis: 15_000,
         // 单条查询上限，避免慢查询把实例拖住
         statement_timeout: 10_000,
       })
@@ -60,6 +66,23 @@ export async function getPool(config) {
 export async function query(config, text, params = []) {
   const pool = await getPool(config)
   return pool.query(text, params)
+}
+
+/** 需要一个「要么全成、要么全不成」的写操作时用它（注册、保存投注单）。 */
+export async function withTransaction(config, handler) {
+  const pool = await getPool(config)
+  const client = await pool.connect()
+  try {
+    await client.query('begin')
+    const result = await handler(client)
+    await client.query('commit')
+    return result
+  } catch (error) {
+    await client.query('rollback').catch(() => {})
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 /** 健康检查用：连不上就返回 false，不抛错。 */

@@ -1,5 +1,5 @@
 import { apiUrl } from './base'
-import { request } from './httpClient'
+import { request, requestWithMeta } from './httpClient'
 import {
   type LotteryHistoryParams,
   type LotteryHistoryValue,
@@ -30,6 +30,32 @@ export async function getMatchCalculator(poolType: MatchPoolKey = 'mixed', signa
   }
 
   return response.value
+}
+
+/**
+ * 同 `getMatchCalculator`，额外带回 `x-data-as-of`。
+ * 页面用它显示「数据更新于 …」，避免用户分不清是自己没刷新还是爬虫没跑。
+ */
+export async function getMatchCalculatorWithMeta(
+  poolType: MatchPoolKey = 'mixed',
+  signal?: AbortSignal,
+) {
+  const query = new URLSearchParams({ channel: 'c', poolType })
+
+  const { data, headers } = await requestWithMeta<SportteryEnvelope<MatchCalculatorValue>>(
+    `${MATCH_CALCULATOR_URL}?${query.toString()}`,
+    { signal },
+  )
+
+  if (!data.success) {
+    throw new Error(data.errorMessage || '接口返回失败')
+  }
+
+  return {
+    value: data.value,
+    dataAsOf: headers.get('x-data-as-of'),
+    count: Number(headers.get('x-match-count') ?? 0),
+  }
 }
 
 export async function getLotteryHistoryPage(params: LotteryHistoryParams, signal?: AbortSignal) {

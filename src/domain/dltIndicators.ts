@@ -1,19 +1,23 @@
 /**
- * 大乐透前区逐期指标。
+ * 大乐透前区 / 后区逐期指标。
  *
  * 业界走势图右侧通常跟着一组逐期统计：和值、跨度、奇偶比、大小比、三区比。
- * 这里集中定义口径，页面（桌面右栏 / 移动端卡片）只负责展示：
- * - 和值：前区 5 个号码之和，范围 15–165
- * - 跨度：最大号 − 最小号，范围 4–34
+ * 这里集中定义口径，页面、右栏和号码推演只负责调用：
+ * - 和值：前区 5 个号码之和，范围 15–165；后区 2 个号码之和，范围 3–23
+ * - 跨度：最大号 − 最小号，前区 4–34；后区 1–11
  * - 奇偶比：奇数个数 : 偶数个数
  * - 大小比：大号（18–35） : 小号（1–17）
  * - 三区比：一区 1–12 : 二区 13–24 : 三区 25–35
  */
 
-const FRONT_BALL_COUNT = 5
-const MAX_FRONT_NUMBER = 35
+export const DLT_FRONT_BALL_COUNT = 5
+export const DLT_FRONT_MIN = 1
+export const DLT_FRONT_MAX = 35
+export const DLT_BACK_BALL_COUNT = 2
+export const DLT_BACK_MIN = 1
+export const DLT_BACK_MAX = 12
 /** 前区大小分界：18–35 为大号，1–17 为小号 */
-const BIG_NUMBER_MIN = 18
+export const DLT_BIG_NUMBER_MIN = 18
 /** 三区上界：1–12 / 13–24 / 25–35 */
 const ZONE_UPPER_LIMITS = [12, 24, 35] as const
 
@@ -28,6 +32,13 @@ export type DltFrontIndicators = {
   zones: [number, number, number]
 }
 
+export type DltBackIndicators = {
+  sum: number
+  span: number
+  odd: number
+  even: number
+}
+
 export type DltFrontIndicatorSummary = {
   sampleSize: number
   averageSum: number
@@ -37,34 +48,81 @@ export type DltFrontIndicatorSummary = {
   averageZones: [number, number, number]
 }
 
-/** 解析前区 5 个号码；号码缺失或越界时返回 null，交给页面显示 "--" */
-export function getDltFrontIndicators(numbers: readonly string[]): DltFrontIndicators | null {
-  if (numbers.length < FRONT_BALL_COUNT) {
+/** 号码属于前区第几区（0 = 一区 1–12，1 = 二区 13–24，2 = 三区 25–35） */
+export function getDltFrontZoneIndex(value: number): 0 | 1 | 2 {
+  if (value <= ZONE_UPPER_LIMITS[0]) {
+    return 0
+  }
+  if (value <= ZONE_UPPER_LIMITS[1]) {
+    return 1
+  }
+  return 2
+}
+
+/** 解析前区 5 个号码；号码缺失或越界时返回 null */
+export function parseDltFrontNumbers(numbers: readonly string[]): number[] | null {
+  if (numbers.length < DLT_FRONT_BALL_COUNT) {
     return null
   }
 
   const frontNumbers: number[] = []
-  for (let index = 0; index < FRONT_BALL_COUNT; index += 1) {
+  for (let index = 0; index < DLT_FRONT_BALL_COUNT; index += 1) {
     const value = Number(numbers[index])
-    if (!Number.isInteger(value) || value < 1 || value > MAX_FRONT_NUMBER) {
+    if (!Number.isInteger(value) || value < DLT_FRONT_MIN || value > DLT_FRONT_MAX) {
       return null
     }
     frontNumbers.push(value)
+  }
+  return frontNumbers
+}
+
+/** 解析后区 2 个号码；号码缺失或越界时返回 null */
+export function parseDltBackNumbers(numbers: readonly string[]): number[] | null {
+  if (numbers.length < DLT_FRONT_BALL_COUNT + DLT_BACK_BALL_COUNT) {
+    return null
+  }
+
+  const backNumbers: number[] = []
+  for (let index = 0; index < DLT_BACK_BALL_COUNT; index += 1) {
+    const value = Number(numbers[DLT_FRONT_BALL_COUNT + index])
+    if (!Number.isInteger(value) || value < DLT_BACK_MIN || value > DLT_BACK_MAX) {
+      return null
+    }
+    backNumbers.push(value)
+  }
+  return backNumbers
+}
+
+/** 已解析的前区号码 → 逐期指标；非法号码返回 null */
+export function computeDltFrontIndicators(
+  frontNumbers: readonly number[],
+): DltFrontIndicators | null {
+  if (frontNumbers.length < DLT_FRONT_BALL_COUNT) {
+    return null
+  }
+
+  const numbers = frontNumbers.slice(0, DLT_FRONT_BALL_COUNT)
+  if (
+    numbers.some(
+      (value) => !Number.isInteger(value) || value < DLT_FRONT_MIN || value > DLT_FRONT_MAX,
+    )
+  ) {
+    return null
   }
 
   let sum = 0
   let odd = 0
   let big = 0
   const zones: [number, number, number] = [0, 0, 0]
-  let min = frontNumbers[0]
-  let max = frontNumbers[0]
+  let min = numbers[0]
+  let max = numbers[0]
 
-  for (const value of frontNumbers) {
+  for (const value of numbers) {
     sum += value
     if (value % 2 === 1) {
       odd += 1
     }
-    if (value >= BIG_NUMBER_MIN) {
+    if (value >= DLT_BIG_NUMBER_MIN) {
       big += 1
     }
     if (value < min) {
@@ -73,20 +131,73 @@ export function getDltFrontIndicators(numbers: readonly string[]): DltFrontIndic
     if (value > max) {
       max = value
     }
-
-    const zoneIndex = ZONE_UPPER_LIMITS.findIndex((upperLimit) => value <= upperLimit)
-    zones[zoneIndex >= 0 ? zoneIndex : ZONE_UPPER_LIMITS.length - 1] += 1
+    zones[getDltFrontZoneIndex(value)] += 1
   }
 
   return {
     sum,
     span: max - min,
     odd,
-    even: FRONT_BALL_COUNT - odd,
+    even: DLT_FRONT_BALL_COUNT - odd,
     big,
-    small: FRONT_BALL_COUNT - big,
+    small: DLT_FRONT_BALL_COUNT - big,
     zones,
   }
+}
+
+/** 已解析的后区号码 → 逐期指标；非法号码返回 null */
+export function computeDltBackIndicators(
+  backNumbers: readonly number[],
+): DltBackIndicators | null {
+  if (backNumbers.length < DLT_BACK_BALL_COUNT) {
+    return null
+  }
+
+  const numbers = backNumbers.slice(0, DLT_BACK_BALL_COUNT)
+  if (
+    numbers.some(
+      (value) => !Number.isInteger(value) || value < DLT_BACK_MIN || value > DLT_BACK_MAX,
+    )
+  ) {
+    return null
+  }
+
+  let sum = 0
+  let odd = 0
+  let min = numbers[0]
+  let max = numbers[0]
+
+  for (const value of numbers) {
+    sum += value
+    if (value % 2 === 1) {
+      odd += 1
+    }
+    if (value < min) {
+      min = value
+    }
+    if (value > max) {
+      max = value
+    }
+  }
+
+  return {
+    sum,
+    span: max - min,
+    odd,
+    even: DLT_BACK_BALL_COUNT - odd,
+  }
+}
+
+/** 开奖记录中的号码字符串 → 前区指标 */
+export function getDltFrontIndicators(numbers: readonly string[]): DltFrontIndicators | null {
+  const frontNumbers = parseDltFrontNumbers(numbers)
+  return frontNumbers ? computeDltFrontIndicators(frontNumbers) : null
+}
+
+/** 开奖记录中的号码字符串 → 后区指标 */
+export function getDltBackIndicators(numbers: readonly string[]): DltBackIndicators | null {
+  const backNumbers = parseDltBackNumbers(numbers)
+  return backNumbers ? computeDltBackIndicators(backNumbers) : null
 }
 
 /** 汇总一页数据，供右栏顶部显示「本页均值」 */
@@ -128,7 +239,7 @@ export function summarizeDltFrontIndicators(
 }
 
 /** 奇数 : 偶数 */
-export function formatDltOddEven(indicators: DltFrontIndicators) {
+export function formatDltOddEven(indicators: DltFrontIndicators | DltBackIndicators) {
   return `${indicators.odd}:${indicators.even}`
 }
 
@@ -142,7 +253,7 @@ export function formatDltZones(indicators: DltFrontIndicators) {
   return indicators.zones.join(':')
 }
 
-/** 均值保留 1 位小数，用于右栏顶部的汇总行 */
+/** 均值保留 1 位小数，用于右栏顶部与号码推演的汇总 */
 export function formatDltAverage(value: number) {
   return Number.isFinite(value) ? value.toFixed(1) : '--'
 }

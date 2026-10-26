@@ -39,8 +39,21 @@ export function createSportteryHandlers(config) {
     const pageNo = intParam(ctx.url, 'pageNo', 1, { min: 1, max: 10_000 })
     const pageSize = intParam(ctx.url, 'pageSize', 30, { min: 1, max: 100 })
 
-    const { payload, cache } = await getHistoryPage(config, { gameNo, pageNo, pageSize })
-    sendJson(ctx.res, 200, payload, { 'x-cache': cache })
+    const { payload, cache, timings } = await getHistoryPage(config, { gameNo, pageNo, pageSize })
+    const headers = { 'x-cache': cache }
+
+    // 浏览器 Network → Timing 里能直接看到 db / resolve / reshape 各占多少
+    if (timings) {
+      headers['server-timing'] = [
+        `cache;desc=${cache}`,
+        `db;dur=${timings.query.toFixed(1)}`,
+        `resolve;dur=${timings.resolve.toFixed(1)}`,
+        `reshape;dur=${timings.reshape.toFixed(1)}`,
+        `app;dur=${timings.total.toFixed(1)}`,
+      ].join(', ')
+    }
+
+    sendJson(ctx.res, 200, payload, headers)
   }
 
   return { matches, history }

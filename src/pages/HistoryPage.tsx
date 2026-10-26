@@ -20,6 +20,7 @@ import {
 } from '../domain/dltIndicators'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
 import { DltIndicatorRail } from '../components/DltIndicatorRail'
+import { DltRecommendationPanel } from '../components/DltRecommendationPanel'
 import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
 
 const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [
@@ -298,7 +299,7 @@ export function HistoryPage() {
           <h2>体彩开奖查询</h2>
         </div>
         <p className="history-page__desc">
-          排列五、七星彩按位次看走势，大乐透看前后区号码矩阵，并附前区和值、奇偶比、三区比等逐期指标；数据来自体彩官方接口。
+          排列五、七星彩按位次看走势；大乐透结合前后区矩阵与逐期指标，按本地历史数据给出下期号码参考和理由；数据来自体彩官方接口。
         </p>
       </header>
 
@@ -387,6 +388,8 @@ export function HistoryPage() {
               </div>
             </section>
             )}
+
+            {!meta.positional && <DltRecommendationPanel entries={analysisEntries} />}
 
             <div
               key={`desktop-${activeGame}-${state.pageNo}`}

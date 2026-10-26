@@ -13,6 +13,9 @@ npm install                                   # 仓库根目录，装 pg
 export DATABASE_URL=postgres://...            # 或写进根 .env
 
 node apps/crawler/src/index.mjs matches       # 抓一次在售赛程
+node apps/crawler/src/index.mjs results       # 抓最近 3 天赛果开奖
+node apps/crawler/src/index.mjs results --days=30        # 回灌最近 30 天
+node apps/crawler/src/index.mjs results --from=2026-09-01 --to=2026-09-30
 node apps/crawler/src/index.mjs history       # 抓四个彩种最新一页
 node apps/crawler/src/index.mjs history --backfill   # 逐页回灌历史
 node apps/crawler/src/index.mjs history --backfill --game=qxc,dlt --delay=4500   # 只补某几个彩种并放慢
@@ -41,7 +44,7 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 
 ### 每天 09:00 预热
 
-`npm run crawl:daemon` 会在**北京时间每天 09:00** 跑一轮 `official`：停售收敛 → 赛程赔率 → 开奖 → 伤停赛果，正好赶在 11:00 开盘前把库刷成最新的。
+`npm run crawl:daemon` 会在**北京时间每天 09:00** 跑一轮 `official`：停售收敛 → 赛程赔率 → 赛果开奖 → 开奖 → 伤停，正好赶在 11:00 开盘前把库刷成最新的。
 
 - 只取**体彩官网**的数据，阵容（500.com）不在内；
 - 这一轮**不受销售时段闸门限制**（它就是这个用途）；
@@ -160,9 +163,15 @@ npm run crawl:daemon
 | 链路 | 频率 | 说明 |
 | --- | --- | --- |
 | `matches` | 每 30 分钟（`CRAWL_MATCHES_MINUTES`） | 在售赛程 + 赔率 + 自动下架，一轮约 50–60 s（跨境写库） |
+| `results` | 每 30 分钟（同上，无待开奖时跳过） | 赛果开奖：官网接口按日期区间一次拿一批，回写比分与各玩法结果 |
 | `lineups` | 每 60 分钟（`CRAWL_LINEUPS_MINUTES`） | 开赛前后 6 小时内的比赛，从 500.com 抓阵容 |
 | `history` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 四彩种各 100 期，约 3 分钟 |
-| `details` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 最近 10 场 × 7 个源（伤停/赛果），约 2 分钟 |
+| `details` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 伤停（`--full` 时 7 个源），约 2 分钟 |
+
+> 2026-10 起「赛果」不再逐场抓：官网赛果开奖接口
+> `getUniformMatchResultV1` 支持按日期区间分页（一次 100 条），
+> 一天的全部场次 1–2 个请求就够。`details` 的默认 feed 因此只剩伤停，
+> 每场请求数从 2 次降到 1 次。
 
 三条链路错开 5 秒启动、串行排队；上一轮没跑完时同一任务不会重复入队。
 

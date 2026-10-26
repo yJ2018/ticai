@@ -1,12 +1,16 @@
-import { getMatchCalculator } from '../api'
+import { getMatchCalculatorWithMeta } from '../api'
 import { type MatchItem, type MatchPoolKey } from '../domain/sporttery'
 
 export type MatchPoolType = MatchPoolKey
+
+export type MatchMarketPool = 'had' | 'hhad' | 'ttg' | 'crs' | 'hafu'
 
 export type MatchCardOption = {
   key: string
   label: string
   value: string
+  /** 该选项属于哪个玩法。保存投注单时要按玩法分别落库 */
+  pool: MatchMarketPool
 }
 
 export type MatchCardOptionGroup = {
@@ -49,13 +53,19 @@ export type MatchCard = {
   mixedSections?: MatchCardMixedSection[]
 }
 
+export type MatchCardsResult = {
+  cards: MatchCard[]
+  /** 库里这批数据最后一次写入的时间（API 的 x-data-as-of），用于展示数据新鲜度 */
+  dataAsOf: string | null
+}
+
 export const matchService = {
-  async getMatchCards(poolType: MatchPoolType = 'mixed') {
-    const data = await getMatchCalculator(poolType)
-    const cards = data.matchInfoList.flatMap((group) =>
+  async getMatchCards(poolType: MatchPoolType = 'mixed'): Promise<MatchCardsResult> {
+    const { value, dataAsOf } = await getMatchCalculatorWithMeta(poolType)
+    const cards = value.matchInfoList.flatMap((group) =>
       group.subMatchList.map((match) => toMatchCard(match, group.businessDate, poolType)),
     )
-    return cards
+    return { cards, dataAsOf }
   },
 }
 
@@ -219,6 +229,7 @@ function toOptionGroups(match: MatchItem, poolType: MatchPoolType): MatchCardOpt
         key: item.key,
         label: item.label,
         value: getOddText(match.crs, item.key),
+        pool: 'crs' as const,
       })),
     }))
   }
@@ -232,6 +243,7 @@ function toOptionGroups(match: MatchItem, poolType: MatchPoolType): MatchCardOpt
           key: item.key,
           label: item.label,
           value: getOddText(match.ttg, item.key),
+          pool: 'ttg' as const,
         })),
       },
     ]
@@ -246,6 +258,7 @@ function toOptionGroups(match: MatchItem, poolType: MatchPoolType): MatchCardOpt
           key: item.key,
           label: item.label,
           value: getOddText(match.hafu, item.key),
+          pool: 'hafu' as const,
         })),
       },
     ]
@@ -272,6 +285,7 @@ function toMixedSections(match: MatchItem, poolType: MatchPoolType): MatchCardMi
             key: item.key,
             label: item.label,
             value: getOddText(match.hafu, item.key),
+            pool: 'hafu' as const,
           })),
         },
       ],
@@ -288,6 +302,7 @@ function toMixedSections(match: MatchItem, poolType: MatchPoolType): MatchCardMi
             key: item.key,
             label: item.label,
             value: getOddText(match.ttg, item.key),
+            pool: 'ttg' as const,
           })),
         },
       ],
@@ -303,6 +318,7 @@ function toMixedSections(match: MatchItem, poolType: MatchPoolType): MatchCardMi
           key: item.key,
           label: item.label,
           value: getOddText(match.crs, item.key),
+          pool: 'crs' as const,
         })),
       })),
     },
@@ -321,6 +337,7 @@ function toHadOptionGroups(had: MatchItem['had'], hhad: MatchItem['hhad']) {
         key: item.key,
         label: item.label,
         value: getOddText(had, item.key),
+        pool: 'had' as const,
       })),
     })
   }
@@ -334,6 +351,7 @@ function toHadOptionGroups(had: MatchItem['had'], hhad: MatchItem['hhad']) {
         key: `rq-${item.key}`,
         label: item.label,
         value: getOddText(hhad, item.key),
+        pool: 'hhad' as const,
       })),
     })
   }

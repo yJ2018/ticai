@@ -5,6 +5,8 @@ import { fetchJson } from './http.mjs'
 const MATCH_PATH = '/gateway/uniform/football/getMatchCalculatorV1.qry'
 const HISTORY_PATH = '/gateway/lottery/getHistoryPageListV1.qry'
 const MATCH_DATA = '/gateway/uniform/football'
+/** 竞彩足球「赛果开奖」：官网 /jc/zqsgkj/ 背后就是这个接口。 */
+const MATCH_RESULT_PATH = '/gateway/uniform/football/getUniformMatchResultV1.qry'
 
 /**
  * 在售赛程 + 赔率。
@@ -31,6 +33,56 @@ export async function fetchMatches(config, { fetchImpl } = {}) {
   }
 
   return groups
+}
+
+/**
+ * 竞彩足球赛果开奖。
+ *
+ * 必须带日期区间（上游会直接报 20012），一次最多 100 条；
+ * 返回里 matchResult 才是比赛列表，leagueList 是筛选器用的字典。
+ */
+export async function fetchMatchResults(config, { begin, end, pageNo = 1, pageSize = 100, fetchImpl } = {}) {
+  if (!begin || !end) {
+    throw new Error('赛果接口必须指定 begin/end 日期')
+  }
+
+  const query = new URLSearchParams({
+    matchBeginDate: begin,
+    matchEndDate: end,
+    leagueId: '',
+    pageSize: String(pageSize),
+    pageNo: String(pageNo),
+    isFix: '0',
+    matchPage: '1',
+    pcOrWap: '1',
+  })
+
+  const json = await fetchJson(`${config.sportteryBase}${MATCH_RESULT_PATH}?${query.toString()}`, {
+    timeoutMs: config.timeoutMs,
+    retries: config.retries,
+    fetchImpl,
+    headers: { referer: 'https://www.lottery.gov.cn/jc/zqsgkj/' },
+  })
+
+  if (!json || typeof json !== 'object') {
+    throw new Error('赛果接口返回结构异常')
+  }
+  if (json.success === false) {
+    throw new Error(`赛果接口返回失败：${json.errorMessage || json.errorCode || '未知原因'}`)
+  }
+
+  const value = json.value ?? {}
+  if (!Array.isArray(value.matchResult)) {
+    throw new Error('赛果接口缺少 value.matchResult')
+  }
+
+  return {
+    list: value.matchResult,
+    pageNo: Number(value.pageNo) || Number(pageNo) || 1,
+    pages: Number(value.pages) || 1,
+    total: Number(value.total) || value.matchResult.length,
+    lastUpdateTime: value.lastUpdateTime ?? null,
+  }
 }
 
 /** 开奖分页。gameNo 是彩种编号，pageSize 最大 100。 */

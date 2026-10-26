@@ -11,6 +11,7 @@ import { importLineups } from './tasks/lineups.mjs'
 import { crawlLineupsBrowser, dumpLineupPage } from './tasks/lineups-browser.mjs'
 import { crawlMatches } from './tasks/matches.mjs'
 import { crawlOfficialData, describeOfficialResult } from './tasks/official.mjs'
+import { crawlMatchResults } from './tasks/results.mjs'
 
 /**
  * 爬虫入口。
@@ -42,6 +43,7 @@ const USAGE = `
 ticai crawler
 
   node src/index.mjs matches [--every=60]
+  node src/index.mjs results [--days=3] [--from=YYYY-MM-DD] [--to=YYYY-MM-DD]
   node src/index.mjs history [--backfill] [--pages=N] [--game=pl5,qxc] [--delay=3000] [--every=600]
   node src/index.mjs details [--full] [--limit=10] [--match=2042155] [--every=600]
   node src/index.mjs lineups --file=lineups.json [--dry]
@@ -52,6 +54,7 @@ ticai crawler
 
 命令：
   matches   在售赛程 + 赔率，按内容 hash 去重写入快照
+  results   赛果开奖：一次拿一批比赛的比分与各玩法结果
   history   四个彩种开奖；--backfill 逐页回灌
   details   对战数据：伤停 + 赛果（--full 抓全部 7 个源）
   lineups   导入阵容（JSON），--dry 只预演不落库
@@ -70,7 +73,7 @@ if (hasFlag('help') || command === 'help') {
   process.exit(0)
 }
 
-if (!['matches', 'history', 'details', 'lineups', 'lineups-browser', 'expire', 'official', 'all'].includes(command)) {
+if (!['matches', 'results', 'history', 'details', 'lineups', 'lineups-browser', 'expire', 'official', 'all'].includes(command)) {
   console.error(`未知命令：${command}\n\n${USAGE}`)
   process.exit(1)
 }
@@ -99,6 +102,20 @@ async function runOnce() {
     const summary = await crawlMatches({ pool, config })
     console.log(
       `[matches] ${summary.matches} 场 · 赔率变更 ${summary.changed} · 新下架 ${summary.closed} · 跳过 ${summary.skipped}`,
+    )
+  }
+
+  if (command === 'results' || command === 'all') {
+    const summary = await crawlMatchResults({
+      pool,
+      config,
+      days: Number(flagValue('days', '3')) || 3,
+      begin: flagValue('from', ''),
+      end: flagValue('to', ''),
+    })
+    console.log(
+      `[results] ${summary.from}~${summary.to} · ${summary.requests} 次请求 · ${summary.matches} 场 · 变更 ${summary.changed}` +
+        ` · 有比分 ${summary.settled} · 新关联 ${summary.linked} · 回写比赛 ${summary.matchesSynced} · 失败 ${summary.failed}`,
     )
   }
 

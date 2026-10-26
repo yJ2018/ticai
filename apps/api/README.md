@@ -27,6 +27,12 @@ node --test apps/api/test        # 或 npm run api:test
 | `GET /api/matches` | **数据库** | 在售赛事 + 最新赔率，输出体彩 `matchInfoList` 信封 |
 | `GET /api/history` | **数据库** | 开奖分页，输出体彩 `{list,pageNo,pageSize,pages,total}` |
 | `GET /api/match-detail?matchId=` | **数据库** | 对战详情：交锋/伤停/近况/未来/特征/积分/射手 7 个板块，缺失返回 null |
+| `GET /api/results?date=&days=` | **数据库** | 赛果开奖：比分 + `had/hhad/ttg/crs/hafu`，按比赛日倒序 |
+| `POST /api/auth/code` | **数据库 + Resend** | 发邮箱验证码（注册 / 免密登录），带冷却与频次限制 |
+| `POST /api/auth/register` `login` `logout`、`GET /api/auth/me` | **数据库** | 邮箱 + 密码 / 验证码登录，Bearer 不透明 token |
+| `GET/POST /api/bets`、`GET/DELETE /api/bets/:id` | **数据库** | 保存投注快照、按玩法筛选、按赛果自动结算 |
+| `GET /api/auth/wechat/*`、`/api/auth/identities` | **数据库 + 微信开放平台** | 扫码 / 公众号网页授权；回调只发一次性票据，前端换正式会话 |
+| `GET /api/auth/identities`、`DELETE /api/auth/identities/:provider` | **数据库** | 账号的登录方式列表与解绑（至少保留一种） |
 | `POST /api/ai-analysis` | **数据库 + DeepSeek** | 只收 `matchId` + `pool`；提示词/官方数据/天气全部服务端装配，SSE 返回 |
 | `GET /api/horoscope` | 聚合数据 | 代理 + 10 min 缓存 |
 | `GET /api/weather` | 聚合数据 | 代理 + 10 min 缓存 |
@@ -72,7 +78,7 @@ src/
   index.mjs          本地与 VPS 入口
   config.mjs         环境变量 → 配置对象
   lib.mjs            错误、响应、缓存、限流、上游 fetch
-  db.mjs             pg 连接池（延迟加载，没装 pg 也能启动）
+  db.mjs             pg 连接池（延迟加载 / 空闲 30min / 启动预热；没装 pg 也能启动）
   reshape.mjs        数据库行 → 旧接口形状（纯函数，有单测）
   repos/             读库 SQL
   handlers/          按域拆的接口实现
@@ -80,6 +86,15 @@ src/
 test/
   reshape.test.mjs   9 个用例，node --test
 ```
+
+## 远端库延迟
+
+`/api/history` 的 SQL 本身只有 8–11ms，慢主要在远端 Prisma Postgres 的建连与往返：
+
+- 连接池空闲保留 30 分钟（`DATABASE_IDLE_TIMEOUT_MS` 可调），本地/VPS 入口启动时预热，并每 4 分钟 `select 1` 保活（`DATABASE_KEEPALIVE_MS` 可调，0 = 关闭）；
+- 开奖与奖级合并成一次查询，彩种元数据进程内缓存；超过 300ms 的 miss 会打印 `[history] ... resolve= query= reshape=` 分段时间，并在响应头带 `Server-Timing: db;dur=...`，浏览器 Network → Timing 可直接看到；
+- 历史缓存仍为 60s，避免「刷新」拿到过旧数据；
+- 若部署到 Vercel，冷启动仍会付一次建连成本，长期建议换池化入口或让函数与库同区域。
 
 ## 切流路径
 

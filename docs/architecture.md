@@ -37,10 +37,14 @@
 | 路由 | 页面 | 核心能力 | 数据来源 |
 | --- | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、串关注数/金额/最高奖金/税、首屏骨架屏、方案级 AI 串关分析、高清快照 | `GET /api/matches` |
-| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比）、首屏骨架屏、预测摘要 | `GET /api/history` + IndexedDB |
+| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要 | `GET /api/history` + IndexedDB |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏 | 本地 IndexedDB 数据 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | 本地 IndexedDB 数据 |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
+| `/results` | 赛果开奖 | 按比赛日翻看比分与五个玩法的开奖结果，未开奖场次明确标注 | `GET /api/results` |
+| `/login` | 登录 / 注册 | 邮箱 + 密码，或邮箱验证码（Resend）；登录态存 localStorage，请求带 Bearer | `/api/auth/*` |
+| `/account` | 账号 | 账号资料与登录方式；绑定 / 解绑微信，展示绑定状态 | `/api/auth/identities`、`/api/auth/wechat/*` |
+| `/my-bets` | 我的投注 | 保存的投注方案，按玩法分类、按赛果自动判中奖与奖金；骨架屏、单注详情弹层（截图 / 回填到投注页） | `/api/bets` + `/api/results` |
 | `/about` | 关于页 | Keep-Alive 演示（输入框保留） | 无 |
 | `/profile` | 个人页 | 不缓存演示，**不在导航中** | 无 |
 
@@ -234,7 +238,7 @@ D:\ticai
    │  └─ AppRouter.tsx / types.ts
    ├─ pages
    │  ├─ HomePage.tsx          # 511 行：状态编排 + 组合子组件 + 方案弹层
-   │  ├─ HistoryPage.tsx       # 917 行：走势矩阵 + 大乐透右栏指标 + 分页
+   │  ├─ HistoryPage.tsx       # 920 行：走势矩阵 + 大乐透号码推演 + 右栏指标
    │  ├─ HistoryAnalysisPage   # 720 行（仍未拆分）
    │  ├─ MathTrendAnalysisPage # 437 行（仍未拆分）
    │  └─ HoroscopePage / AboutPage / ProfilePage
@@ -267,7 +271,8 @@ D:\ticai
    ├─ domain
    │  ├─ historyPrediction.ts  # 1064 行预测算法（纯函数）
    │  ├─ lotteryHistory.ts     # ★ 开奖记录 / 缓存元数据类型
-   │  ├─ dltIndicators.ts      # 大乐透前区逐期指标（和值/跨度/奇偶比/大小比/三区比）
+   │  ├─ dltIndicators.ts      # 大乐透前区/后区逐期指标与解析（纯函数）
+   │  ├─ dltRecommendation.ts  # 大乐透 5+2 号码推演：频次/遗漏评分 + 形态筛选 + 理由
    │  ├─ sporttery.ts / constellation.ts / weather.ts / counter.ts
    ├─ workers                  # 2 个 Worker 协议实现
    ├─ api
@@ -280,6 +285,7 @@ D:\ticai
    ├─ components/AnalysisPageSkeleton.tsx # 分析页一屏骨架
    ├─ components/HistoryPageSkeleton.tsx  # 开奖历史页骨架
    ├─ components/DltIndicatorRail.tsx     # 大乐透右栏逐期指标（与号码矩阵逐行对齐）
+   ├─ components/DltRecommendationPanel.tsx # 大乐透 5+2 号码参考 + 分析理由
    └─ assets/                  # 未被引用的图片（可删）
 ```
 
@@ -306,6 +312,18 @@ flowchart LR
 1. 访问过的页面常驻 React 树，切换只改 `display`，`useState`/滚动位置保留。
 2. **无缓存淘汰**：`cachedPathsRef` 只增不减。
 3. `/profile`（`cache: false`）切走即卸载。
+4. **移动端（≤640px）主导航折叠**：页头只留标题 + 登录/账号 + 汉堡按钮，导航收进两列菜单；
+   路由切换时自动收起。桌面端保持平铺。
+5. **吸顶不要叠两层**：站点头部吸顶，页面自己的工具条（如首页玩法切换）不再吸顶，
+   否则整页可滚动时会互相遮挡；`.app-shell` 用 `100dvh` 跟随移动端可视高度。
+6. **路由级 SEO**：`App` 在 pathname 变化时调用 `src/features/seo/seo.ts` 的 `applyPageMeta`，
+   设置 title / description / canonical / robots；登录后才可见的页面标记 `noindex`，
+   比赛详情页等拿到队名后再覆盖一次标题。静态入口在 `index.html`（OG / JSON-LD / noscript），
+   `public/robots.txt` 与 `public/sitemap.xml` 由 Vercel 直接作为静态文件返回。
+7. **构建时预渲染**：`npm run build` 末尾跑 `scripts/prerender.mjs`，用 Playwright 打开 `vite preview`，
+   把 `/`、`/results`、`/history`、`/history-analysis`、`/math-trend-analysis`、`/horoscope`、`/about`
+   落成静态 HTML（`dist/index.html` + `dist/prerender/*.html`），Vercel 用显式 rewrite 指向这些文件。
+   本地 API 不在线或没装浏览器时自动跳过，不影响构建。
 4. 精确匹配为主；`/match/:matchId` 是唯一的动态路由（`cache: false`），切换不同 `matchId` 时组件不卸载，但 `useMatchDetail` 会按 id 重新拉取。
 5. 副作用常驻：页面的定时器与后台请求在切走后仍运行（`historyService` 的后台补页就是全局单例，不受影响）。
 
@@ -325,30 +343,26 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   autonumber
-  participant U as 用户
-  participant HP as HomePage
-  participant BS as useBetSlip
-  participant MS as useMatchStore
+  participant CR as 本地爬虫
+  participant DB as PostgreSQL
+  participant API as /api/matches
   participant SVC as matchService
-  participant BFF as BFF /api/matches
-  participant EXT as webapi.sporttery.cn
+  participant MS as useMatchStore
+  participant HP as HomePage
 
-  U->>HP: 切换玩法池
-  HP->>MS: setActivePool(pool)
-  alt 该池未取数
-    MS->>SVC: getMatchCards(pool)
-    SVC->>BFF: GET /api/matches?poolType=...
-    BFF->>EXT: GET getMatchCalculatorV1.qry
-    EXT-->>BFF: envelope
-    BFF-->>SVC: envelope（20s 缓存）
-    SVC-->>MS: MatchCard[]
-  end
-  U->>HP: 勾选赔率
-  HP->>BS: toggleOption(matchId, optionKey)
-  BS-->>HP: 选中场次 / 串关 / 注数 / 金额
-  U->>HP: 查看方案 → 截图
-  HP->>HP: html2canvas → PNG dataURL
+  CR->>DB: 每 30 分钟写赛程/赔率（内容变化才写快照）
+  HP->>MS: loadMatches(pool)
+  MS->>SVC: getMatchCards(pool)
+  SVC->>API: GET /api/matches?poolType=...
+  API->>DB: 读在售赛事 + 最新赔率（15s 内存缓存）
+  API-->>SVC: 体彩信封 + x-data-as-of
+  SVC-->>MS: MatchCard[] + dataAsOf
+  MS-->>HP: 渲染；顶部显示「数据更新于 …」
+  HP->>MS: 点刷新 / 每 5 分钟自动刷新（标签页可见时）
 ```
+
+数据新鲜度直接来自响应头 `x-data-as-of`（库里 `max(last_seen_at)`），页头把它显示成「刚刚 / N 分钟前」，
+超过 45 分钟标黄——这样「是页面没刷新」还是「爬虫真的没跑」一眼能分清，不用再去翻日志。
 
 **首屏与方案快照细节**
 
@@ -397,12 +411,14 @@ flowchart TD
 
 开奖历史页的首屏与预测：
 
-- 首次加载时 `HistoryPageSkeleton` 覆盖预测摘要和 5 列走势表的占位，不再先渲染空表格；
+- 首次加载时 `HistoryPageSkeleton` 覆盖预测摘要 / 号码推演卡和走势表的占位，不再先渲染空表格；
 - 7755 期全量预测从主线程 `useMemo` 迁移到 `historyAnalysisWorker`，避免首屏计算卡死；
 - 预测按「样本数 + 首期 + 末期」签名去重，翻页时复用同一份分析结果，不重复跑全量回测；
 - 走势表格的 `TrendGrid` 用 `memo` 隔离，Worker 返回预测时只更新表头预测/回测摘要，不重建 5×30×10 个单元格。
 - 大乐透前区逐期指标由 `domain/dltIndicators.ts` 纯函数计算（和值、跨度、奇偶比、大小比、三区比），`DltIndicatorRail` 渲染为桌面右栏，移动端卡片复用同一套口径；
 - 桌面四列（期号轴 / 前区 / 后区 / 指标栏）共用行高（表头 2.125rem、统计区 2.7rem、每期 1.875rem）逐行对齐，期号轴左侧标注「出现次数 / 当前遗漏」；64–75rem 收窄号码字号，避免 35 列两位数挤压。
+- 大乐透 5+2 号码推演由 `domain/dltRecommendation.ts` 同步计算（最多取最近 300 期），`DltRecommendationPanel` 展示主推号码、备选与逐条理由；移动端与桌面共用同一份 DOM，窄屏上下堆叠；
+- 推演口径：近 10 / 30 / 300 期频次按期望次数归一，遗漏按平均间隔归一（封顶 3 倍）；前区每区取评分前 4 共 12 码，枚举 5 码组合，再用近 30 期和值 / 跨度 / 奇偶 / 大小 / 三区均值打分；后区取 5 码候选池枚举 2 码；理由引用实际频次、遗漏与结构数据。
 
 存储设计（`src/storage/historyDb.ts`）：
 
@@ -530,6 +546,62 @@ sequenceDiagram
 
 ---
 
+### 5.7 赛果开奖 → 投注结算
+
+过去「赛果」是逐场从 `getMatchResultV1`（球队视角的近期赛果）里捞，一场一个请求。
+2026-10 起改用官网赛果开奖接口，一次一批：
+
+```mermaid
+flowchart LR
+    A[官网赛果开奖<br/>getUniformMatchResultV1] -->|按日期区间分页| B[crawler/tasks/results.mjs]
+    B -->|upsert 比分 + 推导结果| R[(match_result)]
+    B -->|回写比分/状态| M[(match)]
+    R --> S[apps/api settlement.mjs<br/>逐腿判定 + 组合奖金]
+    BETS[(bet / bet_leg)] --> S
+    S --> UI[我的投注页]
+```
+
+- **推导集中在爬虫**（`normalize.mjs`）：上游只给比分和胜平负，`hhad/ttg/crs/hafu`
+  由 `crsKey` / `hafuKey` 等纯函数算出，key 与前端玩法选项一致；
+  单测覆盖「胜其它 / 平其它 / 负其它」等边界。
+- **关联**：`match_result.match_id` 回填到当时在售的 `match` 行（按 `sporttery_match_id`），
+  老的赛程/详情接口不需要改就能看到比分。
+- **少爬**：`details` 默认不再抓赛果 feed，每场请求数 2 → 1；没有待开奖比赛时
+  `results` 连请求都不发（`hasPendingResults` 先查库）。
+- **结算实时算**：`bet` 只存下注时的赔率/让球/过关方式快照，中奖与奖金每次读取时
+  用 `match_result` 重算，所以开奖数据更新后「我的投注」刷新即变，不需要后台结算任务。
+
+---
+
+### 5.8 账号与第三方身份（微信）
+
+账号（`app_user`）与登录方式（`user_identity`）是两层：
+
+```mermaid
+flowchart LR
+    U[app_user<br/>邮箱可空] --> I1[user_identity<br/>email]
+    U --> I2[user_identity<br/>wechat / wechat_mp]
+    I2 -->|openid / unionid| W[微信开放平台]
+    A[前端 /login] -->|start?mode=login| W
+    B[前端 /account] -->|start?mode=bind + Bearer| W
+    W -->|code + signed state| C[/api/auth/wechat/callback/]
+    C --> T[(auth_ticket<br/>2 分钟 · 一次性)]
+    C -->|302 ?ticket=| D[前端 /auth/wechat]
+    D -->|POST session| E[正式会话 token]
+```
+
+设计要点：
+
+- **一个账号多条身份**：邮箱注册的用户再绑微信，是给已有账号加一条 `wechat` 身份，投注记录不动；
+  反过来微信首次登录没有邮箱，就直接建一个 `email = null` 的账号。
+- **state 自签名**：HMAC 里带 mode、渠道、绑定用户 id 与 10 分钟过期，不依赖服务端 session 存储，多实例也成立。
+- **回调不直发 token**：URL 会进历史记录/日志，所以只放 2 分钟、一次性的 `auth_ticket`，前端换取正式会话后立即作废。
+- **渠道可扩展**：`wechat_web`（开放平台扫码）与 `wechat_mp`（公众号网页授权）共用同一条回调与建号逻辑；
+  以后接小程序/Apple 只是新增 `channel` 与一个 adapter（`apps/api/src/wechat.mjs`）。
+- **未接入时给指引**：没配 `WECHAT_*` 时 `config` 返回 `enabled: false` 与 `missing`，登录页/账号页把按钮变成「接入步骤」弹层，不影响邮箱登录与投注。
+
+---
+
 ## 6. 接口契约（已迁移到 apps/api）
 
 > 2026-10-23 起接口实现位于 `apps/api`，`server/` 与 `api/` 已删除。
@@ -547,6 +619,8 @@ sequenceDiagram
 | `POST /api/ai-chat` | DeepSeek `chat/completions` | JSON body：`messages`（≤40 条、单条 ≤15000 字符、合计 ≤30000 字符）、`temperature`、`maxTokens`、`json`、`thinking`、`reasoningEffort`、`stream` | 无 |
 | `GET /api/venue-weather` | DeepSeek 城市解析 + Open-Meteo | `homeTeam`、`league`、`kickoff`、`teamId` | 城市 7 天；天气 20 min |
 | `GET /api/health` | — | 无 | 无 |
+
+> `/api/history` 的库在远端 Prisma Postgres。`apps/api` 已把开奖与奖级合并为一次查询、彩种元数据做进程内缓存，连接池空闲保留 30 分钟（`DATABASE_IDLE_TIMEOUT_MS` 可调），本地/VPS 入口启动时预热并每 4 分钟 `select 1` 保活（`DATABASE_KEEPALIVE_MS` 可调，0 = 关闭）。响应头 `Server-Timing` 会给出 `db / resolve / reshape / app` 分段耗时。实测 SQL 执行仅 8–11ms，请求慢主要在跨境建连（5–7s）与每次 DB 往返（0.4–1s）；本地/自建服务可靠连接复用规避，Vercel 冷启动仍建议换池化或就近的数据库入口。
 
 响应形态三类：
 
@@ -601,8 +675,12 @@ flowchart LR
 | --- | --- | --- | --- |
 | 彩票 | `lottery_game` / `lottery_draw` / `lottery_prize_level` | 开奖爬虫（4 个彩种） | 永久 |
 | 足球 | `league` / `team` / `team_alias` / `match` / `match_odds_snapshot` | 赛程爬虫 + 赛果爬虫 | 赔率快照 120 天 |
+| 赛果 | `match_result` | 赛果开奖爬虫 | 永久（按 sporttery_match_id 幂等覆盖） |
 | 补充 | `player` / `injury` / `match_lineup` / `match_lineup_player` | 自建爬虫 | 阵容每队只留最近 1 场 |
 | 映射 | `external_ref` | 人工确认后写入 | 永久 |
+| 账户 | `app_user` / `email_code` / `user_session` | API（登录链路） | 会话 30 天，验证码 10 分钟 |
+| 身份 | `user_identity` / `auth_ticket` | API（登录/绑定链路） | 身份永久；票据 2 分钟一次性 |
+| 投注 | `bet` / `bet_leg` | API（登录用户） | 永久（用户删除即级联删除） |
 | 可观测 | `crawl_run` | 每条爬虫链路 | 30 天 |
 
 关键设计：
@@ -621,6 +699,10 @@ flowchart LR
 | 接口 | 数据来源 | 说明 |
 | --- | --- | --- |
 | `/api/matches` | 数据库 | 库 → 体彩 `matchInfoList` 信封；忽略 `poolType`，一次返回全部玩法 |
+| `/api/results` | 数据库 | 赛果开奖：比分 + 五个玩法结果（`had/hhad/ttg/crs/hafu`），按**真实开赛时间**筛选与升序 |
+| `/api/auth/code` `/register` `/login` `/logout` `/me` | 数据库 + Resend | 邮箱验证码 / 密码登录，Bearer 不透明 token，服务端只存 sha256 |
+| `/api/bets` `/api/bets/:id` | 数据库 | 保存投注快照、按玩法筛选、实时结算（读 `match_result`） |
+| `/api/auth/wechat/*`、`/api/auth/identities` | 数据库 + 微信开放平台 | 微信扫码/网页授权；回调只发一次性 ticket，前端换会话；未配置时前端展示接入步骤 |
 | `/api/history` | 数据库 | 库 → `{list,pageNo,pageSize,pages,total}`；金额字段同时输出上游真名与历史误用名 |
 | `/api/match-detail` | 数据库 | 对战详情 7 个板块（交锋/伤停/近况/未来/特征/积分/射手），**缺失返回 null、空分组保留空数组，并列出 `missing`** |
 | `/api/ai-analysis` | 数据库 + DeepSeek | **只收 `matchId` + `pool`**：服务端装配提示词（`apps/api/src/ai/prompt.mjs`）、官方数据、天气，SSE 先发 `meta` 再流式输出 |
@@ -644,11 +726,12 @@ flowchart LR
 | 任务 | 数据源 | 写入 | 频率 |
 | --- | --- | --- | --- |
 | `matches` | 体彩 | `league` / `team` / `match` / `match_odds_snapshot` | 每 30 分钟（销售时段内） |
+| `results` | 体彩赛果开奖 | `match_result` + 回写 `match` 比分 | 每 30 分钟；没有待开奖比赛时自动跳过 |
 | `history` | 体彩 | `lottery_draw` / `lottery_prize_level` | 每 3 小时 |
-| `details` | 体彩 | `injury` / `player` / `match.result_*` / `match_feed` | 每 3 小时 |
+| `details` | 体彩 | `injury` / `player` / `match_feed` | 每 3 小时（默认只抓伤停） |
 | `lineups` | 500.com | `match_lineup` / `match_lineup_player` / `player` | 每 60 分钟，仅赛前 6 小时窗口 |
 | `expire` | —（纯本地） | `match.sell_status` | 每 30 分钟 |
-| `official` | 体彩 | 上面四类官方数据 | **每天 09:00**（开盘前预热） |
+| `official` | 体彩 | 上面几类官方数据 | **每天 09:00**（开盘前预热） |
 
 调度规则（`daemon.mjs`）：
 
@@ -658,7 +741,7 @@ flowchart LR
 - **已开赛兜底**：体彩在结算前仍会返回已开赛的比赛，`matches` 写库时按 `kickoff_at <= now()` 一律记 `closed`，否则会把 `expire` 的结果改回在售。
 - **跨零点日期**：`businessDate` 是销售日，凌晨场次的真实比赛日在元素 `matchDate` 上；`kickoff_at` 用 `resolveMatchDate` 拼日期。只按销售日拼会把凌晨场次提前 24 小时，上面那条兜底会连带把在售状态和阵容一起藏掉。
 
-单测覆盖：`normalize`（21）、`daily-schedule`（5，09:00 倒计时）、`bet-window`（5，开盘边界与补跑倒计时）。
+单测覆盖：`normalize`（赛程/开奖/伤停）、`results`（赛果推导：比分 key、半全场、让球、总进球封顶、日期切块）、`daily-schedule`（09:00 倒计时）、`bet-window`（开盘边界与补跑倒计时）；API 侧另有 `settlement`（逐腿判定、复式注数、奖金连乘）。
 
 三个关键事实（实测）：
 
@@ -809,6 +892,7 @@ flowchart LR
 | IndexedDB 仓储 | [src/storage/historyDb.ts](../src/storage/historyDb.ts) |
 | 预测算法 | [src/domain/historyPrediction.ts](../src/domain/historyPrediction.ts) |
 | 开奖逐期指标 | [src/domain/dltIndicators.ts](../src/domain/dltIndicators.ts)、[src/components/DltIndicatorRail.tsx](../src/components/DltIndicatorRail.tsx) |
+| 大乐透号码推演 | [src/domain/dltRecommendation.ts](../src/domain/dltRecommendation.ts)、[src/components/DltRecommendationPanel.tsx](../src/components/DltRecommendationPanel.tsx) |
 | 传输层 | [src/api/httpClient.ts](../src/api/httpClient.ts)、[src/api/sportteryApi.ts](../src/api/sportteryApi.ts) |
 | 数据库 schema | [db/migrations/0001_init.sql](../db/migrations/0001_init.sql) |
 | 彩种种子 | [db/seed/001_lottery_games.sql](../db/seed/001_lottery_games.sql) |

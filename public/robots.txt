@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Private pages (require login)
+Disallow: /my-bets
+Disallow: /account
+Disallow: /login
+Disallow: /auth/
+Disallow: /profile
+
+Sitemap: https://ticai-eight.vercel.app/sitemap.xml

@@ -58,6 +58,41 @@ export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGam
         </section>
       )}
 
+      {!meta.positional && (
+        <section className="history-insight history-page-skeleton__recommend" aria-hidden="true">
+          <div className="history-insight__header">
+            <div className="analysis-skeleton__line-list">
+              <span className="analysis-skeleton__bar" style={{ width: '5rem' }} />
+              <span className="analysis-skeleton__bar analysis-skeleton__bar--title" style={{ width: '18rem' }} />
+            </div>
+            <span className="analysis-skeleton__bar" style={{ width: '14rem' }} />
+          </div>
+
+          <div className="history-page-skeleton__recommend-grid">
+            <div>
+              <div className="history-page-skeleton__balls">
+                {Array.from({ length: ballCount }, (_, index) => (
+                  <span
+                    key={index}
+                    className={index >= meta.mainCount ? 'is-back' : undefined}
+                  />
+                ))}
+              </div>
+              <div className="history-page-skeleton__indicator-row">
+                {Array.from({ length: 6 }, (_, index) => (
+                  <span key={index} className="analysis-skeleton__bar" style={{ width: '3.6rem' }} />
+                ))}
+              </div>
+            </div>
+            <div className="analysis-skeleton__line-list">
+              {['100%', '92%', '96%', '64%'].map((width) => (
+                <span key={width} className="analysis-skeleton__bar" style={{ width }} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       <div
         className={`history-page__desktop history-page-skeleton__desktop${
           meta.positional ? '' : ' is-dlt'

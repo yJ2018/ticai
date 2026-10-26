@@ -1,3 +1,7 @@
+@use './authBets';
+@use './results';
+@use './account';
+
 :root {
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   color: #1f2937;
@@ -15,6 +19,20 @@
 
 body {
   margin: 0;
+}
+
+/* 给屏幕阅读器 / 搜索引擎的标题，视觉上不占位 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 #app {
@@ -57,6 +75,8 @@ button:focus-visible,
 
 .app-shell {
   height: 100vh;
+  /* 移动端浏览器地址栏会吃掉 100vh 的高度，dvh 跟随可视区域，避免整页可滚动后两个吸顶头互相压住 */
+  height: 100dvh;
   max-width: 960px;
   margin: 0 auto;
   padding: 0.75rem;
@@ -150,15 +170,151 @@ button:focus-visible,
   }
 }
 
-@media (max-width: 40rem) {
-  .app-topbar {
-    align-items: flex-start;
-    flex-direction: column;
+/* 右上角登录态：未登录只显示「登录」，登录后是邮箱 + 退出 */
+.app-topbar__user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.app-topbar__login {
+  border-radius: 999px;
+  padding: 0.5rem 0.95rem;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  box-shadow: 0 0.25rem 0.7rem rgba(29, 78, 216, 0.25);
+
+  &:hover {
+    background: #1e40af;
+  }
+}
+
+.app-topbar__user-email {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #475569;
+  font-size: 0.82rem;
+}
+
+.app-topbar__signout {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.42rem 0.75rem;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.8rem;
+  cursor: pointer;
+
+  &:hover {
+    background: #e2e8f0;
+    color: #334155;
+  }
+}
+
+/* 移动端汉堡按钮：桌面隐藏 */
+.app-topbar__toggle {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 2.15rem;
+  height: 2.15rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: #f1f5f9;
+  cursor: pointer;
+  flex: 0 0 auto;
+
+  span {
+    width: 1rem;
+    height: 2px;
+    border-radius: 999px;
+    background: #334155;
+    transition: transform 0.18s ease, opacity 0.18s ease;
   }
 
+  &:hover {
+    background: #e2e8f0;
+  }
+}
+
+.app-topbar.is-nav-open .app-topbar__toggle span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.app-topbar.is-nav-open .app-topbar__toggle span:nth-child(2) {
+  opacity: 0;
+}
+
+.app-topbar.is-nav-open .app-topbar__toggle span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+/* 移动端菜单里的退出按钮，桌面不显示 */
+.app-topbar__signout--menu {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .app-topbar {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 0.85rem;
+  }
+
+  .app-topbar__title {
+    order: 1;
+    flex: 1 1 auto;
+  }
+
+  .app-topbar__user {
+    order: 2;
+    margin-left: auto;
+    gap: 0.4rem;
+  }
+
+  .app-topbar__user-email {
+    max-width: 7.5rem;
+  }
+
+  .app-topbar__signout--desktop {
+    display: none;
+  }
+
+  /* 导航默认收起，点汉堡后展开成两列 */
   .app-topbar__nav {
+    order: 3;
+    display: none;
     width: 100%;
-    justify-content: flex-start;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .app-topbar__nav.is-open {
+    display: grid;
+  }
+
+  .app-topbar__nav .app-topbar__link {
+    text-align: center;
+    padding: 0.55rem 0.5rem;
+  }
+
+  .app-topbar__toggle {
+    display: inline-flex;
+  }
+
+  .app-topbar__signout--menu {
+    display: inline-flex;
+    justify-content: center;
+    grid-column: 1 / -1;
   }
 }
 
@@ -248,9 +404,10 @@ button:focus-visible,
   min-height: 0;
 }
 
+/* 赛事列表自己滚动（.home-page__content），这层不需要吸顶；
+   以前和站点头部都吸在 top:0，页面一旦能整页滚动就会互相盖住 */
 .home-page__nav {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 5;
   padding: 0.875rem 1rem 0.75rem;
   background: rgba(255, 255, 255, 0.86);
@@ -274,6 +431,12 @@ button:focus-visible,
   width: auto;
   min-width: 0;
   overflow-x: auto;
+  /* 横向滚动容器会顺带把纵向也裁掉，按钮的投影因此被切出一条硬边；
+     用等量的内边距 + 负外边距把可视区域撑大，布局位置不变 */
+  padding-block: 0.75rem;
+  margin-block: -0.75rem;
+  padding-inline: 0.3rem;
+  margin-inline: -0.3rem;
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
@@ -1328,15 +1491,34 @@ button:focus-visible,
 
 .home-page__toast {
   position: fixed;
+  top: calc(4.75rem + env(safe-area-inset-top));
   left: 50%;
-  bottom: 6.4rem;
   transform: translateX(-50%);
-  z-index: 20;
+  z-index: 100;
+  max-width: min(86vw, 24rem);
+  text-align: center;
   background: rgba(15, 23, 42, 0.9);
   color: #fff;
-  padding: 0.35rem 0.65rem;
-  border-radius: 0.45rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.5rem;
   font-size: 0.78rem;
+  line-height: 1.4;
+  box-shadow: 0 0.5rem 1.2rem rgba(15, 23, 42, 0.25);
+  animation: home-toast-in 0.18s ease-out;
+  /* 纯提示，别挡住下面按钮的点击 */
+  pointer-events: none;
+}
+
+@keyframes home-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 .plan-modal {
@@ -1602,6 +1784,40 @@ button:focus-visible,
 
 .plan-modal__meta-item:last-child strong {
   color: #1d4ed8;
+}
+
+/* 保存到「我的投注」 */
+/* 弹层底部操作区：固定在卡片底部，主按钮通栏，提示文案居中 */
+.plan-modal__actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
+  border-top: 1px solid #eef2f7;
+  background: #fff;
+}
+
+.plan-modal__actions .plan-modal__save {
+  width: 100%;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 0.5rem 1.2rem rgba(37, 99, 235, 0.25);
+
+  &:disabled {
+    box-shadow: none;
+  }
+}
+
+.plan-modal__save-hint {
+  margin: 0;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .plan-modal__item {
@@ -2055,6 +2271,256 @@ button:focus-visible,
   color: #94a3b8;
   font-size: 0.78rem;
   line-height: 1.5;
+}
+
+/* ── 大乐透号码推演卡 ─────────────────────────────────────
+   桌面端放在走势图上方：左侧号码/结构指标，右侧逐条理由；
+   窄屏改为上下堆叠，号码行也拆成前后区两行。 */
+.dlt-recommend {
+  margin-bottom: 0.85rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 0.95rem;
+  box-shadow: 0 0.35rem 1rem rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.dlt-recommend__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+
+  h3 {
+    margin: 0.2rem 0 0;
+    color: #0f172a;
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+}
+
+.dlt-recommend__eyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.dlt-recommend__desc {
+  max-width: 26rem;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  text-align: right;
+}
+
+.dlt-recommend__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 1.2rem;
+  align-items: start;
+}
+
+.dlt-recommend__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.dlt-recommend__ticket {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.dlt-recommend__group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dlt-recommend__label {
+  color: #64748b;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.dlt-recommend__balls {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.dlt-recommend__ball {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0.25rem 0.6rem rgba(220, 38, 38, 0.2);
+
+  &.is-back {
+    background: linear-gradient(180deg, #3b82f6, #2563eb);
+    box-shadow: 0 0.25rem 0.6rem rgba(37, 99, 235, 0.22);
+  }
+}
+
+.dlt-recommend__plus {
+  color: #94a3b8;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.dlt-recommend__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.dlt-recommend__metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.7rem;
+
+  strong {
+    color: #0f172a;
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.is-back {
+    background: #eff6ff;
+    color: #1d4ed8;
+
+    strong {
+      color: #1e3a8a;
+    }
+  }
+}
+
+.dlt-recommend__alternates {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.45rem;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.dlt-recommend__alternates-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.45rem;
+}
+
+.dlt-recommend__alternates-label {
+  color: #64748b;
+  font-size: 0.7rem;
+
+  &.is-back {
+    color: #1d4ed8;
+  }
+}
+
+.dlt-recommend__alternate {
+  border-radius: 999px;
+  padding: 0.16rem 0.45rem;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  &.is-back {
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+}
+
+.dlt-recommend__reasons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dlt-recommend__reason {
+  display: flex;
+  gap: 0.5rem;
+  color: #475569;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.dlt-recommend__reason-index {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.12rem;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4338ca;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.dlt-recommend--empty {
+  gap: 0.35rem;
+}
+
+.dlt-recommend__empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 48rem) {
+  .dlt-recommend__header {
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .dlt-recommend__desc {
+    max-width: none;
+    text-align: left;
+  }
+
+  .dlt-recommend__body {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+
+  .dlt-recommend__ticket {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .dlt-recommend__plus {
+    display: none;
+  }
 }
 
 .history-page__list {
@@ -4697,6 +5163,20 @@ span.analysis-skeleton__pill--light {
   }
 }
 
+.history-page-skeleton__recommend-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 1.2rem;
+  align-items: start;
+}
+
+@media (max-width: 48rem) {
+  .history-page-skeleton__recommend-grid {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+}
+
 .history-page-skeleton__balls {
   margin-top: 0.8rem;
   display: flex;
@@ -5883,5 +6363,47 @@ span.analysis-skeleton__pill--light {
   .ai-analysis__spinner,
   .ai-analysis__loading li {
     animation: none;
+  }
+}
+
+/* 首页数据新鲜度：盘口每 30 分钟一轮，页面开着也能看出是不是自己没刷新 */
+.home-page__data-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.15rem 0.9rem 0.35rem;
+  color: #94a3b8;
+  font-size: 0.76rem;
+
+  &.is-stale {
+    color: #b45309;
+  }
+}
+
+.home-page__data-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-page__data-refresh {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.72rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #e2e8f0;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 }

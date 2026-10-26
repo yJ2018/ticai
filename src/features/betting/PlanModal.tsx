@@ -17,6 +17,12 @@ type PlanModalProps = {
   onAnalyze: (anchor: HTMLButtonElement) => void
   isAiActive: boolean
   layerRef: RefObject<HTMLDivElement | null>
+  /** 保存到「我的投注」 */
+  isLoggedIn: boolean
+  isSaving: boolean
+  saveHint: string
+  onSaveBet: () => void
+  onOpenLogin: () => void
 }
 
 /** 「查看方案」弹层：列出已选赛事与过关方式，并支持整层截图 / 方案级 AI 分析 */
@@ -35,6 +41,11 @@ export function PlanModal({
   onAnalyze,
   isAiActive,
   layerRef,
+  isLoggedIn,
+  isSaving,
+  saveHint,
+  onSaveBet,
+  onOpenLogin,
 }: PlanModalProps) {
   if (!mounted || typeof document === 'undefined') {
     return null
@@ -135,6 +146,23 @@ export function PlanModal({
           <span className="plan-modal__meta-item">
             理论最高奖金 <strong>{formatMoney(maxBonus)} 元</strong>
           </span>
+        </div>
+        <div className="plan-modal__actions">
+          {isLoggedIn ? (
+            <button
+              type="button"
+              className="btn-primary plan-modal__save"
+              onClick={onSaveBet}
+              disabled={isSaving || entries.length === 0}
+            >
+              {isSaving ? '保存中…' : '保存到我的投注'}
+            </button>
+          ) : (
+            <button type="button" className="btn-ghost plan-modal__save" onClick={onOpenLogin}>
+              登录后可保存投注
+            </button>
+          )}
+          {saveHint ? <span className="plan-modal__save-hint">{saveHint}</span> : null}
         </div>
       </div>
     </div>,

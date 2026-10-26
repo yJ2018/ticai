@@ -197,6 +197,54 @@ export function clientIpFor(req, { trustProxy = true } = {}) {
 
 export { isPrivateIp }
 
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
+
+function requestHost(req) {
+  const raw = req.headers?.['x-forwarded-host'] ?? req.headers?.host ?? ''
+  const first = Array.isArray(raw) ? raw[0] : String(raw).split(',')[0]
+  return first.trim().toLowerCase().replace(/:\d+$/, '')
+}
+
+/** 请求是否走 TLS（Vercel/反代看 x-forwarded-proto，直连看 socket）。 */
+export function isSecureRequest(req) {
+  const proto = req.headers?.['x-forwarded-proto']
+  const first = Array.isArray(proto) ? proto[0] : String(proto ?? '').split(',')[0]
+  if (first.trim().toLowerCase() === 'https') {
+    return true
+  }
+  return Boolean(req.socket?.encrypted)
+}
+
+/**
+ * 本机/局域网调试放行。
+ *
+ * 只看 Host 是不是本机或内网地址——不看 socket 来源 IP：
+ * 线上反代（nginx / Vercel）到应用也是回环连接，用来源 IP 判断会把公网请求误当成内网。
+ */
+export function isLocalRequest(req) {
+  const host = requestHost(req)
+  if (!host) {
+    return false
+  }
+  if (LOOPBACK_HOSTS.has(host) || host.endsWith('.local')) {
+    return true
+  }
+  return host.includes('.') && isPrivateIp(host)
+}
+
+/**
+ * 认证类接口必须走 HTTPS。
+ *
+ * 密码要发给服务端做哈希，链路一旦是明文，同网段的人抓包就能直接看到。
+ * 线上由 Vercel 强制 HTTPS；本机/局域网调试放行，想强制可以设 AUTH_ALLOW_INSECURE=0。
+ */
+export function assertSecureForAuth(req, { allowInsecure = false } = {}) {
+  if (isSecureRequest(req) || allowInsecure || isLocalRequest(req)) {
+    return
+  }
+  throw new HttpError(403, '认证接口必须通过 HTTPS 访问，请改用 https:// 打开站点')
+}
+
 /** 带超时的上游 JSON 请求，失败统一抛 HttpError。 */
 export async function fetchUpstreamJson(url, { timeoutMs = 8_000, headers = {} } = {}) {
   let response

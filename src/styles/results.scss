@@ -1,0 +1,330 @@
+/* 赛果开奖页（/results）。类名统一 results- / result-card 前缀，避免和 global.scss 冲突 */
+
+.results-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.25rem 0 1.5rem;
+}
+
+.results-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1rem 1.15rem;
+  box-shadow: 0 0.4rem 1.4rem rgba(15, 23, 42, 0.06);
+
+  h2 {
+    margin: 0.15rem 0 0.25rem;
+    font-size: 1.16rem;
+    color: #0f172a;
+  }
+}
+
+.results-page__eyebrow {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.74rem;
+  letter-spacing: 0.05em;
+}
+
+.results-page__sub {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.results-page__updated {
+  color: #94a3b8;
+}
+
+.results-page__link {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: #fff;
+  border-radius: 1rem;
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 0.4rem 1.4rem rgba(15, 23, 42, 0.05);
+}
+
+.results-date {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.results-date__step {
+  border: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: #e2e8f0;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.results-date__input {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.6rem;
+  padding: 0.35rem 0.5rem;
+  color: #0f172a;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.results-date__today {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.results-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+
+  button {
+    border: 0;
+    border-radius: 999px;
+    padding: 0.35rem 0.8rem;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.82rem;
+    cursor: pointer;
+
+    &:hover {
+      background: #eef2f7;
+    }
+
+    &.is-active {
+      background: #e5edff;
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+  }
+}
+
+.results-count {
+  margin: 0 0 0 auto;
+  color: #64748b;
+  font-size: 0.8rem;
+
+  strong {
+    color: #0f172a;
+  }
+}
+
+.results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.result-card {
+  background: #fff;
+  border-radius: 0.95rem;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 0.3rem 1rem rgba(15, 23, 42, 0.05);
+  border-left: 3px solid #e2e8f0;
+}
+
+.result-card.is-settled {
+  border-left-color: #2563eb;
+}
+
+.result-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.result-card__no {
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.result-card__league {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-card__time {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-card__state {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  background: #f1f5f9;
+  color: #94a3b8;
+  font-size: 0.72rem;
+
+  &.is-settled {
+    background: #eef2ff;
+    color: #1d4ed8;
+  }
+}
+
+.result-card__score {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+  font-size: 0.95rem;
+  color: #0f172a;
+
+  strong {
+    flex: 0 0 auto;
+    font-size: 1.05rem;
+    letter-spacing: 0.06em;
+    color: #1d4ed8;
+
+    &.is-pending {
+      color: #cbd5e1;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+    }
+  }
+}
+
+.result-card__team {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &--away {
+    text-align: right;
+  }
+}
+
+.result-card__half {
+  margin: 0.3rem 0 0;
+  color: #94a3b8;
+  font-size: 0.76rem;
+}
+
+.result-card__goal-line {
+  margin-left: 0.6rem;
+  color: #64748b;
+}
+
+.result-card__markets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0.7rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px dashed #eef2f7;
+
+  div {
+    min-width: 0;
+    text-align: center;
+    background: #f8fafc;
+    border-radius: 0.55rem;
+    padding: 0.3rem 0.2rem;
+  }
+
+  dt {
+    color: #94a3b8;
+    font-size: 0.68rem;
+    line-height: 1.3;
+  }
+
+  dd {
+    margin: 0.1rem 0 0;
+    color: #1f2937;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.result-card--skeleton {
+  height: 7.4rem;
+  border-left-color: #e2e8f0;
+  background: linear-gradient(100deg, #f8fafc 20%, #eef2f7 40%, #f8fafc 60%);
+  background-size: 220% 100%;
+  animation: results-skeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes results-skeleton {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+
+.results-status {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: #64748b;
+  box-shadow: 0 0.4rem 1.4rem rgba(15, 23, 42, 0.05);
+
+  p {
+    margin: 0 0 0.75rem;
+  }
+}
+
+@media (max-width: 40rem) {
+  .results-page__header {
+    flex-direction: column;
+  }
+
+  .results-page__link {
+    align-self: stretch;
+    text-align: center;
+  }
+
+  .results-count {
+    margin-left: 0;
+  }
+
+  .result-card__markets {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

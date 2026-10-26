@@ -17,6 +17,8 @@ type PoolCacheItem = {
   error: string
   cards: MatchCard[]
   fetched: boolean
+  /** 数据在库里的最后写入时间（API 头 x-data-as-of） */
+  dataAsOf: string | null
 }
 
 const POOLS: MatchPoolType[] = ['had', 'crs', 'ttg', 'hafu', 'mixed']
@@ -27,6 +29,7 @@ function createEmptyPoolCacheItem(): PoolCacheItem {
     error: '',
     cards: [],
     fetched: false,
+    dataAsOf: null,
   }
 }
 
@@ -78,7 +81,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     }))
 
     try {
-      const cards = await matchService.getMatchCards(pool)
+      const { cards, dataAsOf } = await matchService.getMatchCards(pool)
       set((state) => ({
         poolCache: {
           ...state.poolCache,
@@ -87,6 +90,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
             error: '',
             cards,
             fetched: true,
+            dataAsOf,
           },
         },
       }))
@@ -99,6 +103,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
             error: '比赛数据加载失败，请稍后重试',
             cards: [],
             fetched: false,
+            dataAsOf: null,
           },
         },
       }))

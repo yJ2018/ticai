@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type TouchEvent } from 'react'
+import { createPortal } from 'react-dom'
 import html2canvas from 'html2canvas'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useMatchStore } from '../store/matchStore'
+import { createBet, type Bet } from '../api/betApi'
+import { buildBetPayload } from '../features/betting/betPayload'
+import { flattenOptionGroups } from '../features/betting/betSlipMath'
+import { useAuthStore } from '../store/authStore'
 import { type MatchCard, type MatchPoolType } from '../service/matchService'
 import { BetSlipFooter } from '../features/betting/BetSlipFooter'
 import { MatchPoolList } from '../features/betting/MatchPoolList'
@@ -24,6 +30,34 @@ const poolTabs: Array<{ key: MatchPoolType; label: string }> = [
   { key: 'mixed', label: '混合过关' },
 ]
 
+/** 把「库里最后一次写入时间」说成人话，避免用户分不清是没刷新还是爬虫没跑。 */
+function formatDataAsOf(value: string | null) {
+  if (!value) {
+    return '—'
+  }
+  const stamp = Date.parse(value)
+  if (!Number.isFinite(stamp)) {
+    return '—'
+  }
+
+  const diff = Date.now() - stamp
+  if (diff < 60_000) {
+    return '刚刚'
+  }
+  if (diff < 3_600_000) {
+    return `${Math.max(1, Math.round(diff / 60_000))} 分钟前`
+  }
+  if (diff < 6 * 3_600_000) {
+    return `${Math.round(diff / 3_600_000)} 小时前`
+  }
+  return new Date(stamp).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export function HomePage() {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const planModalTimerRef = useRef<number | null>(null)
@@ -40,6 +74,12 @@ export function HomePage() {
   const [isCapturingSnapshot, setIsCapturingSnapshot] = useState(false)
   const [multipleDraft, setMultipleDraft] = useState('')
   const [toastText, setToastText] = useState('')
+  const [isSavingBet, setIsSavingBet] = useState(false)
+  const [saveBetHint, setSaveBetHint] = useState('')
+
+  const navigate = useNavigate()
+  const location = useLocation()
+  const authToken = useAuthStore((state) => state.token)
 
   const activePool = useMatchStore((state) => state.activePool)
   const poolCache = useMatchStore((state) => state.poolCache)
@@ -61,6 +101,53 @@ export function HomePage() {
   useEffect(() => {
     loadMatches()
   }, [loadMatches])
+
+  // 改了选项/倍数，上一次保存留下的错误提示就过期了
+  useEffect(() => {
+    setSaveBetHint('')
+  }, [betSlip.selectedOptionKeys, betSlip.multiple])
+
+  // 从「我的投注」点「去投注」过来：切到对应玩法 → 回填选项 → 自动打开方案弹层
+  useEffect(() => {
+    const state = location.state as { applyBet?: Bet } | null
+    if (!state?.applyBet) {
+      return
+    }
+    const bet = state.applyBet
+    // 立刻清掉 state，避免刷新或前进后退时重复回填
+    navigate(location.pathname, { replace: true, state: null })
+    void applySavedBet(bet)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state])
+
+  // 盘口每 30 分钟更新一轮，页面开着也要能看到新数据：
+  // 每 5 分钟静默刷新一次当前玩法（只在标签页可见时），切回标签页时若数据过期也补一次。
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadMatches(activePool, true)
+      }
+    }
+
+    const timer = window.setInterval(refreshIfVisible, 5 * 60_000)
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
+      const cache = useMatchStore.getState().poolCache[useMatchStore.getState().activePool]
+      const asOf = cache.dataAsOf ? Date.parse(cache.dataAsOf) : 0
+      if (!asOf || Date.now() - asOf > 5 * 60_000) {
+        refreshIfVisible()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [activePool, loadMatches])
 
   useEffect(() => {
     if (!toastText) {
@@ -202,6 +289,7 @@ export function HomePage() {
   function clearPlan() {
     betSlip.reset()
     setMultipleDraft('')
+    setSaveBetHint('')
     closePlanModal()
     closeAllPanels()
     aiAnalysis.close()
@@ -214,6 +302,7 @@ export function HomePage() {
       planModalTimerRef.current = null
     }
     parlayAi.close()
+    setSaveBetHint('')
     setIsPlanModalOpen(false)
     planModalTimerRef.current = window.setTimeout(() => {
       setIsPlanModalMounted(false)
@@ -221,11 +310,13 @@ export function HomePage() {
     }, PLAN_MODAL_ANIMATION_MS)
   }
 
-  function openPlanModal() {
-    if (betSlip.selectedCount === 0) {
+  function openPlanModal(force = false) {
+    if (!force && betSlip.selectedCount === 0) {
       setToastText('请先选择比赛')
       return
     }
+    // 每次打开都是新的上下文，清掉上一次保存留下的提示
+    setSaveBetHint('')
     closeAllPanels()
     aiAnalysis.close()
     parlayAi.close()
@@ -237,6 +328,117 @@ export function HomePage() {
     window.requestAnimationFrame(() => {
       setIsPlanModalOpen(true)
     })
+  }
+
+  /**
+   * 把「我的投注」里的一单回填到投注单：
+   *   - 单一玩法就切到那个玩法，混合单切到「混合过关」；
+   *   - 只回填仍然在售、且选项还在的场次；
+   *   - 过关方式按实际可用的场次数过滤，然后自动打开方案弹层。
+   */
+  async function applySavedBet(bet: Bet) {
+    const pools = new Set(bet.legs.map((leg) => leg.pool))
+    const targetPool: MatchPoolType = pools.size === 1 ? ([...pools][0] as MatchPoolType) : 'mixed'
+
+    setActivePool(targetPool)
+    await loadMatches(targetPool, true)
+
+    const cards = useMatchStore.getState().poolCache[targetPool].cards
+    const cardsById = new Map(cards.map((card) => [card.id, card]))
+    const selections: Record<number, string[]> = {}
+    let applied = 0
+
+    for (const leg of bet.legs) {
+      const card = cardsById.get(leg.sportteryMatchId)
+      if (!card) {
+        continue
+      }
+      const option = flattenOptionGroups(card).find((candidate) => candidate.key === leg.optionKey)
+      if (!option || Number(option.value) < 1) {
+        continue
+      }
+      const keys = selections[leg.sportteryMatchId] ?? []
+      if (!keys.includes(leg.optionKey)) {
+        keys.push(leg.optionKey)
+      }
+      selections[leg.sportteryMatchId] = keys
+      applied += 1
+    }
+
+    if (applied === 0) {
+      setToastText('这单的场次已不在售，无法回填')
+      return
+    }
+
+    const matchCount = Object.keys(selections).length
+    const passTypes = bet.passTypes.filter((passType) => {
+      const need = Number.parseInt(passType, 10)
+      return Number.isFinite(need) && need >= 2 && need <= matchCount
+    })
+
+    betSlip.applySavedPlan({ selections, passTypes, multiple: bet.multiple })
+    // 直接强制打开：页面有缓存时选中数可能和上次一样（3→3），
+    // 只靠「selectedCount 变化」触发会漏掉，所以这里不依赖它。
+    openPlanModal(true)
+
+    if (applied < bet.legs.length) {
+      setToastText(`已回填 ${matchCount} 场，${bet.legs.length - applied} 个选项已不在售`)
+    } else {
+      setToastText(`已回填 ${matchCount} 场 · ${passTypes.join('、') || '自动过关'}`)
+    }
+  }
+
+  /** 保存当前方案；未登录时先跳登录页，登录后回到投注页。 */
+  async function saveBet() {
+    if (!authToken) {
+      goLogin()
+      return
+    }
+
+    const payload = buildBetPayload({
+      items,
+      selectedOptionKeys: betSlip.selectedOptionKeys,
+      passTypes: betSlip.selectedPassTypes,
+      multiple: betSlip.multiple,
+    })
+
+    if (payload.legs.length === 0) {
+      setSaveBetHint('没有可保存的有效选项（赔率缺失的选项会被跳过）')
+      return
+    }
+
+    const matchCount = new Set(payload.legs.map((leg) => leg.sportteryMatchId)).size
+    if (matchCount < 2) {
+      setSaveBetHint('至少选择 2 场不同比赛才能保存（单场暂不支持）')
+      return
+    }
+    if (payload.passTypes.length === 0) {
+      setSaveBetHint('请先选择过关方式')
+      return
+    }
+
+    setSaveBetHint('')
+    setIsSavingBet(true)
+    try {
+      const bet = await createBet(authToken, payload)
+      // 成功只用 toast 提示，不在弹层里常驻；弹层里的 hint 只用于错误/前置校验
+      setToastText(
+        bet.status === 'won'
+          ? `已保存 · 已中奖 ${formatMoney(bet.payout)} 元`
+          : bet.status === 'pending'
+            ? '已保存到我的投注 · 待开奖'
+            : '已保存到我的投注 · 未中奖',
+      )
+    } catch (error) {
+      setSaveBetHint(error instanceof Error ? error.message : '保存失败，请稍后重试')
+    } finally {
+      setIsSavingBet(false)
+    }
+  }
+
+  function goLogin() {
+    closePlanModal()
+    navigate('/login', { state: { from: '/' } })
   }
 
   function openAiAnalysis(item: MatchCard, anchor: HTMLButtonElement) {
@@ -436,8 +638,17 @@ export function HomePage() {
     setToastText(`税额 ${formatMoney(taxInfo.taxAmount)} 元，税后约 ${formatMoney(taxInfo.afterTaxAmount)} 元`)
   }
 
+  async function refreshMatches() {
+    await loadMatches(activePool, true)
+    setToastText('已获取最新数据')
+  }
+
+  const dataAgeMs = activeCache.dataAsOf ? Date.now() - Date.parse(activeCache.dataAsOf) : Number.POSITIVE_INFINITY
+  const isDataStale = Number.isFinite(dataAgeMs) && dataAgeMs > 45 * 60_000
+
   return (
     <section className="home-page">
+      <h1 className="visually-hidden">竞彩足球赛程、实时赔率与投注方案</h1>
       <header className="home-page__nav">
         <div className="home-page__nav-main">
           <nav className="home-page__pool-nav">
@@ -466,6 +677,22 @@ export function HomePage() {
           </button>
         </div>
       </header>
+
+      <div className={`home-page__data-bar${isDataStale ? ' is-stale' : ''}`}>
+        <span className="home-page__data-text">
+          {activeCache.loading && !activeCache.fetched
+            ? '正在同步最新盘口…'
+            : `数据更新于 ${formatDataAsOf(activeCache.dataAsOf)}`}
+        </span>
+        <button
+          type="button"
+          className="home-page__data-refresh"
+          onClick={() => void refreshMatches()}
+          disabled={activeCache.loading}
+        >
+          {activeCache.loading ? '刷新中…' : '刷新'}
+        </button>
+      </div>
 
       <div className="home-page__body">
         <div className="home-page__content" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -554,6 +781,11 @@ export function HomePage() {
         onAnalyze={toggleParlayAi}
         isAiActive={parlayAi.analysis !== null}
         layerRef={planModalLayerRef}
+        isLoggedIn={Boolean(authToken)}
+        isSaving={isSavingBet}
+        saveHint={saveBetHint}
+        onSaveBet={saveBet}
+        onOpenLogin={goLogin}
       />
 
       <SnapshotOverlay
@@ -565,7 +797,15 @@ export function HomePage() {
         onRemove={removeSnapshot}
       />
 
-      {toastText && <div className="home-page__toast">{toastText}</div>}
+      {/* Toast 挂到 body：首页容器有 transform（路由动画），在它里面 fixed 会被限制层级，
+          弹层打开时会被压在下面 */}
+      {toastText &&
+        createPortal(
+          <div className="home-page__toast" role="status">
+            {toastText}
+          </div>,
+          document.body,
+        )}
     </section>
   )
 }

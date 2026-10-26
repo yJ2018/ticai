@@ -11,6 +11,7 @@ import { crawlHistory } from './tasks/history.mjs'
 import { crawlLineupsBrowser } from './tasks/lineups-browser.mjs'
 import { crawlMatches } from './tasks/matches.mjs'
 import { crawlOfficialData, describeOfficialResult } from './tasks/official.mjs'
+import { crawlMatchResults, hasPendingResults } from './tasks/results.mjs'
 
 /**
  * 本地常驻爬虫：抓取在本机完成，写入云端数据库。
@@ -67,6 +68,20 @@ const TASKS = [
     run: async () => {
       const summary = await crawlMatches({ pool, config })
       return `${summary.matches} 场 · 赔率变更 ${summary.changed} · 下架 ${summary.closed} · 跳过 ${summary.skipped}`
+    },
+  },
+  {
+    name: 'results',
+    // 开奖在赛后（19 点后结束的比赛第二天早上开奖），和销售时段无关。
+    // 没有「已开赛但还没拿到赛果」的比赛就跳过，避免空转。
+    gate: false,
+    everyMs: MATCHES_MS,
+    run: async () => {
+      if (!(await hasPendingResults(pool))) {
+        return '无待开奖比赛，跳过'
+      }
+      const summary = await crawlMatchResults({ pool, config, days: 3 })
+      return `${summary.matches} 场 · 变更 ${summary.changed} · 回写比分 ${summary.matchesSynced}`
     },
   },
   {

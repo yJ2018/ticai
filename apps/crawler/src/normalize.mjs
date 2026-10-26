@@ -285,6 +285,137 @@ export function parseResultEntries(value) {
   return Array.from(byId.values())
 }
 
+// ============================================================================
+// 赛果开奖（www.lottery.gov.cn/jc/zqsgkj 背后的 getUniformMatchResultV1）
+// ============================================================================
+
+/** 让球数：上游给 '+1' / '-1' / ''，转成整数；空值返回 null（按 0 处理）。 */
+export function parseGoalLine(value) {
+  const text = String(value ?? '').trim()
+  if (!text) {
+    return null
+  }
+  const parsed = Number(text)
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : null
+}
+
+/** 胜平负：主队视角。 */
+function outcomeOf(home, away) {
+  if (home > away) {
+    return 'h'
+  }
+  return home === away ? 'd' : 'a'
+}
+
+/**
+ * 比分玩法 key：必须和前端 CRS_OPTION_ORDER 完全一致，
+ * 否则投注结算会永远判不中。只列官方筛出来的比分，其余归入「其它」。
+ */
+export function crsKey(home, away) {
+  if (home > away) {
+    const table = {
+      '1-0': 's01s00',
+      '2-0': 's02s00',
+      '2-1': 's02s01',
+      '3-0': 's03s00',
+      '3-1': 's03s01',
+      '3-2': 's03s02',
+      '4-0': 's04s00',
+      '4-1': 's04s01',
+      '4-2': 's04s02',
+      '5-0': 's05s00',
+      '5-1': 's05s01',
+      '5-2': 's05s02',
+    }
+    return table[`${home}-${away}`] ?? 's1sh'
+  }
+
+  if (home === away) {
+    const table = {
+      '0-0': 's00s00',
+      '1-1': 's01s01',
+      '2-2': 's02s02',
+      '3-3': 's03s03',
+    }
+    return table[`${home}-${away}`] ?? 's1sd'
+  }
+
+  const table = {
+    '0-1': 's00s01',
+    '0-2': 's00s02',
+    '1-2': 's01s02',
+    '0-3': 's00s03',
+    '1-3': 's01s03',
+    '2-3': 's02s03',
+    '0-4': 's00s04',
+    '1-4': 's01s04',
+    '2-4': 's02s04',
+    '0-5': 's00s05',
+    '1-5': 's01s05',
+    '2-5': 's02s05',
+  }
+  return table[`${home}-${away}`] ?? 's1sa'
+}
+
+/** 半全场 key：半场结果 + 全场结果，如 'hd'。 */
+export function hafuKey(halfHome, halfAway, fullHome, fullAway) {
+  return outcomeOf(halfHome, halfAway) + outcomeOf(fullHome, fullAway)
+}
+
+/**
+ * 赛果开奖的一条 → 可入库的行。
+ *
+ * 上游只直接给胜平负（winFlag）和比分，其余玩法由比分推导；
+ * 推导规则集中在这里，保证爬虫、API 结算、前端展示三处口径一致。
+ */
+export function normalizeMatchResult(item) {
+  const sportteryMatchId = Number(item?.matchId)
+  if (!Number.isFinite(sportteryMatchId) || sportteryMatchId <= 0) {
+    throw new Error('赛果缺少 matchId')
+  }
+
+  const full = parseGoalPair(item?.sectionsNo999)
+  const half = parseGoalPair(item?.sectionsNo1)
+  const goalLine = parseGoalLine(item?.goalLine)
+  const winFlag = String(item?.winFlag ?? '').trim().toLowerCase()
+  const hadResult = ['h', 'd', 'a'].includes(winFlag)
+    ? winFlag
+    : full
+      ? outcomeOf(full.home, full.away)
+      : null
+
+  return {
+    sportteryMatchId,
+    matchNumStr: item?.matchNumStr ?? null,
+    matchDate: /^\d{4}-\d{2}-\d{2}/.test(String(item?.matchDate ?? ''))
+      ? String(item.matchDate).slice(0, 10)
+      : null,
+    leagueId: Number.isFinite(Number(item?.leagueId)) ? Number(item.leagueId) : null,
+    leagueName: item?.leagueName ?? item?.leagueNameAbbr ?? null,
+    homeName: String(item?.allHomeTeam ?? item?.homeTeam ?? '').trim() || '主队',
+    awayName: String(item?.allAwayTeam ?? item?.awayTeam ?? '').trim() || '客队',
+    homeTeamId: Number.isFinite(Number(item?.homeTeamId)) ? Number(item.homeTeamId) : null,
+    awayTeamId: Number.isFinite(Number(item?.awayTeamId)) ? Number(item.awayTeamId) : null,
+    halfHome: half ? half.home : null,
+    halfAway: half ? half.away : null,
+    fullHome: full ? full.home : null,
+    fullAway: full ? full.away : null,
+    goalLine,
+    hadResult,
+    hhadResult: full
+      ? outcomeOf(full.home + (goalLine ?? 0), full.away)
+      : null,
+    ttgResult: full ? Math.min(7, full.home + full.away) : null,
+    crsResult: full ? crsKey(full.home, full.away) : null,
+    hafuResult: half && full ? hafuKey(half.home, half.away, full.home, full.away) : null,
+    winFlag: item?.winFlag ?? '',
+    poolStatus: item?.poolStatus ?? '',
+    resultStatus: item?.matchResultStatus ?? '',
+    settled: Boolean(full),
+    raw: item,
+  }
+}
+
 /**
  * 伤停名单：每侧一个 block，带 sportteryTeamId，可以映射回 team 表。
  * 注意这是"本场不可用球员"，不是全队名单——不能拿它反推阵容。

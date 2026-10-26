@@ -8,7 +8,31 @@
   },
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/results",
+      "destination": "/prerender/results.html"
+    },
+    {
+      "source": "/history",
+      "destination": "/prerender/history.html"
+    },
+    {
+      "source": "/history-analysis",
+      "destination": "/prerender/history-analysis.html"
+    },
+    {
+      "source": "/math-trend-analysis",
+      "destination": "/prerender/math-trend-analysis.html"
+    },
+    {
+      "source": "/horoscope",
+      "destination": "/prerender/horoscope.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/prerender/about.html"
+    },
+    {
+      "source": "/((?!api/|assets/|prerender/|robots.txt|sitemap.xml|og-cover.png|favicon.svg|icons.svg).*)",
       "destination": "/index.html"
     }
   ],
@@ -19,6 +43,33 @@
         {
           "key": "cache-control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "cache-control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        {
+          "key": "cache-control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
+      "source": "/og-cover.png",
+      "headers": [
+        {
+          "key": "cache-control",
+          "value": "public, max-age=86400"
         }
       ]
     }

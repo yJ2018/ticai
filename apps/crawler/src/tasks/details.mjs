@@ -6,10 +6,13 @@ import { parseInjuryEntries, parseResultEntries } from '../normalize.mjs'
 import { MATCH_FEEDS, fetchMatchFeed } from '../sporttery.mjs'
 
 /**
- * 对战数据：伤停 + 赛果（--full 时把 7 个源全抓）。
+ * 对战数据：伤停为主（--full 时把 7 个源全抓）。
  *
  * 一个比赛 2~7 个请求，比在售赛程贵得多，所以不做全量轮询：
  * 只挑"开赛时间离现在最近"的一批比赛（默认 10 场），由调度器低频或按需触发。
+ *
+ * 2026-10 起「赛果」不再走这里：官网赛果开奖接口一次能拿一整天的比分，
+ * 由 tasks/results.mjs 统一入库，这里的默认 feed 只剩伤停（请求数减半）。
  */
 
 const UPSERT_FEED = `
@@ -144,7 +147,7 @@ export async function applyInjuries(pool, { teams, entries }, log = console.log)
 }
 
 export async function crawlDetails({ pool, config, limit = 10, full = false, matchIds = [], log = console.log }) {
-  const feeds = full ? Object.keys(MATCH_FEEDS) : ['injury', 'result']
+  const feeds = full ? Object.keys(MATCH_FEEDS) : ['injury']
   const runId = await startRun(pool, { source: 'sporttery.match_detail', meta: { limit, full, feeds, matchIds } })
   const summary = { matches: 0, requests: 0, results: 0, injuries: 0, failed: 0 }
 
