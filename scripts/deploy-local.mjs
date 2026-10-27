@@ -30,7 +30,9 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const vercel = process.env.VERCEL_CLI ?? 'npx --yes vercel@64'
 const defaultOrgId = 'team_WzCWvjcpY00YVeEnkv3Js5Pi'
 const defaultProjectId = 'prj_dnpcabvlaKKhkioBQzFVZHdqJcpc'
-const defaultApiBase = 'https://ticai-service.vercel.app'
+// 默认同源：浏览器只访问站点域名，/api 由 vercel.json 的 rewrite 代理到 API 项目，
+// 避免跨域、也避免 *.vercel.app 在国内被 DNS 污染/拦截
+const defaultApiBase = ''
 const keepStage = process.env.KEEP_DEPLOY_STAGE === '1'
 
 function capture(command) {
@@ -136,6 +138,10 @@ function buildStagingDir() {
 }
 
 function assertApiBase(apiBase) {
+  // 同源模式（空 base）没有写死的域名，跳过校验
+  if (!apiBase) {
+    return
+  }
   const assetsDir = resolve(root, 'dist/assets')
   const entryBundles = readdirSync(assetsDir).filter((file) => /^index-.*\.js$/.test(file))
   const hasApiBase = entryBundles.some((file) =>
@@ -168,10 +174,10 @@ if (dirty) {
 
 let stage = ''
 try {
-  // 前端只发静态资源，所有数据来自独立的 API 项目
+  // 前端只发静态资源，数据请求走同源 /api（vercel.json 代理到 API 项目）
   const apiBase = (process.env.VITE_API_BASE || defaultApiBase).replace(/\/+$/, '')
   process.env.VITE_API_BASE = apiBase
-  run(`本地构建静态资源（API → ${apiBase}）`, 'npm run build')
+  run(`本地构建静态资源（API → ${apiBase || '同源 /api'}）`, 'npm run build')
 
   const builtIndex = readFileSync(resolve(root, 'dist/index.html'), 'utf8')
   if (!builtIndex.includes('/assets/')) {

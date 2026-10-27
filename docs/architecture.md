@@ -1,4 +1,4 @@
-# ticai · 体彩助手 架构说明
+﻿# ticai · 体彩助手 架构说明
 
 > 中国体彩「排列五」开奖历史 + 竞彩足球赔率投注方案 + 两种号码预测分析，附带星座运势 / 天气。
 >
@@ -22,7 +22,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
-| 形态 | SPA 静态托管 + 独立 API 服务（两个 Vercel 项目，`VITE_API_BASE` 连接） |
+| 形态 | SPA 静态托管 + 独立 API 服务（两个 Vercel 项目，生产用同源 `/api` rewrite 代理） |
 | 前端规模 | TS/TSX 60 个文件；SCSS 单文件 5 300+ 行 |
 | 服务端规模 | `apps/api`：11 个接口、提示词与官方数据装配；`apps/crawler`：赛程/开奖/伤停/阵容四条链路 |
 | 数据层 | PostgreSQL 16 张表 + 2 个视图：API 只读，爬虫只写（`db/README.md`） |
@@ -62,7 +62,7 @@
 | 样式 | 单个 `src/styles/global.scss`（BEM，3 534 行） |
 | 计算 | Web Worker（`type: 'module'`）承载预测算法，另有主线程降级路径 |
 | 持久化 | IndexedDB（开奖历史）；localStorage 仅剩迁移入口与死代码 |
-| 传输 | 浏览器 `fetch(VITE_API_BASE + '/api/*')`；API 只读库，不直连上游 |
+| 传输 | 浏览器 `fetch('/api/*')`（默认同源，Vercel rewrite 转发到 API 项目）；API 只读库，不直连上游 |
 | 截图 | html2canvas → `canvas.toDataURL('image/png')` |
 
 ### 运行方式
@@ -85,7 +85,7 @@ npm run build               # 构建静态资源 → Vercel（前端项目）
 | `DATABASE_URL` | — | PostgreSQL 连接串（API 与爬虫共用） |
 | `DATABASE_SSL` | — | 云端库（Prisma Postgres 等）需设 `1` |
 | `CORS_ORIGINS` | `http://localhost:5173` | 允许的前端来源，逗号分隔 |
-| `VITE_API_BASE` | 空（同源） | 构建时写入前端 bundle 的 API 地址 |
+| `VITE_API_BASE` | 空（同源） | 构建时写入前端 bundle 的 API 地址；留空时走同源 `/api` 代理 |
 | `UPSTREAM_TIMEOUT_MS` | `8000` | 上游请求超时 |
 | `JUHE_WEATHER_KEY` | — | 缺失时 `/api/weather` 返回 503 |
 | `JUHE_HOROSCOPE_KEY` | — | 缺失时 `/api/horoscope` 返回 503 |

@@ -1,4 +1,4 @@
-# ticai API 接口文档
+﻿# ticai API 接口文档
 
 > 版本：2026-10-22 · 服务端代码在 `apps/api/`，实现细节见 [apps/api/README.md](../apps/api/README.md)
 
@@ -6,7 +6,7 @@
 
 | 项 | 说明 |
 | --- | --- |
-| Base URL | 本地 `http://127.0.0.1:3001`；生产为 API 域名（前端通过 `VITE_API_BASE` 指向它） |
+| Base URL | 本地 `http://127.0.0.1:3001`；生产通过前端同源 `/api` 代理（Vercel rewrite → `ticai-service`），也可用 `VITE_API_BASE` 直连 |
 | 认证 | **无**（个人项目）。`/api/ai-analysis`、`/api/ai-chat` 依赖服务端密钥与 IP 限流 |
 | 跨域 | `CORS_ORIGINS` 白名单；留空表示只允许同源。允许的方法 `GET,POST,OPTIONS` |
 | 编码 | 请求与响应均为 `application/json; charset=utf-8`（SSE 除外） |

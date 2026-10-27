@@ -8,6 +8,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "https://ticai-service.vercel.app/api/$1"
+    },
+    {
       "source": "/results",
       "destination": "/prerender/results.html"
     },

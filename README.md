@@ -133,7 +133,7 @@ npm run crawl:history      # 抓四个彩种最新一页
 
 | 变量 | 说明 |
 | --- | --- |
-| `VITE_API_BASE` | API 域名，例如 `https://ticai-service.vercel.app`；留空 = 同源 |
+| `VITE_API_BASE` | API 域名；**默认留空 = 同源 `/api`**，由前端项目的 Vercel rewrite 代理到 API 项目（本地由 Vite proxy 转发） |
 
 **第三方**
 
@@ -251,7 +251,7 @@ npm run db:verify      # 结构与约束自检
 | `ticai` | 前端静态资源 | `dist`，SPA fallback |
 | `ticai-service` | API（Serverless Function） | `apps/api/api/index.js` + 全路径 rewrite |
 
-前端通过构建期变量 `VITE_API_BASE` 指向 API。
+前端默认用同源 `/api`（`vercel.json` 的 rewrite 转发到 `ticai-service`），不再把 `*.vercel.app` 写进 bundle；需要直连 API 时再用构建期变量 `VITE_API_BASE` 覆盖。
 
 ```bash
 npm run deploy          # 前端 + API 一起发（最常用）
@@ -259,7 +259,7 @@ npm run deploy:local    # 只发前端
 npm run deploy:api      # 只发 API
 ```
 
-- `deploy:local`：用 `VITE_API_BASE` 构建 → 校验 bundle 里确实包含该地址 → 在临时目录用预构建产物上传（不上传源码与 `.env`）→ 发布后清理临时目录。
+- `deploy:local`：默认同源构建（`VITE_API_BASE` 留空）→ 在临时目录用预构建产物上传（不上传源码与 `.env`）→ 发布后清理临时目录；显式设置 `VITE_API_BASE` 时仍会校验 bundle 里包含该地址。
 - `deploy:api`：把 `apps/api` 的源码（`api/`、`src/`、`package.json`、`vercel.json`）铺到临时目录上传，Vercel 侧装 `pg` 并把所有路径重写到 `api/index.js`；发布后尽力探一次 `/healthz` 与 `/api/matches`（本机 DNS 解析不了 Vercel 域名时只告警，不算失败）。
 
 两个脚本都走 `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`，不读写仓库根的 `.vercel`（该目录可能被安全软件或沙箱锁住）。
