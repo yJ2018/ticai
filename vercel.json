@@ -36,7 +36,7 @@
       "destination": "/prerender/about.html"
     },
     {
-      "source": "/((?!api/|assets/|prerender/|spa.html|robots.txt|sitemap.xml|og-cover.png|favicon.svg|icons.svg).*)",
+      "source": "/((?!api/|assets/|prerender/|spa.html|robots.txt|sitemap.xml|og-cover.png|favicon.ico|favicon-32.png|apple-touch-icon.png|icon-192.png|icon-512.png|icons.svg).*)",
       "destination": "/spa.html"
     }
   ],

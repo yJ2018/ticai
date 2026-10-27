@@ -201,7 +201,7 @@ D:\ticai
 ├─ tsconfig.json               # bundler 模式、noEmit、未开 strict
 ├─ package.json                # dev / dev:api / build / crawl:* / db:*
 ├─ .env / .env.example         # 数据库与第三方密钥（.env 已被 .gitignore 忽略）
-├─ public/                     # favicon.svg、icons.svg
+├─ public/                     # favicon.ico / favicon-32.png / apple-touch-icon.png / icon-192|512.png、icons.svg
 ├─ apps/
 │  ├─ api/                     # ★ 独立服务端：只读库，对外 11 个接口
 │  │  ├─ src/app.mjs           # 路由表、CORS、错误信封
