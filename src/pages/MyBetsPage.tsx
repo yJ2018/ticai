@@ -320,6 +320,15 @@ export function MyBetsPage() {
       ? '—'
       : String(items.length)
 
+  /**
+   * 登录态校验（validate 里的 /api/auth/me）和投注列表是两次网络请求。
+   * 骨架屏必须从第一帧就开始显示，不能被「是否已拿到登录态」挡住，
+   * 否则用户会先看到一行「正在读取登录状态…」，再跳成骨架屏，最后才是列表。
+   */
+  const authPending = !ready || !token
+  const showSkeleton = authPending || (loading && items.length === 0)
+  const accountLabel = user?.displayName || user?.email || (ready ? '已登录' : '…')
+
   const statItems = [
     { key: 'total', label: '总单数', value: totalValue, tone: '' },
     { key: 'pending', label: '待开奖', value: stats ? String(stats.pending) : '—', tone: 'pending' },
@@ -328,26 +337,6 @@ export function MyBetsPage() {
     { key: 'amount', label: '总投入', value: stats ? formatMoney(stats.amount) : '—', tone: '' },
     { key: 'payout', label: '总奖金', value: stats ? formatMoney(stats.payout) : '—', tone: 'won' },
   ]
-
-  if (!ready) {
-    return (
-      <div className="bets-screen">
-        <section className="bets-page">
-          <p className="bets-status">正在读取登录状态…</p>
-        </section>
-      </div>
-    )
-  }
-
-  if (!token) {
-    return (
-      <div className="bets-screen">
-        <section className="bets-page">
-          <p className="bets-status">正在跳转登录…</p>
-        </section>
-      </div>
-    )
-  }
 
   return (
     <div className="bets-screen">
@@ -359,9 +348,7 @@ export function MyBetsPage() {
               ← 返回
             </Link>
             <h2>我的投注</h2>
-            <p className="bets-page__sub">
-              当前账号 {user?.displayName || user?.email || '已登录'}
-            </p>
+            <p className="bets-page__sub">当前账号 {accountLabel}</p>
           </div>
           <div className="bets-page__actions">
             <button type="button" className="btn-ghost" onClick={handleSignOut}>
@@ -383,7 +370,10 @@ export function MyBetsPage() {
         </dl>
       </div>
 
-      <section className="bets-page">
+      <section className="bets-page" aria-busy={showSkeleton || undefined}>
+        <p className="visually-hidden" role="status">
+          {showSkeleton ? '正在加载投注记录' : ''}
+        </p>
         <div className="bets-filters">
         <nav className="bets-tabs" aria-label="按状态筛选">
           {STATUS_TABS.map((tab) => (
@@ -423,7 +413,7 @@ export function MyBetsPage() {
         </p>
       )}
 
-      {loading && items.length === 0 && (
+      {showSkeleton && (
         <div className="bets-skeleton" aria-hidden="true">
           {[0, 1, 2].map((index) => (
             <div key={index} className="bets-skeleton__card">
@@ -440,7 +430,7 @@ export function MyBetsPage() {
         </div>
       )}
 
-      {!loading && error && items.length === 0 && (
+      {!showSkeleton && error && items.length === 0 && (
         <div className="bets-status bets-status--error">
           <p>{error}</p>
           <button type="button" className="btn-ghost" onClick={() => void loadPage('reset')}>
@@ -449,7 +439,7 @@ export function MyBetsPage() {
         </div>
       )}
 
-      {!loading && !error && visibleItems.length === 0 && (
+      {!showSkeleton && !error && visibleItems.length === 0 && (
         <div className="bets-empty">
           <p>
             {hasFilters

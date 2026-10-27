@@ -3,7 +3,7 @@
 <rect width="1280" height="1440" fill="#f5f7fa"/>
 <text x="40" y="56" font-size="26" font-weight="700" fill="#0f172a">体彩助手 · ticai 全栈架构图</text>
 <text x="40" y="80" font-size="12.5" fill="#64748b">React 19 · TypeScript 6 · Vite 8 · Zustand 5　＋　独立 API（apps/api）＋ 本地爬虫（apps/crawler）</text>
-<text x="1240" y="55" text-anchor="end" font-size="11" fill="#475569">src 88 文件 / 17,417 行</text>
+<text x="1240" y="55" text-anchor="end" font-size="11" fill="#475569">src 88 文件 / 17,407 行</text>
 <text x="1240" y="74" text-anchor="end" font-size="11" fill="#475569">SCSS 7 文件 / 10,319 行</text>
 <text x="1240" y="93" text-anchor="end" font-size="11" fill="#475569">apps 52 文件 / 8,901 行</text>
 <text x="40" y="98" font-size="10.5" fill="#94a3b8">自动生成：scripts/update-architecture.mjs　·　方框 = 仓库内代码　·　箭头 = 依赖方向</text>
