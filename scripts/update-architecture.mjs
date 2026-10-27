@@ -43,14 +43,19 @@ const BETTING_DESCRIPTIONS = {
   'SnapshotOverlay.tsx': '快照预览 / 下载',
   'useBetSlip.ts': '选择态 · 串关注数 / 金额',
   'betSlipMath.ts': '注数 / 奖金 / 税纯函数',
+  'betPayload.ts': '投注单请求体 · 登录后保存',
   'useMatchAiAnalysis.ts': '单场 AI SSE 状态机',
   'AiAnalysisPanel.tsx': '单场 AI 分析浮层',
   'aiAnalysis.ts': '单场提示词 / 摘要解析',
   'useParlayAiAnalysis.ts': '串关 AI SSE 状态机',
   'ParlayAiAnalysisPanel.tsx': '逐场判断 / 串关风险面板',
   'parlayAiAnalysis.ts': '串关提示词 / 摘要解析',
+  'parlayModel.ts': '去水 → λ → 泊松 → EV 三选',
+  'useAutoParlay.ts': '一键串关流水线状态机',
+  'AutoParlayPanel.tsx': '串关过程可视化',
   'useAiPanelPosition.ts': '浮层定位 / 移动端抽屉',
   'AnalysisText.tsx': 'AI 文本轻量渲染',
+  'aiAnalysisCache.ts': 'AI 结果缓存 · 3 小时 TTL',
 }
 
 const PAGE_DESCRIPTIONS = {
@@ -58,44 +63,62 @@ const PAGE_DESCRIPTIONS = {
   'HistoryPage.tsx': '开奖历史 · 首屏骨架 · Worker 预测',
   'HistoryAnalysisPage.tsx': '频次 · 遗漏 · 马尔可夫 · 回测',
   'MathTrendAnalysisPage.tsx': '回归 · 波动率 · 大样本回测',
+  'ResultsPage.tsx': '赛果开奖 · 按比赛日翻页',
   'HoroscopePage.tsx': '12 星座 × 5 周期 + 天气',
+  'AuthPage.tsx': '邮箱密码 / 验证码 · 微信登录',
+  'WechatCallbackPage.tsx': '一次性 ticket 换会话',
+  'AccountPage.tsx': '账号资料 · 登录方式 · 微信绑定',
+  'MyBetsPage.tsx': '投注记录 · 自动结算 · 详情弹层',
+  'MatchDetailPage.tsx': 'H5 对战详情独立页',
   'AboutPage.tsx': 'Keep-Alive 示例页',
   'ProfilePage.tsx': '非缓存示例页',
 }
 
 const shellCards = [
   { title: 'index.html + main.tsx', subtitle: '入口 · createRoot + BrowserRouter' },
-  { title: 'App.tsx', subtitle: '顶栏 · 导航 · AppRouter / 免责弹层' },
+  { title: 'App.tsx', subtitle: '顶栏 · 导航 · 路由级 SEO / 免责弹层' },
   { title: 'AppRouter', subtitle: '路由出口 · KeepAliveRoutes' },
   { title: 'KeepAliveRoutes', subtitle: 'matchPath 匹配 · display 切换' },
-  { title: 'routes.tsx', subtitle: 'appRoutes（7 条）· navLinks（5 项）' },
+  { title: 'routes.tsx', subtitle: 'appRoutes（13 条）· navLinks（7 项）' },
 ]
 
 const stateCards = [
-  { title: 'Zustand store', subtitle: 'matchStore：5 个玩法池缓存 / 加载态' },
+  { title: 'Zustand store', subtitle: 'matchStore 玩法池 / authStore 登录态' },
   { title: 'src/service', subtitle: '赛事 · 开奖 · 天气 · 星座服务层' },
-  { title: 'src/components', subtitle: '通用控件 · 分析页一屏骨架屏' },
-  { title: 'src/api', subtitle: 'request<T> · 同源 /api · SSE 解析' },
+  { title: 'src/components', subtitle: '通用骨架屏 · 指标 / 推荐 · 确认弹窗' },
+  { title: 'src/api', subtitle: 'httpClient + 同源 /api · SSE 解析' },
   { title: 'domain + workers', subtitle: '预测纯函数 · 计算下沉 Web Worker' },
   { title: 'storage', subtitle: 'IndexedDB 增量缓存 · 2 万条裁剪' },
 ]
 
+const featureCards = [
+  { title: 'features/bets', subtitle: '投注详情弹层 · 金额 / 玩法格式化' },
+  { title: 'features/account', subtitle: '微信接入步骤弹层' },
+  { title: 'features/matchDetail', subtitle: '正文 / 弹框 / 视图映射 / 移动端判断' },
+  { title: 'features/seo', subtitle: '路由级 title / canonical / robots' },
+  { title: 'features/disclaimer', subtitle: '娱乐提示弹层 · 按路由记忆' },
+]
+
 const bffCards = [
   { title: 'apps/api/src/index.mjs', subtitle: '本地 / VPS 入口 · node:http' },
-  { title: 'apps/api/src/app.mjs', subtitle: '11 个接口 · CORS · 错误信封' },
-  { title: 'apps/api/src/ai/prompt.mjs', subtitle: '单场提示词 · 官方数据装配' },
-  { title: 'apps/api/src/ai/parlay-prompt.mjs', subtitle: '串关提示词 · 复用单场缓存' },
-  { title: 'apps/api/src/repos', subtitle: 'matches · lottery · match-detail 查询' },
-  { title: 'apps/crawler/daemon.mjs', subtitle: '串行队列 · 销售时段闸门 · 开盘补跑 · 每日 09:00' },
-  { title: 'apps/crawler/tasks', subtitle: 'matches · history · details · lineups · expire · official' },
+  { title: 'apps/api/src/app.mjs', subtitle: '27 个路由 · CORS · 错误信封' },
+  { title: 'apps/api/src/handlers', subtitle: '赛事 / 赛果 / 详情 / AI / 串关' },
+  { title: 'apps/api/src/handlers', subtitle: '认证 / 微信 / 投注 / 代理 / 健康检查' },
+  { title: 'apps/api/src/repos', subtitle: 'matches · lottery · results · bets' },
+  { title: 'apps/api/src/ai', subtitle: '单场 / 串关提示词 · 上下文装配' },
+  { title: 'apps/crawler/src/daemon.mjs', subtitle: '串行队列 · 销售时段闸门 · 开盘补跑 · 每日 09:00' },
+  { title: 'apps/crawler/src/tasks', subtitle: 'matches · results · history · details · lineups · expire · official' },
+  { title: 'db/migrations', subtitle: '23 张表 + 2 个视图 · 0001 → 0006' },
 ]
 
 const externalCards = [
   { title: 'webapi.sporttery.cn', subtitle: '仅本地爬虫访问 · 云 IP 被 WAF 拦截' },
+  { title: '500.com', subtitle: '阵容（有头 Playwright）· 按场次号匹配' },
   { title: '聚合数据 juhe.cn', subtitle: '天气 · 星座 · IP 归属地' },
   { title: 'DeepSeek API', subtitle: 'chat/completions · SSE' },
   { title: 'Open-Meteo', subtitle: 'Geocoding + Forecast' },
-  { title: 'Vercel', subtitle: '预构建产物部署 · push 前自动发布' },
+  { title: 'Resend / 微信开放平台', subtitle: '邮箱验证码 · 扫码 / 网页授权' },
+  { title: 'Vercel', subtitle: '前端静态 + API 函数 · push 前自动发布' },
 ]
 
 const sections = [
@@ -123,19 +146,25 @@ const sections = [
     ),
   },
   {
-    title: '④ 状态、服务与数据',
+    title: '④ 账号、投注与详情 features',
+    color: '#ec4899',
+    caption: '登录 / 投注记录 / 对战详情 / SEO / 免责各成模块',
+    cards: featureCards,
+  },
+  {
+    title: '⑤ 状态、服务与数据',
     color: '#8b5cf6',
     caption: 'Zustand / service / api / domain / IndexedDB 分层',
     cards: stateCards,
   },
   {
-    title: '⑤ 服务端 apps/api + apps/crawler',
+    title: '⑥ 服务端 apps/api + apps/crawler + 数据库',
     color: '#0ea5e9',
     caption: '独立 API 读库 · 爬虫写库 · 密钥与提示词不出服务端',
     cards: bffCards,
   },
   {
-    title: '⑥ 外部数据源与部署',
+    title: '⑦ 外部数据源与部署',
     color: '#ef4444',
     caption: '前端只连自有 API；爬虫在本机抓上游；push 前更新架构图',
     cards: externalCards,

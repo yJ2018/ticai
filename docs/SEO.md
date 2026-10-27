@@ -16,8 +16,8 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `index.html` | `lang="zh-CN"`；标题、description、keywords、robots、canonical；OG / Twitter 卡片；WebSite + Organization 的 JSON-LD；`<noscript>` 兜底内容与内链 |
-| `public/robots.txt` | 允许抓取公开页，屏蔽 `/my-bets`、`/account`、`/login`、`/profile`，并声明 sitemap |
+| `index.html` | `lang="zh-CN"`；标题、description、keywords、robots、canonical；OG / Twitter 卡片；WebSite + Organization 的 JSON-LD；机器人图标（favicon.ico / 32 / apple-touch / 192 / 512）；`<noscript>` 兜底内容与内链 |
+| `public/robots.txt` | 允许抓取公开页，屏蔽 `/my-bets`、`/account`、`/login`、`/auth/`、`/profile`，并声明 sitemap |
 | `public/sitemap.xml` | 7 个公开页面，带 `lastmod`/`changefreq`/`priority` |
 | `public/og-cover.png` | 1200×630 分享图（微信 / Twitter / 搜索结果富卡片） |
 | `src/features/seo/seo.ts` | 路由级 meta：按 pathname 设置 title、description、canonical、`robots`；私有页自动 `noindex,follow` |
@@ -36,7 +36,7 @@
 4. **请求编入索引**：GSC → 网址检查，分别对 `/` 和 `/results` 点「请求编入索引」。
 5. **Bing Webmaster Tools**：同样提交 sitemap（Bing 收录通常更快，也会同步给其他引擎参考）。
 6. **外链**：GitHub 仓库 README、技术博客、相关社群各放一条带链接的介绍。新域名没有外链时，收录周期可能是几天到几周。
-7. **自定义域名（可选）**：`*.vercel.app` 可以收录，但独立域名对品牌词和信任度更友好。
+7. **自定义域名（已完成）**：2026-10-26 起绑定 `yujun426.online`，canonical / OG / robots / sitemap 已全部切换；`*.vercel.app` 仍可访问但不作为 canonical。
 
 ## 4. 怎么验证
 

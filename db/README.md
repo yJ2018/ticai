@@ -6,7 +6,7 @@ PostgreSQL 15+。这一层是三件事的唯一交汇点：
 爬虫（竞彩赛程/赔率/赛果、开奖、伤病、阵容） ──写──▶ 数据库 ──读──▶ API（Vercel）──▶ 前端
 ```
 
-API 不直接访问体彩，所以 `VITE_SPORTTERY_DIRECT` 那套直连妥协可以彻底删掉。
+API 不直接访问体彩，`VITE_SPORTTERY_DIRECT` 那套直连妥协已经删除。
 
 ---
 
@@ -183,4 +183,4 @@ grant usage, select on all sequences in schema public to ticai_crawler;
 - `db/maintenance.sql` 全量执行、阵容裁剪与级联删除
 - `npm run db:verify` 7 项自检全绿
 
-**尚未接线**：API 读库层、爬虫本体。API 侧建议保留旧响应形状（`matchInfoList` / `list+pageNo+pages`），这样前端 `matchService` / `historyService` 一行不用改。
+**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0006_wechat_password_nullable`，`npm run db:verify` 7 项自检全绿。数据库当前共 23 张表 + 2 个视图（`match_side` / `match_odds_latest`）。

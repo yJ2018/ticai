@@ -31,13 +31,14 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 
 | 命令 | 作用 | 典型频率 |
 | --- | --- | --- |
-| `matches` | 在售赛程 + 赔率，按内容 hash 去重写快照 | 60 s |
-| `history` | 四个彩种各抓最新一页（100 期） | 10 min，或按 `draw_weekdays` 定点跑 |
+| `matches` | 在售赛程 + 赔率，按内容 hash 去重写快照 | 30 min |
+| `results` | 赛果开奖：比分 + 五个玩法结果，回写 `match` 与 `match_result` | 30 min（无待开奖比赛时跳过） |
+| `history` | 四个彩种各抓最新一页（100 期） | 3 h |
 | `history --backfill` | 从第 1 页翻到最后一页 | 一次性 |
-| `details` | 伤停 + 赛果；`--full` 抓全部 7 个源 | 按需 / 低频 |
+| `details` | 伤停；`--full` 抓全部 7 个源 | 3 h |
 | `lineups` | 导入阵容 JSON（`--dry` 预演不落库） | 有数据时手动跑 |
 | `expire` | 本地状态收敛：已开赛的比赛标为停售（不发请求） | 与 matches 同频 |
-| `official` | 只刷体彩官网数据：赛程赔率 + 开奖 + 伤停赛果（不含阵容） | 每天 09:00 |
+| `official` | 只刷体彩官网数据：赛程赔率 + 赛果开奖 + 开奖 + 伤停（不含阵容） | 每天 09:00 |
 | `all` | matches + history（不含 details，它太贵） | — |
 
 `--every=N` 进入循环模式，单轮失败不会退出（网络抖动是常态）。
@@ -55,9 +56,9 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 
 ## 抓什么、不抓什么
 
-**已实现**：在售赛程、五个玩法赔率、四彩种开奖（含奖级）、**伤停名单**、**赛果（全场 + 半场比分）**。
+**已实现**：在售赛程、五个玩法赔率、四彩种开奖（含奖级）、**伤停名单**、**赛果（全场 + 半场比分）**、**阵容**（500.com + 有头 Playwright，见下文「阵容抓取」）。
 
-**没实现**：**阵容**。对战数据页有个 `getMatchPlayerV1`，看名字像球员，实际是**射手榜**，不是首发名单。体彩公开接口里没有阵容数据，这块仍然要另找源。
+**不抓**：体彩官方阵容（体彩公开接口里没有，`getMatchPlayerV1` 实际是射手榜，不是首发名单）。
 
 ### 对战数据：7 个接口
 
@@ -120,7 +121,10 @@ accept-language: zh-CN,zh;q=0.9
 | `CRAWL_RETRIES` | 2 | 5xx/429 重试次数（567 不重试） |
 | `CRAWL_MAX_PAGES` | 200 | 回灌页数上限 |
 | `CRAWL_INTERVAL_MINUTES` | 180 | history / details 的间隔（分钟） |
-| `CRAWL_MATCHES_MINUTES` | 30 | 在售赛程与赔率的间隔（分钟） |
+| `CRAWL_MATCHES_MINUTES` | 30 | 在售赛程、赛果与赔率的间隔（分钟） |
+| `CRAWL_LINEUPS_MINUTES` | 60 | 阵容间隔（分钟） |
+| `CRAWL_DAILY_HOUR` | 9 | 每天几点跑 `official` 预热（北京时间） |
+| `BET_WINDOW_WEEKDAY` / `BET_WINDOW_WEEKEND` | `11:00-22:00` / `11:00-23:00` | 竞彩销售时段闸门 |
 
 ### 阵容抓取（500.com + 真实浏览器）
 
@@ -158,11 +162,12 @@ node apps/crawler/src/index.mjs lineups-browser --fid=1502981   # dump 页面与
 npm run crawl:daemon
 ```
 
-内置三条独立链路，各自频率不同、串行执行（跨境写库延迟高，并发只会互相抢连接）：
+内置六条独立任务（`expire` 纯本地，不发请求），各自频率不同、串行执行（跨境写库延迟高，并发只会互相抢连接）：
 
 | 链路 | 频率 | 说明 |
 | --- | --- | --- |
 | `matches` | 每 30 分钟（`CRAWL_MATCHES_MINUTES`） | 在售赛程 + 赔率 + 自动下架，一轮约 50–60 s（跨境写库） |
+| `expire` | 每 30 分钟（同上，纯本地） | 已开赛的比赛标为停售，不发请求 |
 | `results` | 每 30 分钟（同上，无待开奖时跳过） | 赛果开奖：官网接口按日期区间一次拿一批，回写比分与各玩法结果 |
 | `lineups` | 每 60 分钟（`CRAWL_LINEUPS_MINUTES`） | 开赛前后 6 小时内的比赛，从 500.com 抓阵容 |
 | `history` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 四彩种各 100 期，约 3 分钟 |
@@ -173,7 +178,7 @@ npm run crawl:daemon
 > 一天的全部场次 1–2 个请求就够。`details` 的默认 feed 因此只剩伤停，
 > 每场请求数从 2 次降到 1 次。
 
-三条链路错开 5 秒启动、串行排队；上一轮没跑完时同一任务不会重复入队。
+六条任务错开 5 秒启动、串行排队；上一轮没跑完时同一任务不会重复入队。
 
 ### 只在能投注的时候抓
 
@@ -233,4 +238,4 @@ ExecStart=/usr/bin/node apps/crawler/src/index.mjs matches
 | 比分回填 | 昂热 2:5 马赛、半场 1:2 → `htft = aa`，`result_source = sporttery` |
 | 伤停 | 89 名球员 / 89 条伤停，球队映射正确（AC米兰、亚特兰大等真实球员） |
 | 原始订阅源 | 52 条 `match_feed`（26 场 × injury + result） |
-| 单测 | 19/19（`node --test test`） |
+| 单测 | 40/40（`node --test test`） |

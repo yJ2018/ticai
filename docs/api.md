@@ -1,14 +1,14 @@
-﻿# ticai API 接口文档
+# ticai API 接口文档
 
-> 版本：2026-10-22 · 服务端代码在 `apps/api/`，实现细节见 [apps/api/README.md](../apps/api/README.md)
+> 版本：2026-10-27 · 服务端代码在 `apps/api/`，实现细节见 [apps/api/README.md](../apps/api/README.md)
 
 ## 1. 基础信息
 
 | 项 | 说明 |
 | --- | --- |
 | Base URL | 本地 `http://127.0.0.1:3001`；生产通过前端同源 `/api` 代理（Vercel rewrite → `ticai-service`），也可用 `VITE_API_BASE` 直连 |
-| 认证 | **无**（个人项目）。`/api/ai-analysis`、`/api/ai-chat` 依赖服务端密钥与 IP 限流 |
-| 跨域 | `CORS_ORIGINS` 白名单；留空表示只允许同源。允许的方法 `GET,POST,OPTIONS` |
+| 认证 | 只读接口（赛事/开奖/赛果/详情/天气）**无需登录**；`/api/bets*`、`/api/auth/identities*` 与 `/api/auth/me` 需要 `Authorization: Bearer <token>`；AI 接口依赖服务端密钥与 IP 限流 |
+| 跨域 | `CORS_ORIGINS` 白名单；留空表示只允许同源。允许的方法 `GET,POST,DELETE,OPTIONS`，允许 `authorization` 头 |
 | 编码 | 请求与响应均为 `application/json; charset=utf-8`（SSE 除外） |
 | 时间 | 所有时间戳为 ISO 8601 UTC；展示用北京时间由前端换算 |
 
@@ -29,7 +29,7 @@
 { "success": false, "errorMessage": "参数 matchId 不合法" }
 ```
 
-**C. SSE**（`/api/ai-analysis`、`/api/ai-chat` 且 `stream: true`）
+**C. SSE**（`/api/ai-analysis`、`/api/ai-parlay`、`/api/ai-chat` 且 `stream: true`）
 
 ```
 event: meta
@@ -42,7 +42,7 @@ event: done
 data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":{...},"elapsedMs":8123}
 ```
 
-事件类型：`meta`（仅 `/api/ai-analysis`）、`reasoning`、`content`、`done`、`error`。
+事件类型：`meta`（`/api/ai-analysis` 与 `/api/ai-parlay`）、`reasoning`、`content`、`done`、`error`。
 首个增量之前不写响应头，因此参数/限流/鉴权错误仍以普通 JSON 返回。
 
 ### 1.2 通用响应头
@@ -50,7 +50,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 | 头 | 出现位置 | 说明 |
 | --- | --- | --- |
 | `x-request-id` | 所有响应 | 排障用，错误时也返回 |
-| `x-cache` | `/api/matches`、`/api/history`、`/api/horoscope`、`/api/weather`、`/api/ip` | `hit` / `miss` |
+| `x-cache` | `/api/matches`、`/api/history`、`/api/results`、`/api/horoscope`、`/api/weather`、`/api/ip` | `hit` / `miss` |
 | `x-data-as-of` | `/api/matches` | 库中这批数据的最后抓取时间（ISO） |
 | `x-match-count` | `/api/matches` | 本次返回场次数 |
 
@@ -59,10 +59,12 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 | 状态 | 含义 |
 | --- | --- |
 | `400` | 参数非法（缺参、类型错、枚举外） |
-| `404` | 接口不存在 / 彩种不存在 / 比赛未入库 |
+| `401` | 未登录 / token 失效（`{ success:false, errorMessage:"请先登录" }`） |
+| `403` | 认证接口拒绝明文 HTTP（本机/内网 Host 除外） |
+| `404` | 接口不存在 / 彩种不存在 / 比赛未入库 / 越权访问他人投注 |
 | `405` | 方法不允许（响应带 `allow` 头） |
 | `413` | 请求体过大 |
-| `429` | 触发限流（AI 类接口，按 IP） |
+| `429` | 触发限流（AI 类接口、登录/注册、邮箱验证码） |
 | `500` | 未处理异常 |
 | `502` | 上游返回异常 |
 | `503` | 未配置数据库 / 未配置密钥 / 数据库不可用 |
@@ -432,7 +434,20 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 `status`：`pending`（还有场次没开奖）/ `won` / `lost`；`stats` 只在 `offset=0` 时返回。
 
-### 3.7 `POST /api/bets`
+### 3.7 `GET /api/bets/stats`
+
+「我的投注」顶部统计，需要登录。`GET /api/bets` 在 `offset=0` 时会顺带返回同一结构，单独拉一次的场景（如删除后刷新统计）用这个接口。
+
+```json
+{
+  "success": true,
+  "data": { "total": 3, "pending": 1, "won": 1, "lost": 1, "amount": 24, "payout": 15.64 }
+}
+```
+
+字段：`total` 总单数、`pending` 待开奖、`won` 中奖、`lost` 未中、`amount` 总投入、`payout` 总奖金（已结算部分）。
+
+### 3.8 `POST /api/bets`
 
 保存一份投注单（方案快照）。**注数、金额、最高奖金由服务端重算**，不信任客户端传值。
 
@@ -468,11 +483,11 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 响应 `201`，body 与列表中的单条结构一致（已带实时结算）。
 
-### 3.8 `GET /api/bets/:id`、`DELETE /api/bets/:id`
+### 3.9 `GET /api/bets/:id`、`DELETE /api/bets/:id`
 
 详情 / 删除（只能操作自己的单，越权返回 `404`）。
 
-### 3.9 结算规则
+### 3.10 结算规则
 
 - 赛果来自 `match_result`；缺失即 `pending`，不提前判负。
 - 每注 2 元，奖金 = 命中组合的赔率连乘 × 2 × 倍数。
@@ -480,7 +495,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 - 复式每场多选时，最多只有一个选项能中，中奖注数 = 命中组合数。
 - 比分玩法覆盖官方全部选项，包括「胜其它 / 平其它 / 负其它」。
 
-### 3.10 微信登录与绑定
+### 3.11 微信登录与绑定
 
 账号与登录方式已经拆开：`app_user` 是账号，`user_identity` 是「某种登录方式」。
 邮箱是一个身份，微信是另一个身份；同一个账号可以同时拥有两者。
@@ -712,7 +727,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 ## 5. 代理接口
 
-这三个接口不落库，直接转发聚合数据（Juhe），带 TTL 缓存。
+这四个接口不落业务库，直接转发聚合数据 / DeepSeek / Open-Meteo，带 TTL 缓存。
 
 ### 5.1 `GET /api/horoscope`
 
@@ -806,6 +821,9 @@ VITE_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-27 | 前端改走同源 `/api`（`vercel.json` rewrite 到 `ticai-service`），接口地址不再写进 bundle |
+| 2026-10-26 | 新增 `/api/bets/stats`；投注奖金按体彩单注限额封顶 |
+| 2026-10-25 | 新增微信登录 / 绑定：`/api/auth/wechat/*`、`/api/auth/identities`，回调只发一次性 ticket |
 | 2026-10-25 | 新增 `/api/results`：赛果开奖入库（`match_result`），由爬虫 `results` 链路写入，替代逐场抓近期赛果 |
 | 2026-10-25 | 新增可选登录：`/api/auth/code|register|login|logout|me`，Resend 发邮箱验证码，Bearer 会话 |
 | 2026-10-25 | 新增 `/api/bets` 系列：保存投注单、按玩法筛选、按赛果自动判中奖与奖金 |

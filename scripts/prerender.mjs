@@ -1,4 +1,4 @@
-﻿import { spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
@@ -7,9 +7,9 @@ import { dirname, resolve } from 'node:path'
  *
  * 纯 SPA 的 HTML 里没有正文，Google 需要排队执行 JS 才看得到内容；
  * 这里用 Playwright 打开构建产物，等接口数据渲染完，把整页 HTML 落盘：
- *   - `/`            → dist/prerender/home.html（由 vercel.json 的 rewrite 提供）
- *   - 其它公开路由   → dist/prerender/<name>.html（同上）
- *   - dist/index.html 保持 SPA 壳，供登录后 / 动态路由回落，不预渲染
+ *   - `/`            → dist/index.html（Vercel 静态文件优先于 rewrite）
+ *   - 其它公开路由   → dist/prerender/<name>.html（由 vercel.json 的 rewrite 提供）
+ *   - 干净 SPA 壳    → dist/spa.html，供登录后 / 动态路由回落
  *
  * 依赖：
  *   - 本地 API（127.0.0.1:3001）可访问；不可访问时用 SPA 壳兜底，保证 rewrite 目标不 404；
