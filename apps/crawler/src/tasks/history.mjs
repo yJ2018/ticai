@@ -1,3 +1,4 @@
+import { refreshSnapshots } from '../../../api/src/analysis/compute.mjs'
 import { finishRun, loadGames, startRun, withTransaction } from '../db.mjs'
 import { sleep } from '../http.mjs'
 import { normalizeDraw } from '../normalize.mjs'
@@ -8,6 +9,10 @@ import { fetchHistoryPage } from '../sporttery.mjs'
  *
  * 每个彩种一条 crawl_run（source = sporttery.history:pl5），
  * 这样 /api/health 能分别显示四个彩种的新鲜度。
+ *
+ * 写完开奖后立刻重算分析快照（见 refreshAnalysis）：分析要全量样本，
+ * 放在浏览器里算要先翻 78 页（约 140s），而且结果只在多了一期时才变——
+ * 所以「开奖入库 → 算一次 → 存快照」是这套算法唯一合理的触发点。
  *
  * 写库按「页」批量：一页 100 期一条多值 insert + 一条奖级 insert。
  * 跨境库每次 round trip 都在 0.5s 上下，逐条 upsert 会让一页从 1s 变成 80s。
@@ -134,6 +139,42 @@ async function savePage(pool, game, list, log) {
   return { saved: rows.length, skipped }
 }
 
+/**
+ * 开奖入库后触发分析快照重算。
+ *
+ * 失败只告警：分析是「锦上添花」，不能因为算不出来就把一次成功的抓取标成失败；
+ * 下一次抓取或 npm run analyze:snapshot 会补上。
+ *
+ * 导出是为了让爬虫测试能在不联网的情况下钉住这条契约。
+ */
+export async function refreshAnalysis({ pool, game, saved, runId, log }) {
+  if (saved === 0) {
+    return { computed: 0, skipped: 0 }
+  }
+
+  const startedAt = Date.now()
+  try {
+    const result = await refreshSnapshots({
+      runQuery: (text, params) => pool.query(text, params),
+      gameKey: game.gameKey,
+      source: 'crawler',
+      crawlRunId: runId,
+      log,
+    })
+    const computed = result.results.filter((item) => item.status === 'computed').length
+    const skipped = result.results.filter((item) => item.status === 'skipped').length
+    const elapsed = Date.now() - startedAt
+    log(
+      `  ${game.gameKey} 分析快照：重算 ${computed} 条 · 已最新 ${skipped} 条 · ${elapsed}ms` +
+        (result.latest ? ` · 基准 ${result.latest.issue}（${result.latest.drawDate}）` : ''),
+    )
+    return { computed, skipped }
+  } catch (error) {
+    log(`  ! ${game.gameKey} 分析快照失败：${error.message}（不影响开奖入库）`)
+    return { computed: 0, skipped: 0, error: error.message }
+  }
+}
+
 export async function crawlHistory({
   pool,
   config,
@@ -211,7 +252,17 @@ export async function crawlHistory({
         changedCount: saved,
       })
 
-      summary.push({ game: game.gameKey, saved, skipped, pages: backfill ? pages : 1 })
+      // 开奖入完库再算分析：没有新一期时 refreshSnapshots 只查一行、不重算
+      const analysis = await refreshAnalysis({ pool, game, saved, runId, log })
+
+      summary.push({
+        game: game.gameKey,
+        saved,
+        skipped,
+        pages: backfill ? pages : 1,
+        analysisComputed: analysis.computed,
+        analysisSkipped: analysis.skipped,
+      })
     } catch (error) {
       await finishRun(pool, runId, { status: 'failed', error: error.message })
       summary.push({ game: game.gameKey, saved, skipped, error: error.message })

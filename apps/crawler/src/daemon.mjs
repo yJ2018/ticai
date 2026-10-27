@@ -93,7 +93,14 @@ const TASKS = [
     run: async () => {
       const list = await crawlHistory({ pool, config })
       return list
-        .map((item) => `${item.game}:${item.error ? `失败(${item.error})` : item.saved}`)
+        .map((item) => {
+          if (item.error) {
+            return `${item.game}:失败(${item.error})`
+          }
+          // 写入期数后面带上「本轮重算了几条分析快照」，方便确认开奖后分析跟上了
+          const analysis = item.analysisComputed ? `+分析${item.analysisComputed}` : ''
+          return `${item.game}:${item.saved}${analysis}`
+        })
         .join(' · ')
     },
   },

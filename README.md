@@ -44,8 +44,12 @@
 设计要点：
 
 - **Keep-Alive 路由**：页面切换后保持挂载（`display` 切换），滚动位置与输入状态不丢失。
-- **重计算下沉 Worker**：预测算法在 Web Worker 中执行，主线程不卡顿，并有主线程降级路径。
-- **本地优先**：开奖历史落 IndexedDB，分析类页面完全本地计算。
+- **重计算下沉 Worker**：只有「自定义权重调参」还在浏览器里算，走 Web Worker（主线程有降级路径）；常规分析全部由服务端快照直出。
+- **本地优先**：开奖历史落 IndexedDB，离线仍能翻历史。
+- **开奖分析服务端预算**：分析要用全量样本（排列五 7761 期），所以爬虫抓到新开奖后就地算一次，
+  结果连同「基于哪一期 / 哪一天 / 多少期样本」存进 `lottery_analysis_snapshot`；
+  三个页面（`/history`、`/history-analysis`、`/math-trend-analysis`）直接读 `GET /api/analysis/lottery`
+  （约 2 KB gzip），不再让浏览器先翻 78 页再算；只有拖权重滑块时才用 `GET /api/history/bulk` 回本地重算。
 - **数据只读一份**：页面渲染的数据全部来自自有 API 读库，浏览器不再直连体彩。
 - **登录可选**：不登录也能看赛事/开奖/分析；登录只用来保存投注单与查看中奖情况。
 - **同源 API**：生产环境前端默认请求 `/api`，由 Vercel rewrite 代理到 `ticai-service`，bundle 里不写死 API 域名。
@@ -64,7 +68,7 @@
 | 构建 | Vite 8 + TypeScript 6（`tsc && vite build` + Playwright 预渲染公开页） |
 | API | Node ≥ 20 原生 ESM，唯一运行时依赖 `pg`；REST + SSE，CORS 白名单，可选登录（Bearer） |
 | 爬虫 | Node 原生 ESM；体彩走 `fetch`，阵容走 Playwright（复用系统 Chrome） |
-| 数据库 | PostgreSQL（生产为 Vercel 上的 Prisma Postgres），23 张表 + 2 个视图 |
+| 数据库 | PostgreSQL（生产为 Vercel 上的 Prisma Postgres），24 张表 + 3 个视图 |
 | 持久化 | IndexedDB（开奖历史）、localStorage（登录 token、AI 结果缓存 3 小时、免责弹层偏好） |
 
 ## 快速开始
@@ -104,9 +108,11 @@ npm run crawl:history      # 抓四个彩种最新一页
 | `npm run dev:api` / `npm run dev:web` | 只启动其中一个 |
 | `npm run build` | `tsc` 类型检查 + 静态产物构建 + 公开页预渲染（API 不在线 / 无浏览器时自动跳过） |
 | `npm run prerender` | 单独重跑预渲染（把 `dist/index.html` 和 `dist/prerender/*.html` 刷成最新数据） |
-| `npm run api:test` | API 单测（`node:test`，52 个用例） |
-| `npm run crawl:test` | 爬虫单测（40 个用例） |
+| `npm run api:test` | API 单测（`node:test`，64 个用例） |
+| `npm run crawl:test` | 爬虫单测（43 个用例） |
 | `npm run db:migrate` / `db:seed` / `db:status` / `db:verify` | 迁移、种子、状态、结构与约束自检 |
+| `npm run analyze:snapshot` | 开奖分析快照：缺什么补什么（`--force` 全量重算，`--status` 只看最新快照与是否落后开奖） |
+| `npm run analysis:sync` | 把 `src/domain` 的 TS 算法生成到 `apps/api/src/analysis`（`analysis:check` 只校验；pre-commit 会拦） |
 | `npm run crawl` | 爬虫入口（`matches` / `results` / `history` / `details` / `lineups` / `official` / `expire`） |
 | `npm run crawl:daemon` | 常驻调度器（销售时段闸门 + 每日 09:00 预热） |
 | `npm run ai:check` | 直连 DeepSeek 自检密钥与模型连通性 |

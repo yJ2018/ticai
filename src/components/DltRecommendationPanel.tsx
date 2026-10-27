@@ -1,12 +1,15 @@
 import { memo, useMemo } from 'react'
 import {
   analyzeDltRecommendation,
+  type DltRecommendation,
   type DltRecommendationEntry,
 } from '../domain/dltRecommendation'
 import { formatDltBigSmall, formatDltOddEven, formatDltZones } from '../domain/dltIndicators'
 
 type DltRecommendationPanelProps = {
-  entries: DltRecommendationEntry[]
+  /** 传了就直接渲染（服务端快照）；没传才用本地开奖记录现算 */
+  recommendation?: DltRecommendation | null
+  entries?: DltRecommendationEntry[]
 }
 
 /**
@@ -14,21 +17,26 @@ type DltRecommendationPanelProps = {
  *
  * 桌面端放在走势图上方，左栏是号码与结构指标，右栏是逐条理由；
  * 移动端与桌面共用同一份 DOM，窄屏自动上下堆叠。
+ *
+ * 数据来源：优先用服务端算好的快照（`recommendation`），
+ * 这样展示的一定是最近 300 期全量样本，与本地缓存是否同步完无关。
  */
 export const DltRecommendationPanel = memo(function DltRecommendationPanel({
-  entries,
+  recommendation: provided,
+  entries = [],
 }: DltRecommendationPanelProps) {
-  const recommendation = useMemo(() => analyzeDltRecommendation(entries), [entries])
+  const computed = useMemo(() => analyzeDltRecommendation(entries), [entries])
+  const recommendation = provided ?? computed
 
   if (!recommendation) {
     return (
       <section className="dlt-recommend dlt-recommend--empty" aria-label="大乐透号码参考">
         <div>
-          <p className="dlt-recommend__eyebrow">本地数据推演 · 下期参考</p>
+          <p className="dlt-recommend__eyebrow">数据推演 · 下期参考</p>
           <h3>样本不足，暂不生成号码</h3>
         </div>
         <p className="dlt-recommend__empty">
-          至少需要 30 期本地开奖记录，当前缓存 {entries.length} 期；翻页或稍后刷新会自动补齐。
+          至少需要 30 期开奖记录；服务端分析还没生成时，可稍后刷新或执行 npm run analyze:snapshot。
         </p>
       </section>
     )
@@ -41,7 +49,7 @@ export const DltRecommendationPanel = memo(function DltRecommendationPanel({
     <section className="dlt-recommend" aria-label="大乐透号码参考">
       <header className="dlt-recommend__header">
         <div>
-          <p className="dlt-recommend__eyebrow">本地数据推演 · 下期参考</p>
+          <p className="dlt-recommend__eyebrow">数据推演 · 下期参考</p>
           <h3 title="分析窗口最多取最近 300 期，兼顾近期规律与计算稳定性">
             近 {windowLabel} 期 · 前区 5 + 后区 2
           </h3>

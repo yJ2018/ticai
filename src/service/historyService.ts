@@ -1,10 +1,11 @@
-import { getLotteryHistoryPage } from '../api'
+import { getLotteryHistoryBulk, getLotteryHistoryPage } from '../api'
 import {
   type LotteryHistoryCache,
   type LotteryHistoryEntry,
   type LotteryHistoryGameType,
   type LotteryHistoryPageResult,
 } from '../domain/lotteryHistory'
+import { type PredictionHistoryEntry } from '../domain/historyPrediction'
 import { pruneHistoryCache, readHistoryCache, writeHistoryCache } from '../storage/historyDb'
 import { type LotteryHistoryItem, type LotteryPrizeLevelItem } from '../domain/sporttery'
 
@@ -30,14 +31,12 @@ const HISTORY_LEGACY_STORAGE_KEY = 'ticai:history-cache:v1'
 const HISTORY_CACHE_VERSION = 2
 const HISTORY_ARCHIVE_PAGE_SIZE = 100
 const HISTORY_INCREMENTAL_SYNC_INTERVAL_MS = 10 * 60 * 1000
-const HISTORY_BACKGROUND_REQUEST_INTERVAL_MS = 1800
 /** IndexedDB 内的条目上限：超出后按开奖期号裁剪最旧记录 */
 const HISTORY_MAX_STORED_ENTRIES = 20_000
 
 /** 当前进程内的权威缓存；IndexedDB 只负责持久化 */
 const cacheByGame = new Map<LotteryHistoryGameType, LotteryHistoryCache>()
 const loadPromises = new Map<LotteryHistoryGameType, Promise<LotteryHistoryCache | null>>()
-const backgroundSyncTimerIds = new Map<LotteryHistoryGameType, number>()
 const archivePageRequestPromises = new Map<string, Promise<LotteryHistoryPageResult>>()
 const incrementalSyncPromises = new Map<LotteryHistoryGameType, Promise<LotteryHistoryCache | null>>()
 
@@ -80,16 +79,22 @@ export const historyService = {
       }
     }
 
-    if (!cache.fullySynced) {
-      scheduleArchiveSync(gameType)
-    }
-
     return buildPageResult(cache, pageNo, pageSize)
   },
 
-  async getCachedHistoryEntries(gameType: LotteryHistoryGameType) {
-    const cache = await loadCache(gameType)
-    return dedupeHistoryEntries(cache?.items ?? [])
+  /**
+   * 全量开奖的紧凑版：一次请求拿回所有期号与号码，不写 IndexedDB、不动分页缓存。
+   *
+   * 只有「本地调参」用得上：分析页拖权重滑块时参数是连续值，服务端预算不了，
+   * 只能把全量号码取到本地，在 Worker 里按当前权重重算。正常浏览走分析快照接口。
+   */
+  async getBulkAnalysisEntries(gameType: LotteryHistoryGameType): Promise<PredictionHistoryEntry[]> {
+    const config = HISTORY_GAME_CONFIG[gameType]
+    const data = await getLotteryHistoryBulk(config.gameNo)
+    return data.draws.map(([issue, numbersText]) => ({
+      issue,
+      numbers: splitDrawNumbers(numbersText),
+    }))
   },
 }
 
@@ -295,10 +300,6 @@ async function syncIncrementalHistory(gameType: LotteryHistoryGameType) {
       shouldContinue = !foundExistingLatest && pageNo <= result.pages
     }
 
-    if (mergedCache && !mergedCache.fullySynced) {
-      scheduleArchiveSync(gameType)
-    }
-
     return mergedCache
   })().finally(() => {
     incrementalSyncPromises.delete(gameType)
@@ -306,56 +307,6 @@ async function syncIncrementalHistory(gameType: LotteryHistoryGameType) {
 
   incrementalSyncPromises.set(gameType, promise)
   return promise
-}
-
-function scheduleArchiveSync(gameType: LotteryHistoryGameType) {
-  if (typeof window === 'undefined' || backgroundSyncTimerIds.has(gameType)) {
-    return
-  }
-
-  const cache = getMemoryCache(gameType)
-  if (!cache || cache.fullySynced) {
-    return
-  }
-
-  const nextArchivePage = getNextArchivePage(cache)
-  if (nextArchivePage === null) {
-    void markFullySynced(cache)
-    return
-  }
-
-  const timerId = window.setTimeout(async () => {
-    backgroundSyncTimerIds.delete(gameType)
-    try {
-      await mergeArchivePageIntoCache(gameType, nextArchivePage)
-    } catch {
-      // 后台补齐失败不影响当前页面，下一轮再试
-    } finally {
-      scheduleArchiveSync(gameType)
-    }
-  }, HISTORY_BACKGROUND_REQUEST_INTERVAL_MS)
-
-  backgroundSyncTimerIds.set(gameType, timerId)
-}
-
-async function markFullySynced(cache: LotteryHistoryCache) {
-  const next: LotteryHistoryCache = {
-    ...cache,
-    fullySynced: true,
-    lastUpdatedAt: Date.now(),
-  }
-  cacheByGame.set(cache.gameType, next)
-  await persistCache(next, [])
-}
-
-function getNextArchivePage(cache: LotteryHistoryCache) {
-  const loadedPages = new Set(cache.loadedArchivePages)
-  for (let pageNo = 1; pageNo <= cache.archivePages; pageNo += 1) {
-    if (!loadedPages.has(pageNo)) {
-      return pageNo
-    }
-  }
-  return null
 }
 
 async function mergeArchivePageIntoCache(gameType: LotteryHistoryGameType, archivePageNo: number) {

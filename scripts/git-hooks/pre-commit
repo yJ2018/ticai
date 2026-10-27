@@ -1,5 +1,5 @@
 #!/bin/sh
-# 自动同步架构图，再扫描暂存区密钥。
+# 自动同步架构图，校验算法生成物，再扫描暂存区密钥。
 set -e
 
 root="$(git rev-parse --show-toplevel)"
@@ -11,5 +11,8 @@ git add docs/architecture.svg
 if [ -f docs/architecture.png ]; then
   git add docs/architecture.png
 fi
+
+# src/domain 的算法改了但没跑 analysis:sync 时，拦在提交前，避免 API 侧跑旧口径
+node scripts/sync-analysis.mjs --check
 
 node scripts/check-secrets.mjs

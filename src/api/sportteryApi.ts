@@ -79,3 +79,33 @@ export async function getLotteryHistoryPage(params: LotteryHistoryParams, signal
 
   return response.value
 }
+
+export type LotteryHistoryBulkValue = {
+  gameNo: string
+  gameKey: string
+  gameName: string
+  total: number
+  /** [期号, 号码原串]，与体彩 lotteryDrawResult 同格式 */
+  draws: Array<[string, string]>
+}
+
+/**
+ * 全量开奖的紧凑格式（一次往返）。
+ *
+ * 只服务「本地调参」：分析页拖权重滑块时参数是连续值，服务端没法预算，
+ * 只能把全量号码取到本地重算。正常浏览走 /api/analysis/lottery 的快照。
+ */
+export async function getLotteryHistoryBulk(gameNo: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ gameNo })
+
+  const response = await request<SportteryEnvelope<LotteryHistoryBulkValue>>(
+    `${LOTTERY_HISTORY_URL}/bulk?${query.toString()}`,
+    { signal, timeoutMs: 30_000 },
+  )
+
+  if (!response.success) {
+    throw new Error(response.errorMessage || '接口返回失败')
+  }
+
+  return response.value
+}

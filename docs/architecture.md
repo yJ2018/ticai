@@ -25,12 +25,12 @@
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | SPA 静态托管 + 独立 API 服务（两个 Vercel 项目，生产用同源 `/api` rewrite 代理） |
 | 前端规模 | 13 个页面；`src` 下 88 个 TS/TSX 文件；`global.scss` 6 423 行 + 6 个按域拆分样式 |
-| 服务端规模 | `apps/api`：10 个 handler 模块、27 个接口路径（29 个处理方法）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
-| 数据层 | PostgreSQL 23 张表 + 2 个视图：API 只读，爬虫只写（`db/README.md`） |
+| 服务端规模 | `apps/api`：12 个 handler 模块、28 个接口路径（30 个处理方法）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
+| 数据层 | PostgreSQL 24 张表 + 3 个视图：API 只读，爬虫只写（`db/README.md`） |
 | 构建产物 | `dist/assets/index-*.js` ≈ 670 KB + 143 KB CSS + 2 个 Worker chunk（gzip 后约 185 + 24 KB） |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（内置 `fetch` / `AbortSignal.timeout`） |
 | 依赖 | 前端：React 19、React Router 6、Zustand 5、html2canvas、Sass；服务端仅 `pg`；爬虫可选 `playwright`（阵容） |
-| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 92 个（API 52 + 爬虫 40） |
+| 工程设施 | Git hooks（架构图、算法生成物、密钥扫描、自动部署）+ `node:test` 单测 107 个（API 64 + 爬虫 43） |
 | tsconfig | `strict` **未开启**；开启 `noUnusedLocals`、`noUnusedParameters`、`erasableSyntaxOnly`、`verbatimModuleSyntax` |
 
 ### 功能地图
@@ -39,9 +39,9 @@
 | --- | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、串关注数/金额/最高奖金（按体彩单注限额封顶）/税、首屏骨架屏、单场与方案级 AI 分析、高清快照、保存投注 | `GET /api/matches`、`POST /api/bets` |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气，PC 弹框与 H5 页面共用正文 | `GET /api/match-detail`、`GET /api/venue-weather` |
-| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要 | `GET /api/history` + IndexedDB |
-| `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏 | 本地 IndexedDB 数据 |
-| `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | 本地 IndexedDB 数据 |
+| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要 | `GET /api/history` + IndexedDB（分析结果已有服务端快照：`GET /api/analysis/lottery`） |
+| `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏；阶数 1–5 直接切快照，拖权重滑块时才转本地重算 | `GET /api/analysis/lottery?kind=prediction&order=N`（自定义权重：`GET /api/history/bulk` + Worker） |
+| `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | `GET /api/analysis/lottery?kind=math_trend` |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
 | `/results` | 赛果开奖 | 按比赛日翻看比分与五个玩法的开奖结果，未开奖场次明确标注 | `GET /api/results` |
 | `/login` | 登录 / 注册 | 邮箱 + 密码，或邮箱验证码（Resend）；可接微信扫码；登录态存 localStorage，请求带 Bearer | `/api/auth/*` |
@@ -63,7 +63,7 @@
 | 路由 | react-router-dom 6，但**不用 `<Routes>`**，自研 `KeepAliveRoutes` |
 | 状态 | Zustand 5（`matchStore` / `authStore`）+ 自定义 hook（`useBetSlip`） |
 | 样式 | `src/styles/global.scss`（BEM，5 552 行）+ `authBets / results / account / confirmDialog`、`features/matchDetail`、`features/betting/autoParlay` 按域拆分 |
-| 计算 | Web Worker（`type: 'module'`）承载预测算法，另有主线程降级路径 |
+| 计算 | 开奖分析 = 服务端「开奖后算一次 → 存快照 → 接口直读」（§5.3.1）；前端 Worker 只保留「自定义权重调参」这一条本地重算路径（另有主线程降级） |
 | 持久化 | IndexedDB（开奖历史）；localStorage（登录 token、AI 结果缓存、免责弹层偏好） |
 | 传输 | 浏览器 `fetch('/api/*')`（默认同源，Vercel rewrite 转发到 API 项目）；API 只读库，不直连上游 |
 | 截图 | html2canvas → `canvas.toDataURL('image/png')` |
@@ -166,11 +166,13 @@ flowchart TB
 
   subgraph L7["⑦ 独立 API apps/api（只读库）"]
     direction LR
-    B1["app.mjs 27 个路由 · CORS · 错误信封"]
+    B1["app.mjs 28 个路由 · CORS · 错误信封"]
     B2["handlers：sporttery / results / match-detail / ai / parlay"]
     B3["handlers：auth / wechat / bets / upstream / health"]
-    B4["repos + reshape / settlement / session"]
-    B5["ai/prompt + parlay-prompt / llm / venue"]
+    B4["handlers：lottery-analysis（分析快照只读）"]
+    B5["repos + reshape / settlement / session"]
+    B6["ai/prompt + parlay-prompt / llm / venue"]
+    B7["analysis：开奖后预算的快照（缺失时兜底现算）"]
   end
 
   subgraph L8["⑧ 本地爬虫 apps/crawler + PostgreSQL"]
@@ -179,7 +181,8 @@ flowchart TB
     C2["tasks：details / lineups / expire / official"]
     C3["normalize / http / bet-window / daily-schedule"]
     C4["daemon：串行队列 + 销售时段闸门"]
-    DB[("PostgreSQL 23 表 + 2 视图")]
+    C5["history 写完开奖 → 重算分析快照"]
+    DB[("PostgreSQL 24 表 + 3 视图")]
   end
 
   subgraph L9["⑨ 外部数据源"]
@@ -242,8 +245,9 @@ D:\ticai
 │  │  ├─ src/index.mjs         # 本地 / VPS node:http 入口
 │  │  ├─ src/config.mjs        # 环境变量 → 配置对象（.env 查找顺序）
 │  │  ├─ src/db.mjs            # pg 连接池（懒加载 / 保活）
-│  │  ├─ src/handlers/         # sporttery | results | match-detail | ai | parlay | auth | wechat | bets | upstream | health
+│  │  ├─ src/handlers/         # sporttery | results | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis
 │  │  ├─ src/repos/            # matches | lottery | results | bets 读库 SQL
+│  │  ├─ src/analysis/         # ★ 开奖分析快照：configs（参数指纹/预设）+ compute（读库/算/落库）+ tsc 生成的算法
 │  │  ├─ src/ai/               # prompt / parlay-prompt / context / parlay-context
 │  │  ├─ src/auth.mjs / session.mjs / mail.mjs / wechat.mjs
 │  │  ├─ src/settlement.mjs    # 逐腿判定、复式注数、单注限额、奖金连乘
@@ -251,7 +255,7 @@ D:\ticai
 │  └─ crawler/                 # ★ 本地爬虫：只写库
 │     ├─ src/tasks/matches.mjs # 赛程 + 赔率快照 + 自动下架
 │     ├─ src/tasks/results.mjs # 赛果开奖：比分 + 五个玩法结果
-│     ├─ src/tasks/history.mjs # 四彩种开奖（含奖级）
+│     ├─ src/tasks/history.mjs # 四彩种开奖（含奖级）→ 写完后触发分析快照重算
 │     ├─ src/tasks/details.mjs # 伤停（--full 时 7 个官方接口）
 │     ├─ src/tasks/lineups*.mjs# 阵容（500.com + Playwright）
 │     ├─ src/tasks/expire.mjs  # 已开赛 → 停售（纯本地）
@@ -260,13 +264,15 @@ D:\ticai
 │     ├─ src/bet-window.mjs    # 竞彩销售时段闸门
 │     └─ src/daemon.mjs        # 常驻调度器：串行队列 + 开盘补跑
 ├─ db/
-│  ├─ migrations/              # 0001_init → 0006_wechat_password_nullable
+│  ├─ migrations/              # 0001_init → 0007_analysis_snapshot
 │  ├─ seed/                    # 四彩种字典
 │  └─ maintenance.sql          # 阵容/赔率/抓取记录保留策略
 ├─ scripts/
 │  ├─ dev.mjs                  # 并行拉起 API + Vite，任一退出则联动关闭
 │  ├─ prerender.mjs            # Playwright 预渲染公开页 → dist/index.html + dist/prerender
 │  ├─ db-migrate.mjs           # 迁移执行器（up|seed|status|verify）
+│  ├─ sync-analysis.mjs        # TS 算法 → apps/api/src/analysis/*.mjs（--check 防漂移）
+│  ├─ analyze-snapshot.mjs     # 分析快照回填 / --force 重算 / --status 巡检
 │  ├─ ai-smoke.mjs             # npm run ai:check 密钥连通性自检
 │  ├─ check-secrets.mjs        # 暂存区密钥扫描
 │  ├─ update-architecture.mjs  # 按文件清单生成 architecture.svg/.png
@@ -470,21 +476,20 @@ flowchart TD
   K -- 是 --> M["buildPageResult<br/>按 issue 倒序去重切片"]
   L --> M
   M --> N["persistCache：写 meta + 仅新增条目<br/>超过 2 万条按 issueOrder 裁剪最旧"]
-  N --> O{"fullySynced?"}
-  O -- 否 --> P["每 1.8s 后台补一页"]
-  O -- 是 --> Q["返回当前页"]
-  P --> Q
+  N --> Q["返回当前页"]
 ```
+
+> 2026-10-27 起去掉了「每 1.8s 后台补一页直到全量」：分析改由服务端快照提供后，
+> 前端不再需要先把 78 页开奖翻完（1805 KB / 约 140s），只按用户实际翻到的页增量补齐。
 
 开奖历史页的首屏与预测：
 
 - 首次加载时 `HistoryPageSkeleton` 覆盖预测摘要 / 号码推演卡和走势表的占位，不再先渲染空表格；
-- 7755 期全量预测从主线程 `useMemo` 迁移到 `historyAnalysisWorker`，避免首屏计算卡死；
-- 预测按「样本数 + 首期 + 末期」签名去重，翻页时复用同一份分析结果，不重复跑全量回测；
-- 走势表格的 `TrendGrid` 用 `memo` 隔离，Worker 返回预测时只更新表头预测/回测摘要，不重建 5×30×10 个单元格。
+- 预测与 5+2 推演直接读服务端快照（`GET /api/analysis/lottery`），页面不再下载全量开奖、也不再跑 Worker；
+- 走势表格的 `TrendGrid` 用 `memo` 隔离，快照到达时只更新表头预测/回测摘要，不重建 5×30×10 个单元格。
 - 大乐透前区逐期指标由 `domain/dltIndicators.ts` 纯函数计算（和值、跨度、奇偶比、大小比、三区比），`DltIndicatorRail` 渲染为桌面右栏，移动端卡片复用同一套口径；
 - 桌面四列（期号轴 / 前区 / 后区 / 指标栏）共用行高（表头 2.125rem、统计区 2.7rem、每期 1.875rem）逐行对齐，期号轴左侧标注「出现次数 / 当前遗漏」；64–75rem 收窄号码字号，避免 35 列两位数挤压。
-- 大乐透 5+2 号码推演由 `domain/dltRecommendation.ts` 同步计算（最多取最近 300 期），`DltRecommendationPanel` 展示主推号码、备选与逐条理由；移动端与桌面共用同一份 DOM，窄屏上下堆叠；
+- 大乐透 5+2 号码推演用服务端快照（kind=dlt，最近 300 期），`DltRecommendationPanel` 展示主推号码、备选与逐条理由；移动端与桌面共用同一份 DOM，窄屏上下堆叠；
 - 推演口径：近 10 / 30 / 300 期频次按期望次数归一，遗漏按平均间隔归一（封顶 3 倍）；前区每区取评分前 4 共 12 码，枚举 5 码组合，再用近 30 期和值 / 跨度 / 奇偶 / 大小 / 三区均值打分；后区取 5 码候选池枚举 2 码；理由引用实际频次、遗漏与结构数据。
 
 存储设计（`src/storage/historyDb.ts`）：
@@ -499,19 +504,28 @@ flowchart TD
 | 旧数据迁移 | 首次读不到 IDB 时导入 `ticai:history-cache:v1`，成功后删除该 key |
 | 降级 | 隐私模式等 IDB 不可用 → 纯内存运行（不持久化），页面仍可用 |
 
-### 5.3 分析计算（Worker）
+### 5.3 分析计算：服务端快照为主，Worker 只留给调参
 
 ```mermaid
 sequenceDiagram
   autonumber
-  participant P as HistoryAnalysisPage
+  participant P as 分析页 / 开奖页
+  participant API as apps/api
+  participant S as lottery_analysis_snapshot
   participant W as historyAnalysisWorker
   participant D as domain/historyPrediction
 
-  P->>P: historyService 取全量缓存条目
-  P->>P: 参数防抖（权重 / 马尔可夫阶数）
+  P->>API: GET /api/analysis/lottery?game=pl5&kind=prediction&order=2
+  API->>S: 读最新快照（1 次往返）
+  S-->>API: payload + 溯源（期号 / 开奖日 / 样本期数）
+  API-->>P: analysis + sample + stale
+  P->>P: 直接渲染（约 2 KB gzip）
+
+  Note over P,W: 只有「拖权重滑块」才走本地：权重是连续值，服务端预算不了
+  P->>API: GET /api/history/bulk?gameNo=pl5（7761 期，约 45 KB gzip）
+  API-->>P: [期号, 号码] 紧凑二元组
   P->>W: postMessage({requestId, entries, options})
-  W->>D: analyzeHistoryPrediction(...)
+  W->>D: analyzeHistoryPrediction(entries, { markovOrder, scoreWeights })
   D-->>W: 每位候选 / 回测 / 统计
   W-->>P: postMessage({requestId, analysis})
   P->>P: requestId 不匹配则丢弃
@@ -522,9 +536,87 @@ sequenceDiagram
 
 算法要点：近期/长期频次 + 遗漏补偿 + 一阶/二阶转移加权打分；滚动回测 top1/top3；马尔可夫模式后继分布；组合推荐与冷热/和值/跨度统计；数学趋势页额外做线性回归斜率、预测中心、标准差波动率（240 期窗口、120 期起验证）。
 
-两个分析页在首次拉取历史数据（`state.loading`）时渲染 `AnalysisPageSkeleton`：预测 hero、权重/模型面板、概览和走势卡都有占位块，顶部统计 chips 也换为骨架，避免先闪出一屏 `0 / --` 再跳变。首屏 state 直接初始化为 loading，加载完成后才挂载真实内容。
+两个分析页在等待快照时渲染 `AnalysisPageSkeleton`：预测 hero、权重/模型面板、概览和走势卡都有占位块，顶部统计 chips 也换为骨架，避免先闪出一屏 `0 / --` 再跳变。
 
-> ✅ `HistoryPage` 已将全量预测迁移到 `historyAnalysisWorker`，并用签名去重避免翻页时重复计算；主线程只负责渲染当前页走势。
+> ✅ 2026-10-27：三个页面（`/history`、`/history-analysis`、`/math-trend-analysis`）已改为读服务端快照；
+> 前端不再下载全量开奖、也不再在首屏跑全量回测。Worker 只保留「自定义权重 → 本地重算」这一条路径，
+> 且只在用户真的拖了滑块时才触发。
+
+### 5.3.1 开奖分析快照：开奖后算一次，接口直读
+
+**问题**：分析必须用**全量**样本（排列五 7760 期）。放在浏览器里算有三重代价：
+
+| 现状（浏览器） | 实测 |
+| --- | --- |
+| 首屏要翻完 78 页开奖（100 期/页、1.8s 节流） | 1805 KB 明文 / 184 KB gzip、约 140s 才凑齐全量 |
+| 样本数取决于「进场时本地缓存里有多少」 | 预渲染出来的静态页里写死「本地样本 100 期」，与回访用户看到的 7760 期不一致 |
+| 每翻一页在 Worker 里全量重算 | 7760 期一次约 1.4–1.9s（桌面），手机数秒 |
+
+**做法**：开奖入库后立刻算一次，结果连同「基于哪一期 / 哪一天 / 多少期样本」一起存进
+`lottery_analysis_snapshot`，接口只读一行 JSONB。
+
+```mermaid
+flowchart LR
+  subgraph 爬虫
+    H["crawl:history<br/>抓最新一页开奖"] --> W["写 lottery_draw"]
+    W --> T{"saved > 0 ?"}
+    T -- 是 --> R["refreshSnapshots(gameKey)"]
+  end
+
+  subgraph 计算
+    R --> S{"库里快照<br/>覆盖到最新一期?"}
+    S -- 是 --> K["跳过（只查一行）"]
+    S -- 否 --> A["读全量开奖 → analyze*"]
+    A --> P["upsert 快照<br/>through_issue + through_draw_date + draw_count"]
+  end
+
+  subgraph 读取
+    API["GET /api/analysis/lottery"] --> Q["读最新快照（1 次往返）"]
+    Q --> J["返回 analysis + sample 溯源"]
+    J --> WEB["前端直接渲染"]
+  end
+
+  P -.-> Q
+  CLI["npm run analyze:snapshot<br/>--force / --status"] -.-> A
+```
+
+**表结构要点**（迁移 `0007_analysis_snapshot.sql`）：
+
+| 列 | 含义 |
+| --- | --- |
+| `game_no` / `kind` / `config_key` | 彩种 × 分析种类（prediction / math_trend / dlt）× 参数指纹（如 `markov=2`） |
+| `through_issue` / `through_issue_seq` / `through_draw_date` | **基于哪一期、哪一天**（最新一期开奖） |
+| `from_issue` / `from_draw_date` / `draw_count` | 样本起点与真正吃进去的期数（数学走势 240、大乐透 300） |
+| `payload` | 与前端 `analyze*` 返回值同构，前端可直接渲染 |
+| `meta` | 算法版本 + 源指纹（`npm run analysis:sync` 生成）+ 选项 |
+| `source` / `crawl_run_id` / `duration_ms` / `computed_at` | 谁触发的（crawler / cli / api）、哪一轮抓取、算了多久 |
+
+唯一键 `(game_no, kind, config_key, through_issue)`：同一期重复触发是 upsert，不会堆垃圾；
+新一期只补一条。视图 `lottery_analysis_latest` 把每种分析的最新快照和**库里最后一期开奖**放在一起，
+可以直接看出「分析是否落后于开奖」（`/api/health`、`db:status`、`analyze:snapshot --status` 都在用）。
+
+**预设组合**：开奖后一次算 5 个马尔可夫阶数 + 数学走势（位置型彩种）或 5+2 推演（大乐透），
+前端切阶数只是换 `order` 参数，不再等计算。权重滑块是连续值，不进预设；需要时按参数现算一条并落库。
+
+**接口**：
+
+```text
+GET /api/analysis/lottery?game=pl5&kind=prediction&order=2
+→ { game, kind, configKey, sample{throughIssue,throughDrawDate,fromIssue,drawCount},
+    engine{version,digest}, analysis{…与前端同构…}, stale, latestDraw }
+响应头：x-analysis-through-issue / -through-date / -draw-count / -computed-at / -stale
+缓存：同一期快照不变 → public, s-maxage=900；落后开奖时降到 60s
+```
+
+快照缺失时（新库 / 新彩种 / 爬虫没跑）接口会现算一次并落库，保证可用；
+正常路径是开奖时已经算好，读取只花一次数据库往返（跨境库实测 1–2s，Vercel 上由边缘缓存兜住）。
+
+**为什么不「请求时现算」**：7760 期全量回测 1.4–1.9s，加上冷启动与远端库往返就是 3–6s，
+而结果只在「多了一期开奖」时才变——现算等于把同一份结果重复算给每个访客。
+
+**算法源只有一份**：`src/domain/*.ts` 仍是唯一真源，`npm run analysis:sync`
+用 tsc 做等价翻译产出 `apps/api/src/analysis/*.mjs`（API 是零构建、上传源码的部署方式，不能 import .ts）；
+`--check` 在 pre-commit 拦截「改了 TS 忘了同步」。
 
 ### 5.4 比赛 AI 分析（SSE）
 
@@ -684,6 +776,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 赛事 | `GET /api/matches` | 数据库（爬虫写） | 15 s |
 | 开奖 | `GET /api/history` | 数据库 | 60 s |
+| 开奖分析 | `GET /api/analysis/lottery`、`GET /api/analysis/lottery/snapshots` | 数据库（爬虫开奖后预算的快照） | 同一期不变：`s-maxage=900`；落后开奖时 60 s |
 | 赛果 | `GET /api/results` | 数据库 | 30 s |
 | 对战详情 | `GET /api/match-detail` | 数据库 | 无（按场次） |
 | AI | `POST /api/ai-analysis`、`POST /api/ai-parlay`、`POST /api/ai-chat` | 数据库 + DeepSeek | 无（SSE） |
@@ -752,6 +845,7 @@ flowchart LR
 | 域 | 表 | 写入方 | 保留策略 |
 | --- | --- | --- | --- |
 | 彩票 | `lottery_game` / `lottery_draw` / `lottery_prize_level` | 开奖爬虫（4 个彩种） | 永久 |
+| 分析 | `lottery_analysis_snapshot` | 开奖后由爬虫算（API 缺失时兜底现算） | 永久（每期 × 每参数一条，单条 ~11 KB） |
 | 足球 | `league` / `team` / `team_alias` / `match` / `match_odds_snapshot` | 赛程爬虫 + 赛果爬虫 | 赔率快照 120 天 |
 | 赛果 | `match_result` | 赛果开奖爬虫 | 永久（按 sporttery_match_id 幂等覆盖） |
 | 补充 | `player` / `injury` / `match_lineup` / `match_lineup_player` | 自建爬虫 | 阵容每队只留最近 1 场 |
@@ -761,7 +855,7 @@ flowchart LR
 | 投注 | `bet` / `bet_leg` | API（登录用户） | 永久（用户删除即级联删除） |
 | 可观测 | `crawl_run` | 每条爬虫链路 | 30 天 |
 
-共 23 张表 + 2 个视图（`match_side` / `match_odds_latest`）。
+共 24 张表 + 3 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest`）。
 
 关键设计：
 
@@ -895,6 +989,10 @@ flowchart LR
 5. **样式模块化**：把剩余页面级样式继续拆成 `*.module.scss`，`global.scss` 只留 reset 与设计 token。
 6. **缓存治理**：给 IndexedDB 加 TTL 与"最近访问"策略；超范围分页明确返回空态提示。
 7. **预渲染增量更新**：爬虫跑完后触发一次 `npm run prerender`（或用部署钩子），缩短静态快照与实时数据的差距。
+8. **分析快照再压缩**：`payload` 目前每期 × 每参数存一条（约 11 KB），一年约 80 MB；
+   如果以后参数变多，可以只存「最近 3 期」的完整 payload + 更早的摘要，或把 payload 挪到对象存储。
+9. **串关也快照化**：一键串关现在是浏览器里算（20 场十毫秒级），搬服务端的价值在于「定时每日推荐 / 可分享方案」，
+   需要先补一层服务端选项标签（`apps/api/src/ai/prompt.mjs` 已有 TTL/HAFU/CRS 标签表可复用）。
 
 ---
 
@@ -982,6 +1080,28 @@ flowchart LR
 | 删除投注 / 解绑微信 | 确认后请求出错只能落到页面顶部提示 | `onConfirm` 异步执行，按钮显示「删除中… / 解绑中…」spinner，失败信息留在弹窗内可重试 |
 | 可访问性 | 依赖浏览器原生对话框 | `role="alertdialog"`、Esc / 点遮罩取消、Tab 焦点锁定、打开时锁定页面滚动 |
 
+### 2026-10-27 增量：开奖分析快照（开奖后算一次）
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 分析在哪算 | 浏览器：先翻 78 页开奖（约 140s）凑齐全量，再在 Worker 里全量回测 | 爬虫开奖入库后算一次，写 `lottery_analysis_snapshot`；接口只读一行 JSONB |
+| 样本口径 | 取决于进场时 IndexedDB 里有多少（首访 100 期，补齐后 7760 期） | 恒定取库里全量（排列五 7760 / 七星彩 3406 期） |
+| 溯源 | 无 | 每条快照记 `through_issue` / `through_draw_date` / `from_issue` / `draw_count` / `source` / `crawl_run_id` / 算法指纹 |
+| 读取代价 | 184 KB gzip + 140s 同步 + 手机数秒 CPU | 12 KB（gzip 约 2 KB）+ 一次数据库往返；同一期可被 CDN 缓存 |
+| 参数切换 | 滑块 / 阶数变化触发全量重算 | 阶数 1–5 在开奖时预算好，切档只换 `order` 参数 |
+| 算法源 | 只有 TS（浏览器） | TS 仍是唯一真源，`npm run analysis:sync` 生成 API 侧 `.mjs`，`--check` 防漂移 |
+
+### 2026-10-27 增量：分析与开奖页切到服务端快照
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| `/history-analysis`、`/math-trend-analysis` | 先翻页凑全量缓存，再 Worker 里全量回测 | 一次 `GET /api/analysis/lottery`，直接渲染；页脚标注基准期号与开奖日 |
+| 马尔可夫阶数切换 | 触发一次全量重算（1.4–1.9s） | 服务端已预算 1–5 阶，切档只是换快照 |
+| 权重滑块 | 本地缓存全量数据 + Worker 重算 | 拖回默认值走服务端快照；自定义权重时才取 `/api/history/bulk`（约 45 KB gzip）本地重算 |
+| `/history` | 预测与 5+2 推演吃本地缓存（首访只有 100 期） | 预测走 `prediction` 快照、推演走 `dlt` 快照，样本恒定 |
+| 预渲染 | 静态 HTML 里写死「本地样本 100 期」 | 静态 HTML 里是全量样本 + 基准期号（实测「样本 7761 期 · 基准 26286」） |
+| 后台同步 | 每 1.8s 补一页直到 78 页全量 | 去掉；只按用户实际翻到的页增量补齐 |
+
 ### 2026-10-27 增量：「我的投注」首屏顺序
 
 | 项 | 改造前 | 改造后 |
@@ -1017,6 +1137,10 @@ flowchart LR
 | 开奖缓存 | [src/service/historyService.ts](../src/service/historyService.ts) |
 | IndexedDB 仓储 | [src/storage/historyDb.ts](../src/storage/historyDb.ts) |
 | 预测算法 | [src/domain/historyPrediction.ts](../src/domain/historyPrediction.ts) |
+| 分析快照（服务端） | [apps/api/src/analysis/compute.mjs](../apps/api/src/analysis/compute.mjs)、[configs.mjs](../apps/api/src/analysis/configs.mjs)、[handlers/lottery-analysis.mjs](../apps/api/src/handlers/lottery-analysis.mjs) |
+| 分析快照（前端） | [src/features/analysis/useAnalysisSnapshot.ts](../src/features/analysis/useAnalysisSnapshot.ts)、[usePredictionTuning.ts](../src/features/analysis/usePredictionTuning.ts)、[src/api/lotteryAnalysisApi.ts](../src/api/lotteryAnalysisApi.ts) |
+| 分析快照（生成/回填） | [scripts/sync-analysis.mjs](../scripts/sync-analysis.mjs)、[scripts/analyze-snapshot.mjs](../scripts/analyze-snapshot.mjs) |
+| 分析快照（表结构） | [db/migrations/0007_analysis_snapshot.sql](../db/migrations/0007_analysis_snapshot.sql) |
 | 开奖逐期指标 | [src/domain/dltIndicators.ts](../src/domain/dltIndicators.ts)、[src/components/DltIndicatorRail.tsx](../src/components/DltIndicatorRail.tsx) |
 | 大乐透号码推演 | [src/domain/dltRecommendation.ts](../src/domain/dltRecommendation.ts)、[src/components/DltRecommendationPanel.tsx](../src/components/DltRecommendationPanel.tsx) |
 | 传输层 | [src/api/httpClient.ts](../src/api/httpClient.ts)、[src/api/sportteryApi.ts](../src/api/sportteryApi.ts) |

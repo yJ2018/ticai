@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   DEFAULT_PREDICTION_SCORE_WEIGHTS,
   analyzeHistoryPrediction,
@@ -9,21 +9,23 @@ import {
   type PredictionPositionAnalysis,
   type PredictionScoreWeights,
 } from '../domain/historyPrediction'
-import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
+import { useAnalysisSnapshot } from '../features/analysis/useAnalysisSnapshot'
+import { usePredictionTuning } from '../features/analysis/usePredictionTuning'
 import { MarkovOrderSelect } from '../components/MarkovOrderSelect'
 import { AnalysisPageSkeleton, AnalysisSummarySkeleton } from '../components/AnalysisPageSkeleton'
 
-type AnalysisState = {
-  loading: boolean
-  error: string
-  analysisItems: LotteryHistoryEntry[]
-}
+/**
+ * 分析页：默认直接渲染服务端快照（同一期只算一次，含溯源）。
+ *
+ * 权重滑块是连续值，服务端预算不了，所以只有「用户真的拖了权重」时才切到本地：
+ * 一次取回全量号码（紧凑接口，约 45 KB gzip），在 Worker 里按当前权重重算。
+ * 一旦把权重拖回默认值，就自动退回服务端快照。
+ */
 
-const initialState: AnalysisState = {
-  loading: true,
-  error: '',
-  analysisItems: [],
-}
+const EMPTY_ANALYSIS: HistoryPredictionAnalysis = analyzeHistoryPrediction([], {
+  scoreWeights: DEFAULT_PREDICTION_SCORE_WEIGHTS,
+  markovOrder: 2,
+})
 
 const MARKOV_ORDER_OPTIONS = [1, 2, 3, 4, 5] as const
 
@@ -40,119 +42,47 @@ const SCORE_WEIGHT_FIELDS: Array<{
 ]
 
 export function HistoryAnalysisPage() {
-  const [activeGame] = useState<LotteryHistoryGameType>('pl5')
-  const [state, setState] = useState<AnalysisState>(initialState)
   const [scoreWeights, setScoreWeights] = useState<PredictionScoreWeights>(DEFAULT_PREDICTION_SCORE_WEIGHTS)
   const [markovOrder, setMarkovOrder] = useState(2)
   const [activePosition, setActivePosition] = useState(0)
-  const [analysis, setAnalysis] = useState<HistoryPredictionAnalysis>(() =>
-    analyzeHistoryPrediction([], {
-      scoreWeights: DEFAULT_PREDICTION_SCORE_WEIGHTS,
-      markovOrder: 2,
-    }),
-  )
-  const [isWorkerComputing, setIsWorkerComputing] = useState(false)
+
   const debouncedScoreWeights = useDebouncedValue(scoreWeights, 160)
-  const debouncedMarkovOrder = useDebouncedValue(markovOrder, 160)
-  const workerRef = useRef<Worker | null>(null)
-  const requestIdRef = useRef(0)
+  const isCustomWeights = !areScoreWeightsEqual(debouncedScoreWeights, DEFAULT_PREDICTION_SCORE_WEIGHTS)
 
-  const loadAnalysisData = useCallback(async () => {
-    setState((prev) => ({
-      ...prev,
-      loading: true,
-      error: '',
-    }))
+  // 马尔可夫阶数 1–5 都在开奖时预算好了，换档只是换一个快照
+  const { loading: snapshotLoading, error: snapshotError, snapshot, reload } = useAnalysisSnapshot(
+    'pl5',
+    'prediction',
+    markovOrder,
+  )
 
-    try {
-      await historyService.getHistoryPage(activeGame, 1)
-      const cachedItems = await historyService.getCachedHistoryEntries(activeGame)
+  const tuning = usePredictionTuning({
+    enabled: isCustomWeights,
+    order: markovOrder,
+    weights: debouncedScoreWeights,
+  })
 
-      setState({
-        loading: false,
-        error: '',
-        analysisItems: cachedItems,
-      })
-    } catch {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: '分析数据加载失败，请稍后重试',
-      }))
+  const analysis = useMemo(() => {
+    if (isCustomWeights && tuning.analysis) {
+      return tuning.analysis
     }
-  }, [activeGame])
+    return snapshot?.analysis ?? EMPTY_ANALYSIS
+  }, [isCustomWeights, snapshot, tuning.analysis])
 
-  useEffect(() => {
-    void loadAnalysisData()
-  }, [loadAnalysisData])
-
-  useEffect(() => {
-    const worker = new Worker(new URL('../workers/historyAnalysisWorker.ts', import.meta.url), { type: 'module' })
-    workerRef.current = worker
-
-    worker.onmessage = (
-      event: MessageEvent<{
-        requestId: number
-        analysis: HistoryPredictionAnalysis
-      }>,
-    ) => {
-      if (event.data.requestId !== requestIdRef.current) {
-        return
-      }
-
-      setAnalysis(event.data.analysis)
-      setIsWorkerComputing(false)
-    }
-
-    worker.onerror = () => {
-      setIsWorkerComputing(false)
-    }
-
-    return () => {
-      workerRef.current = null
-      worker.terminate()
-    }
-  }, [])
-
-  useEffect(() => {
-    const requestId = requestIdRef.current + 1
-    requestIdRef.current = requestId
-    setIsWorkerComputing(true)
-
-    const currentWorker = workerRef.current
-    if (!currentWorker) {
-      setAnalysis(
-        analyzeHistoryPrediction(state.analysisItems, {
-          scoreWeights: debouncedScoreWeights,
-          markovOrder: debouncedMarkovOrder,
-        }),
-      )
-      setIsWorkerComputing(false)
-      return
-    }
-
-    currentWorker.postMessage({
-      requestId,
-      entries: state.analysisItems,
-      options: {
-        scoreWeights: debouncedScoreWeights,
-        markovOrder: debouncedMarkovOrder,
-      },
-    })
-  }, [debouncedMarkovOrder, debouncedScoreWeights, state.analysisItems])
-
-  const activePositionAnalysis = analysis.positions[Math.min(activePosition, Math.max(analysis.positions.length - 1, 0))]
+  const loading = isCustomWeights ? tuning.loading : snapshotLoading
+  const error = isCustomWeights ? tuning.error : snapshotError
+  const sample = isCustomWeights ? null : snapshot?.sample
+  const activePositionAnalysis =
+    analysis.positions[Math.min(activePosition, Math.max(analysis.positions.length - 1, 0))]
   const isAnalysisPending =
-    !areScoreWeightsEqual(scoreWeights, debouncedScoreWeights) ||
-    markovOrder !== debouncedMarkovOrder ||
-    isWorkerComputing
+    !areScoreWeightsEqual(scoreWeights, debouncedScoreWeights) || (!loading && isCustomWeights && tuning.loading)
 
   return (
     <section className="history-analysis-page">
       <header className="history-analysis-page__header">
         <div>
           <p className="history-analysis-page__eyebrow">算法分析页</p>
-          <h2>本地历史数据怎么得出预测</h2>
+          <h2>全量历史数据怎么得出预测</h2>
         </div>
         <p className="history-analysis-page__desc">
           这页不只显示结果，而是展开每一位号码的评分依据、最近样本和滚动回测结果。
@@ -161,18 +91,23 @@ export function HistoryAnalysisPage() {
 
       <div className="history-analysis-page__toolbar">
         <div className="history-analysis-page__summary">
-          {state.loading ? (
+          {loading ? (
             <AnalysisSummarySkeleton count={3} />
           ) : (
             <>
-              <span>本地样本 {analysis.sampleSize} 期</span>
+              <span>样本 {analysis.sampleSize} 期</span>
               <span>平均 Top1 {formatRate(analysis.averageTop1Rate)}</span>
               <span>平均 Top3 {formatRate(analysis.averageTop3Rate)}</span>
+              {sample && <span>基准 {sample.throughIssue} · {sample.throughDrawDate}</span>}
+              {isCustomWeights && <span>自定义权重 · 本地重算</span>}
+              {!isCustomWeights && snapshot?.stale && (
+                <span className="history-analysis-page__pending">有新开奖，待重算</span>
+              )}
             </>
           )}
         </div>
         <div className="history-analysis-page__actions">
-          {isAnalysisPending && !state.loading && (
+          {isAnalysisPending && !loading && (
             <span className="history-analysis-page__pending">正在重新计算...</span>
           )}
           <MarkovOrderSelect
@@ -183,24 +118,24 @@ export function HistoryAnalysisPage() {
           <button type="button" onClick={() => setScoreWeights(DEFAULT_PREDICTION_SCORE_WEIGHTS)}>
             重置权重
           </button>
-          <button type="button" onClick={() => void loadAnalysisData()}>
+          <button type="button" onClick={reload}>
             刷新分析
           </button>
         </div>
       </div>
 
-      {state.loading && <AnalysisPageSkeleton variant="history" />}
+      {loading && <AnalysisPageSkeleton variant="history" />}
 
-      {!state.loading && state.error && (
+      {!loading && error && (
         <div className="history-analysis-page__status history-analysis-page__status--error">
-          <span>{state.error}</span>
-          <button type="button" onClick={() => void loadAnalysisData()}>
+          <span>{error}</span>
+          <button type="button" onClick={reload}>
             重新加载
           </button>
         </div>
       )}
 
-      {!state.loading && !state.error && (
+      {!loading && !error && (
         <>
           <section className="prediction-hero prediction-hero--classic">
             <div className="prediction-hero__main">
@@ -237,7 +172,7 @@ export function HistoryAnalysisPage() {
                     </span>
                   ))
                 ) : (
-                  <span>本地缓存样本不足，暂不输出组合参考</span>
+                  <span>样本不足，暂不输出组合参考</span>
                 )}
               </div>
             </div>
@@ -314,7 +249,7 @@ export function HistoryAnalysisPage() {
                     </span>
                   ))
                 ) : (
-                  <span>本地缓存样本不足，暂不输出组合参考</span>
+                  <span>样本不足，暂不输出组合参考</span>
                 )}
               </div>
             </article>

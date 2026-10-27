@@ -1,27 +1,19 @@
-import {
-  memo,
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from 'react'
-import {
-  analyzeHistoryPrediction,
-  type HistoryPredictionAnalysis,
-} from '../domain/historyPrediction'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { analyzeHistoryPrediction, type HistoryPredictionAnalysis } from '../domain/historyPrediction'
 import {
   formatDltBigSmall,
   formatDltOddEven,
   formatDltZones,
   getDltFrontIndicators,
 } from '../domain/dltIndicators'
+import { useAnalysisSnapshot } from '../features/analysis/useAnalysisSnapshot'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
 import { DltIndicatorRail } from '../components/DltIndicatorRail'
 import { DltRecommendationPanel } from '../components/DltRecommendationPanel'
 import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
+
+/** 服务端快照到达前先渲染空分析，避免布局跳动 */
+const EMPTY_PREDICTION: HistoryPredictionAnalysis = analyzeHistoryPrediction([])
 
 const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [
   { key: 'pl5', label: '排列五' },
@@ -74,7 +66,6 @@ type HistoryState = {
   loading: boolean
   error: string
   items: LotteryHistoryEntry[]
-  analysisItems: LotteryHistoryEntry[]
   pageNo: number
   total: number
   pages: number
@@ -84,7 +75,6 @@ const initialState: HistoryState = {
   loading: true,
   error: '',
   items: [],
-  analysisItems: [],
   pageNo: 1,
   total: 0,
   pages: 1,
@@ -106,14 +96,14 @@ export function HistoryPage() {
   const requestTokenRef = useRef(0)
   const loadedGameRef = useRef<LotteryHistoryGameType | null>(null)
 
-  const [prediction, setPrediction] = useState<HistoryPredictionAnalysis>(() =>
-    analyzeHistoryPrediction([]),
-  )
-  const [predictionLoading, setPredictionLoading] = useState(false)
-  const [predictionReady, setPredictionReady] = useState(false)
-  const predictionWorkerRef = useRef<Worker | null>(null)
-  const predictionRequestRef = useRef(0)
-  const lastPredictionSignatureRef = useRef('')
+  // 分析结果由服务端在开奖后算好并带溯源；这里不再下载全量开奖、也不再跑 Worker
+  const predictionSnapshot = useAnalysisSnapshot(activeGame, 'prediction', 2, {
+    enabled: meta.positional,
+  })
+  const dltSnapshot = useAnalysisSnapshot('dlt', 'dlt', undefined, { enabled: !meta.positional })
+
+  const prediction = predictionSnapshot.snapshot?.analysis ?? EMPTY_PREDICTION
+  const predictionLoading = meta.positional && predictionSnapshot.loading
 
   const loadHistory = useCallback(
     async (pageNo = 1, action: PagerAction = 'next') => {
@@ -130,7 +120,6 @@ export function HistoryPage() {
         // 切彩种：先清空列表，让骨架屏按新彩种铺开，避免短暂显示上一个彩种的数据
         lastPageRef.current = 1
         contentRef.current?.scrollTo({ top: 0 })
-        setPredictionReady(false)
         setState({ ...initialState, loading: true })
       } else {
         setState((prev) => ({ ...prev, loading: true, error: '' }))
@@ -138,7 +127,6 @@ export function HistoryPage() {
 
       try {
         const data = await historyService.getHistoryPage(game, pageNo)
-        const cachedItems = await historyService.getCachedHistoryEntries(game)
 
         // 本地缓存命中时数据几乎立刻返回，这里补足一个最短 loading 时长，
         // 让按钮转圈"看得见"，而不是闪一帧就消失。
@@ -158,7 +146,6 @@ export function HistoryPage() {
           loading: false,
           error: '',
           items: data.list,
-          analysisItems: cachedItems.length > 0 ? cachedItems : data.list,
           pageNo: data.pageNo,
           total: data.total,
           pages: data.pages,
@@ -185,78 +172,6 @@ export function HistoryPage() {
   useEffect(() => {
     void loadHistory(1)
   }, [loadHistory])
-
-  // 7755 期样本的预测会阻塞主线程，这里和另两个分析页一样下沉到 Worker。
-  useEffect(() => {
-    const worker = new Worker(
-      new URL('../workers/historyAnalysisWorker.ts', import.meta.url),
-      { type: 'module' },
-    )
-    predictionWorkerRef.current = worker
-
-    worker.onmessage = (
-      event: MessageEvent<{
-        requestId: number
-        analysis: HistoryPredictionAnalysis
-      }>,
-    ) => {
-      if (event.data.requestId !== predictionRequestRef.current) {
-        return
-      }
-      startTransition(() => {
-        setPrediction(event.data.analysis)
-        setPredictionReady(true)
-        setPredictionLoading(false)
-      })
-    }
-
-    worker.onerror = () => {
-      setPredictionReady(true)
-      setPredictionLoading(false)
-    }
-
-    return () => {
-      worker.terminate()
-      predictionWorkerRef.current = null
-    }
-  }, [])
-
-  const analysisEntries =
-    state.analysisItems.length > 0 ? state.analysisItems : state.items
-  const predictionSignature =
-    meta.positional && analysisEntries.length > 0
-      ? `${activeGame}:${analysisEntries.length}:${analysisEntries[0]?.issue ?? ''}:${
-          analysisEntries[analysisEntries.length - 1]?.issue ?? ''
-        }`
-      : ''
-
-  useEffect(() => {
-    if (!predictionSignature || predictionSignature === lastPredictionSignatureRef.current) {
-      return
-    }
-    lastPredictionSignatureRef.current = predictionSignature
-    const requestId = predictionRequestRef.current + 1
-    predictionRequestRef.current = requestId
-    setPredictionLoading(true)
-
-    const worker = predictionWorkerRef.current
-    if (!worker) {
-      startTransition(() => {
-        setPrediction(analyzeHistoryPrediction(analysisEntries))
-        setPredictionReady(true)
-        setPredictionLoading(false)
-      })
-      return
-    }
-
-    worker.postMessage({
-      requestId,
-      entries: analysisEntries,
-      options: { positionCount: meta.mainCount },
-    })
-    // entries 只在这个签名变化时更新，避免翻页时对同一份缓存重复重算。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [predictionSignature])
 
   const pageSummary = useMemo(() => {
     const pageText =
@@ -285,7 +200,7 @@ export function HistoryPage() {
 
   const isInitialLoading =
     (state.loading && state.items.length === 0) ||
-    (state.items.length > 0 && meta.positional && !predictionReady)
+    (state.items.length > 0 && meta.positional && predictionLoading)
   const pageAnimClass = pageDirection === 'prev' ? 'is-prev-page' : 'is-next-page'
 
   // 点击即进入 busy：只在按钮上转圈，内容保持原样，避免整块明暗变化被感知成闪烁
@@ -299,7 +214,7 @@ export function HistoryPage() {
           <h2>体彩开奖查询</h2>
         </div>
         <p className="history-page__desc">
-          排列五、七星彩按位次看走势；大乐透结合前后区矩阵与逐期指标，按本地历史数据给出下期号码参考和理由；数据来自体彩官方接口。
+          排列五、七星彩按位次看走势；大乐透结合前后区矩阵与逐期指标，按全量历史数据给出下期号码参考和理由；数据来自体彩官方接口。
         </p>
       </header>
 
@@ -349,8 +264,8 @@ export function HistoryPage() {
             <section className="history-insight">
               <div className="history-insight__header">
                 <div>
-                  <p className="history-insight__eyebrow">本地数据预测</p>
-                  <h3>基于本地已缓存 {prediction.sampleSize} 期历史数据</h3>
+                  <p className="history-insight__eyebrow">全量数据预测</p>
+                  <h3>基于全量 {prediction.sampleSize} 期开奖数据</h3>
                 </div>
                 <p className="history-insight__desc">
                   综合频次分布、近期热度、遗漏值、相邻转移关系评分，并用滚动回测验证参考效果。
@@ -382,14 +297,14 @@ export function HistoryPage() {
                       </span>
                     ))
                   ) : (
-                    <span className="history-insight__number-empty">本地缓存样本不足，暂不生成组合参考</span>
+                    <span className="history-insight__number-empty">样本不足，暂不生成组合参考</span>
                   )}
                 </div>
               </div>
             </section>
             )}
 
-            {!meta.positional && <DltRecommendationPanel entries={analysisEntries} />}
+            {!meta.positional && <DltRecommendationPanel recommendation={dltSnapshot.snapshot?.analysis ?? null} />}
 
             <div
               key={`desktop-${activeGame}-${state.pageNo}`}

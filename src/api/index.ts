@@ -8,7 +8,23 @@ export type {
   AiStreamHandlers,
   AiUsage,
 } from './aiApi'
-export { getLotteryHistoryPage, getMatchCalculator, getMatchCalculatorWithMeta } from './sportteryApi'
+export {
+  getLotteryHistoryBulk,
+  getLotteryHistoryPage,
+  getMatchCalculator,
+  getMatchCalculatorWithMeta,
+} from './sportteryApi'
+export type { LotteryHistoryBulkValue } from './sportteryApi'
+export { getLotteryAnalysis, getLotteryAnalysisVersions } from './lotteryAnalysisApi'
+export type {
+  AnalysisSnapshotKindMap,
+  LotteryAnalysisEngine,
+  LotteryAnalysisGame,
+  LotteryAnalysisKind,
+  LotteryAnalysisSample,
+  LotteryAnalysisSnapshot,
+  LotteryAnalysisVersion,
+} from './lotteryAnalysisApi'
 export {
   exchangeWechatTicket,
   fetchIdentities,

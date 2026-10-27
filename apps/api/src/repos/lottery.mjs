@@ -18,6 +18,23 @@ const HISTORY_CACHE_TTL_MS = 60_000
 const cache = createTtlCache({ ttlMs: HISTORY_CACHE_TTL_MS, maxEntries: 200 })
 const gameCache = new Map()
 
+/**
+ * 全量开奖（紧凑格式）给「本地调参」用。
+ *
+ * 分析结果已经由服务端算好存快照，正常浏览不需要这个接口；
+ * 只有用户在分析页拖权重滑块（连续值，无法预算）时，才需要拿全量号码在本地重算。
+ * 紧凑格式比 /api/history 逐页信封小一个数量级：7761 期约 167 KB 明文 / 45 KB gzip。
+ */
+const BULK_CACHE_TTL_MS = 10 * 60_000
+const bulkCache = createTtlCache({ ttlMs: BULK_CACHE_TTL_MS, maxEntries: 8 })
+
+const BULK_SQL = `
+  select issue, issue_seq, numbers_text
+  from lottery_draw
+  where game_no = $1
+  order by issue_seq desc
+`
+
 const DRAW_SQL = `
   select
     d.id,
@@ -150,4 +167,49 @@ export async function getHistoryPage(config, { gameNo, pageNo, pageSize }) {
   }
   cache.set(cacheKey, result)
   return { ...result, cache: 'miss' }
+}
+
+/**
+ * 全量开奖的紧凑信封（一次往返）。
+ *
+ * 返回 `[期号, 号码原串]` 二元组，前端按空格/字符拆解——和体彩原始格式一致，
+ * 不在这里做号码语义（排列五是逐位个位数，大乐透是 5+2）。
+ */
+export async function getHistoryBulk(config, { gameNo }) {
+  const cached = bulkCache.get(gameNo)
+  if (cached) {
+    return { ...cached, cache: 'hit' }
+  }
+
+  const startedAt = performance.now()
+  const game = await resolveGame(config, gameNo)
+  const { rows } = await query(config, BULK_SQL, [game.game_no])
+  const queryMs = performance.now() - startedAt
+
+  const result = {
+    payload: {
+      success: true,
+      errorCode: '0',
+      errorMessage: '',
+      value: {
+        gameNo: game.game_no,
+        gameKey: game.game_key,
+        gameName: game.name,
+        total: rows.length,
+        draws: rows.map((row) => [row.issue, row.numbers_text]),
+      },
+    },
+    count: rows.length,
+    queryMs,
+  }
+
+  bulkCache.set(gameNo, result)
+  if (queryMs >= 300) {
+    console.log(`[history:bulk] ${gameKeyOrNo(game)} ${queryMs.toFixed(0)}ms rows=${rows.length}`)
+  }
+  return { ...result, cache: 'miss' }
+}
+
+function gameKeyOrNo(game) {
+  return `${game.game_key}(${game.game_no})`
 }

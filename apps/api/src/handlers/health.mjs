@@ -17,6 +17,18 @@ const FRESHNESS_SQL = `
   order by source
 `
 
+/**
+ * 分析快照新鲜度：分析是否还停在上一期开奖。
+ * 视图随迁移 0007 一起建；旧库没这个视图时只告警，不影响健康检查。
+ */
+const ANALYSIS_SQL = `
+  select
+    count(*)::int                                         as total,
+    count(*) filter (where latest_issue_seq > through_issue_seq)::int as stale,
+    max(computed_at)                                      as last_computed_at
+  from lottery_analysis_latest
+`
+
 export function createHealthHandlers(config) {
   function healthz(_ctx) {
     // 由 app 直接返回 200
@@ -43,11 +55,25 @@ export function createHealthHandlers(config) {
       console.warn('[api] 读取数据新鲜度失败：', error instanceof Error ? error.message : String(error))
     }
 
+    let analysis = null
+    try {
+      const { rows } = await query(config, ANALYSIS_SQL)
+      const row = rows[0] ?? {}
+      analysis = {
+        total: Number(row.total ?? 0),
+        stale: Number(row.stale ?? 0),
+        lastComputedAt: row.last_computed_at ? new Date(row.last_computed_at).toISOString() : null,
+      }
+    } catch (error) {
+      console.warn('[api] 读取分析快照失败：', error instanceof Error ? error.message : String(error))
+    }
+
     sendData(ctx.res, {
       uptimeSeconds: Math.round(process.uptime()),
       node: process.version,
       db: 'up',
       dataSources: sources,
+      analysis,
     })
   }
 

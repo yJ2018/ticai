@@ -149,6 +149,7 @@ on conflict (sporttery_match_id) do update set
 | `crawl_run` | 30 天 | 只用于排障和新鲜度判断 |
 | `injury` | 未愈 + 近 1 年 | 历史伤病仅用于球员耐用度标签 |
 | `lottery_draw` | 永久 | 四个彩种合计约 1.7 万期，毫无压力 |
+| `lottery_analysis_snapshot` | 永久 | 每期 × 每参数一条（约 11 KB），一年 ~80 MB；留着可以回看「当时模型怎么推的」 |
 
 全部在 `db/maintenance.sql`，已实测：3 条阵容 + 3 条明细 → 清理后各剩 1 条，明细随外键级联删除。
 

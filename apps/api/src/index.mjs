@@ -46,6 +46,7 @@ server.listen(config.port, config.host, () => {
   )
   console.log('  接口                : /api/matches /api/results /api/history /api/horoscope /api/weather')
   console.log('                        /api/ip /api/venue-weather /api/ai-chat /api/health')
+  console.log('                        /api/analysis/lottery（开奖分析快照，开奖后由爬虫预算）')
   console.log('  账号与投注          : /api/auth/code /register /login /logout /me · /api/bets')
   console.log(
     `  微信登录            : ${config.wechat.appId ? '已配置' : '未配置（前端展示接入步骤）'}`,

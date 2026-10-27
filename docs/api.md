@@ -172,6 +172,136 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 > **为什么金额有两套字段名**：体彩真实字段是 `totalSaleAmount` / `poolBalance`，但旧前端读的是 `lotterySaleAmount` / `poolAmount`。这里同时输出，既修好旧页面的「销售额/奖池」显示，又不影响后续按正确字段名开发。
 
+### 2.2.0 `GET /api/history/bulk`
+
+全量开奖的**紧凑格式**，一次请求拿回所有期号与号码。
+
+只服务「本地调参」：分析页拖权重滑块时参数是连续值，服务端预算不了，只能把全量号码取到本地重算。
+正常浏览走 `GET /api/analysis/lottery` 的快照，不需要这个接口。
+
+**查询参数**
+
+| 参数 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `gameNo`（或 `game`） | string | 必填 | `350133`/`pl5`、`35`/`pl3`、`85`/`dlt`、`04`/`qxc` |
+
+**响应**
+
+```json
+{
+  "success": true,
+  "errorCode": "0",
+  "errorMessage": "",
+  "value": {
+    "gameNo": "350133",
+    "gameKey": "pl5",
+    "gameName": "排列5",
+    "total": 7761,
+    "draws": [["26286", "2 1 8 1 9"], ["26285", "6 1 3 0 0"]]
+  }
+}
+```
+
+- 体积：7761 期约 167 KB 明文 / 45 KB gzip（对比逐页 `/api/history` 的 1805 KB / 184 KB）；
+- 缓存：进程内 10 分钟；响应头 `cache-control: public, max-age=300, s-maxage=600`；
+- 限流：30 次/分钟/IP（响应头带 `x-draw-count`）。
+
+### 2.2.1 `GET /api/analysis/lottery`
+
+开奖分析快照（频次/遗漏/马尔可夫/滚动回测、数学走势、大乐透 5+2 推演）。
+分析用**全量**开奖（排列五 7760 期），在爬虫抓到新开奖后就地算一次并落库
+（`lottery_analysis_snapshot`），本接口只读最新一条快照。
+
+**查询参数**
+
+| 参数 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `game` | string | `pl5` | `pl5` / `pl3` / `qxc` / `dlt`，或体彩 `gameNo`（`350133` / `35` / `04` / `85`） |
+| `kind` | string | 位置型 `prediction`、大乐透 `dlt` | `prediction` / `math_trend` / `dlt` |
+| `order` | int | 由 `config_key` 默认 | 仅 `prediction` 生效：马尔可夫阶数 1–5（开奖时已预算好 5 档） |
+
+**响应**
+
+```json
+{
+  "success": true,
+  "data": {
+    "game": { "gameKey": "pl5", "gameNo": "350133", "name": "排列5", "positional": true, "mainCount": 5 },
+    "kind": "prediction",
+    "configKey": "markov=2",
+    "sample": {
+      "throughIssue": "26285",
+      "throughIssueSeq": 26285,
+      "throughDrawDate": "2026-10-26",
+      "fromIssue": "04001",
+      "fromDrawDate": "2004-11-14",
+      "drawCount": 7760
+    },
+    "engine": { "version": "snapshot-1", "digest": "133b593c984e", "runtime": "node v20.19.0" },
+    "analysis": { "sampleSize": 7760, "positions": ["…"], "combinations": ["…"], "markov": {}, "statistics": {} },
+    "computedAt": "2026-10-27T13:39:12.637Z",
+    "source": "crawler",
+    "durationMs": 1428,
+    "triggered": false,
+    "stale": false,
+    "latestDraw": { "issue": "26285", "issueSeq": 26285, "drawDate": "2026-10-26" }
+  }
+}
+```
+
+`analysis` 与前端 `domain/historyPrediction.ts` 的返回值同构，可直接渲染。
+
+**溯源语义**
+
+| 字段 | 含义 |
+| --- | --- |
+| `sample.throughIssue` / `throughDrawDate` | 这条分析基于哪一期、哪一天的开奖 |
+| `sample.fromIssue` / `fromDrawDate` / `drawCount` | 样本起点与真正吃进去的期数（数学走势 240、大乐透 300） |
+| `stale` | 库里最后一期开奖是否已领先这条快照（`true` 说明分析落后一期） |
+| `triggered` | `true` 表示快照缺失、这次请求现场算了一次并落库 |
+
+**响应头**：`x-analysis-through-issue` / `-through-date` / `-draw-count` / `-computed-at` / `-stale` / `-source`，以及 `server-timing`。
+
+**缓存**：同一期快照不变 → `public, max-age=300, s-maxage=900, stale-while-revalidate=120`；落后于最新开奖时降到 `max-age=30, s-maxage=60`。
+
+**错误**：彩种未知 `404`；样本不足（大乐透 < 30 期）`404`（提示执行 `npm run analyze:snapshot`）。
+
+### 2.2.2 `GET /api/analysis/lottery/snapshots`
+
+巡检用：每个彩种每种分析的最新快照，以及是否落后于最后一期开奖。
+
+**查询参数**：`game`（可选，按彩种过滤）。
+
+```json
+{
+  "success": true,
+  "data": {
+    "games": [
+      {
+        "gameNo": "350133",
+        "gameKey": "pl5",
+        "gameName": "排列5",
+        "latestIssue": "26285",
+        "latestDrawDate": "2026-10-26",
+        "items": [
+          {
+            "kind": "prediction",
+            "configKey": "markov=2",
+            "throughIssue": "26285",
+            "throughDrawDate": "2026-10-26",
+            "drawCount": 7760,
+            "source": "crawler",
+            "durationMs": 1428,
+            "computedAt": "2026-10-27T13:39:12.637Z",
+            "stale": false
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ### 2.3 `GET /api/match-detail`
 
 单场对战详情，对应 `m.sporttery.cn/zqlszl/bssj` 页面的 7 个板块。
@@ -784,7 +914,8 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
     "uptimeSeconds": 3600,
     "node": "v20.19.0",
     "db": "up",
-    "dataSources": [{ "source": "sporttery.matches", "lastOkAt": "2026-10-22T07:00:00.000Z", "ageSeconds": 42 }]
+    "dataSources": [{ "source": "sporttery.matches", "lastOkAt": "2026-10-22T07:00:00.000Z", "ageSeconds": 42 }],
+    "analysis": { "total": 13, "stale": 0, "lastComputedAt": "2026-10-27T13:39:12.637Z" }
   }
 }
 ```
@@ -821,6 +952,7 @@ VITE_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-27 | 新增 `/api/analysis/lottery`（+`/snapshots`）：开奖分析快照，爬虫开奖后算一次并带溯源（基于哪期/哪天/多少期样本） |
 | 2026-10-27 | 前端改走同源 `/api`（`vercel.json` rewrite 到 `ticai-service`），接口地址不再写进 bundle |
 | 2026-10-26 | 新增 `/api/bets/stats`；投注奖金按体彩单注限额封顶 |
 | 2026-10-25 | 新增微信登录 / 绑定：`/api/auth/wechat/*`、`/api/auth/identities`，回调只发一次性 ticket |

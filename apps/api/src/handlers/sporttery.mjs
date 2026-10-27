@@ -1,6 +1,13 @@
-import { HttpError, intParam, sendJson, textParam } from '../lib.mjs'
+import {
+  HttpError,
+  clientIpFor,
+  createRateLimiter,
+  intParam,
+  sendJson,
+  textParam,
+} from '../lib.mjs'
 import { getMatches } from '../repos/matches.mjs'
-import { getHistoryPage } from '../repos/lottery.mjs'
+import { getHistoryBulk, getHistoryPage } from '../repos/lottery.mjs'
 
 /**
  * 体彩相关接口：从库读，输出保持 upstream 信封。
@@ -12,8 +19,11 @@ import { getHistoryPage } from '../repos/lottery.mjs'
  */
 
 const POOL_TYPES = new Set(['had', 'crs', 'ttg', 'hafu', 'mixed'])
+const TRUST_PROXY = process.env.TRUST_PROXY !== '0'
 
 export function createSportteryHandlers(config) {
+  // 全量开奖一次 45 KB（gzip），比逐页翻小一个数量级；给个宽松的 IP 限流防止被刷
+  const bulkLimiter = createRateLimiter({ limit: 30 })
   async function matches(ctx) {
     const poolType = textParam(ctx.url, 'poolType', 'mixed') || 'mixed'
     if (!POOL_TYPES.has(poolType)) {
@@ -56,5 +66,29 @@ export function createSportteryHandlers(config) {
     sendJson(ctx.res, 200, payload, headers)
   }
 
-  return { matches, history }
+  /**
+   * 全量开奖（紧凑）。
+   *
+   * 分析结果本身由 /api/analysis/lottery 直出快照；这个接口只服务「用户在分析页
+   * 拖权重滑块」这类连续参数场景——预算不了，只能把全量号码取到本地重算。
+   */
+  async function historyBulk(ctx) {
+    const gameNo = textParam(ctx.url, 'gameNo') || textParam(ctx.url, 'game')
+    if (!/^[0-9a-z]{2,8}$/i.test(gameNo)) {
+      throw new HttpError(400, 'gameNo 参数不合法')
+    }
+
+    bulkLimiter(clientIpFor(ctx.req, { trustProxy: TRUST_PROXY }))
+
+    const { payload, cache, count, queryMs } = await getHistoryBulk(config, { gameNo })
+
+    sendJson(ctx.res, 200, payload, {
+      'x-cache': cache,
+      'x-draw-count': String(count),
+      'cache-control': 'public, max-age=300, s-maxage=600',
+      'server-timing': `cache;desc=${cache},db;dur=${queryMs.toFixed(1)}`,
+    })
+  }
+
+  return { matches, history, historyBulk }
 }

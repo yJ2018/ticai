@@ -1,112 +1,32 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   analyzeMathTrendPrediction,
   type MathTrendPositionAnalysis,
   type MathTrendPredictionAnalysis,
 } from '../domain/historyPrediction'
-import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
+import { useAnalysisSnapshot } from '../features/analysis/useAnalysisSnapshot'
 import { AnalysisPageSkeleton, AnalysisSummarySkeleton } from '../components/AnalysisPageSkeleton'
 
-type AnalysisState = {
-  loading: boolean
-  error: string
-  analysisItems: LotteryHistoryEntry[]
-}
+/**
+ * 数学走势页：直接渲染服务端算好的快照。
+ *
+ * 以前要先 `historyService` 把开奖翻到 IndexedDB、再在 Worker 里全量回测；
+ * 现在爬虫一开奖就算好，这里只发一个请求（约 2 KB gzip），
+ * 顺带能显示「基于哪一期 / 哪一天 / 多少期样本」。
+ */
 
-const LARGE_SAMPLE_PAGE_SIZE = 300
-
-const initialState: AnalysisState = {
-  loading: true,
-  error: '',
-  analysisItems: [],
-}
+const EMPTY_ANALYSIS: MathTrendPredictionAnalysis = analyzeMathTrendPrediction([])
 
 export function MathTrendAnalysisPage() {
-  const [activeGame] = useState<LotteryHistoryGameType>('pl5')
-  const [state, setState] = useState<AnalysisState>(initialState)
   const [activePosition, setActivePosition] = useState(0)
-  const [analysis, setAnalysis] = useState<MathTrendPredictionAnalysis>(() => analyzeMathTrendPrediction([]))
-  const [isWorkerComputing, setIsWorkerComputing] = useState(false)
-  const workerRef = useRef<Worker | null>(null)
-  const requestIdRef = useRef(0)
+  const { loading, error, snapshot, reload } = useAnalysisSnapshot('pl5', 'math_trend')
 
-  const loadAnalysisData = useCallback(async () => {
-    setState((prev) => ({
-      ...prev,
-      loading: true,
-      error: '',
-    }))
-
-    try {
-      await historyService.getHistoryPage(activeGame, 1, LARGE_SAMPLE_PAGE_SIZE)
-      const cachedItems = await historyService.getCachedHistoryEntries(activeGame)
-
-      setState({
-        loading: false,
-        error: '',
-        analysisItems: cachedItems,
-      })
-    } catch {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: '数学分析数据加载失败，请稍后重试',
-      }))
-    }
-  }, [activeGame])
-
-  useEffect(() => {
-    void loadAnalysisData()
-  }, [loadAnalysisData])
-
-  useEffect(() => {
-    const worker = new Worker(new URL('../workers/mathTrendAnalysisWorker.ts', import.meta.url), { type: 'module' })
-    workerRef.current = worker
-
-    worker.onmessage = (
-      event: MessageEvent<{
-        requestId: number
-        analysis: MathTrendPredictionAnalysis
-      }>,
-    ) => {
-      if (event.data.requestId !== requestIdRef.current) {
-        return
-      }
-
-      setAnalysis(event.data.analysis)
-      setIsWorkerComputing(false)
-    }
-
-    worker.onerror = () => {
-      setIsWorkerComputing(false)
-    }
-
-    return () => {
-      workerRef.current = null
-      worker.terminate()
-    }
-  }, [])
-
-  useEffect(() => {
-    const requestId = requestIdRef.current + 1
-    requestIdRef.current = requestId
-    setIsWorkerComputing(true)
-
-    const currentWorker = workerRef.current
-    if (!currentWorker) {
-      setAnalysis(analyzeMathTrendPrediction(state.analysisItems))
-      setIsWorkerComputing(false)
-      return
-    }
-
-    currentWorker.postMessage({
-      requestId,
-      entries: state.analysisItems,
-      options: {},
-    })
-  }, [state.analysisItems])
-
-  const activePositionAnalysis = analysis.positions[Math.min(activePosition, Math.max(analysis.positions.length - 1, 0))]
+  const analysis = snapshot?.analysis ?? EMPTY_ANALYSIS
+  const sample = snapshot?.sample
+  const activePositionAnalysis = useMemo(
+    () => analysis.positions[Math.min(activePosition, Math.max(analysis.positions.length - 1, 0))],
+    [analysis.positions, activePosition],
+  )
   const validationSamples = analysis.positions[0]?.backtest.samples ?? 0
 
   return (
@@ -123,40 +43,39 @@ export function MathTrendAnalysisPage() {
 
       <div className="history-analysis-page__toolbar">
         <div className="history-analysis-page__summary">
-          {state.loading ? (
+          {loading ? (
             <AnalysisSummarySkeleton count={5} />
           ) : (
             <>
-              <span>本地样本 {analysis.sampleSize} 期</span>
+              <span>样本 {analysis.sampleSize} 期</span>
               <span>分析窗口 {analysis.effectiveSampleWindow} 期</span>
               <span>滚动验证 {validationSamples} 期</span>
               <span>平均 Top1 {formatRate(analysis.averageTop1Rate)}</span>
               <span>平均 Top3 {formatRate(analysis.averageTop3Rate)}</span>
+              {sample && <span>基准 {sample.throughIssue} · {sample.throughDrawDate}</span>}
+              {snapshot?.stale && <span className="history-analysis-page__pending">有新开奖，待重算</span>}
             </>
           )}
         </div>
         <div className="history-analysis-page__actions">
-          {isWorkerComputing && !state.loading && (
-            <span className="history-analysis-page__pending">正在重算大样本走势...</span>
-          )}
-          <button type="button" onClick={() => void loadAnalysisData()}>
+          <button type="button" onClick={reload}>
             刷新分析
           </button>
         </div>
       </div>
 
-      {state.loading && <AnalysisPageSkeleton variant="math" />}
+      {loading && <AnalysisPageSkeleton variant="math" />}
 
-      {!state.loading && state.error && (
+      {!loading && error && (
         <div className="history-analysis-page__status history-analysis-page__status--error">
-          <span>{state.error}</span>
-          <button type="button" onClick={() => void loadAnalysisData()}>
+          <span>{error}</span>
+          <button type="button" onClick={reload}>
             重新加载
           </button>
         </div>
       )}
 
-      {!state.loading && !state.error && (
+      {!loading && !error && (
         <>
           <section className="prediction-hero prediction-hero--math">
             <div className="prediction-hero__main">

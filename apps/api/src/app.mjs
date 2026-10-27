@@ -6,6 +6,7 @@ import { createAnalysisHandler } from './handlers/analysis.mjs'
 import { createAuthHandlers } from './handlers/auth.mjs'
 import { createBetHandlers } from './handlers/bets.mjs'
 import { createHealthHandlers } from './handlers/health.mjs'
+import { createLotteryAnalysisHandlers } from './handlers/lottery-analysis.mjs'
 import { createMatchDetailHandler } from './handlers/match-detail.mjs'
 import { createParlayHandler } from './handlers/parlay.mjs'
 import { createResultsHandlers } from './handlers/results.mjs'
@@ -33,8 +34,12 @@ function buildCorsHeaders(req, config) {
       'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
       // authorization：登录后的接口用 Bearer token
       'access-control-allow-headers': 'content-type,accept,authorization,x-session-token',
-      // 跨域时自定义响应头默认不可读，前端要读数据更新时间/比赛数
-      'access-control-expose-headers': 'x-data-as-of,x-match-count',
+      // 跨域时自定义响应头默认不可读，前端要读数据更新时间/比赛数/分析溯源
+      'access-control-expose-headers':
+        'x-data-as-of,x-match-count,x-draw-count,server-timing,' +
+        'x-analysis-through-issue,x-analysis-through-date,x-analysis-draw-count,' +
+        'x-analysis-computed-at,x-analysis-stale,x-analysis-source,' +
+        'x-analysis-game,x-analysis-kind,x-analysis-config',
       'access-control-max-age': '86400',
       vary: 'Origin',
     }
@@ -64,6 +69,7 @@ export function createApp(config) {
   const upstream = createUpstreamHandlers(config)
   const ai = createAiHandlers(config)
   const health = createHealthHandlers(config)
+  const lotteryAnalysis = createLotteryAnalysisHandlers(config)
   const matchDetail = createMatchDetailHandler(config)
   const analysis = createAnalysisHandler(config)
   const parlay = createParlayHandler(config)
@@ -75,6 +81,11 @@ export function createApp(config) {
   const routes = [
     ['/api/matches', ['GET'], sporttery.matches],
     ['/api/history', ['GET'], sporttery.history],
+    // 全量开奖的紧凑格式：只给「本地调参」用，一次 45 KB（gzip）
+    ['/api/history/bulk', ['GET'], sporttery.historyBulk],
+    // 开奖分析快照：开奖后由爬虫算好，这里只读（缺失时兜底现算一次）
+    ['/api/analysis/lottery', ['GET'], lotteryAnalysis.latest],
+    ['/api/analysis/lottery/snapshots', ['GET'], lotteryAnalysis.snapshots],
     ['/api/results', ['GET'], results.results],
     ['/api/match-detail', ['GET'], matchDetail],
     // 单场 AI 分析：只收 matchId + pool，提示词在服务端装配

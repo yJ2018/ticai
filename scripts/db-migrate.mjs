@@ -197,16 +197,40 @@ async function commandStatus(client) {
     console.log(`  ${mark} ${file.name.padEnd(28)} ${when}`)
   }
 
+  const snapshotTable = await client.query(
+    "select to_regclass('public.lottery_analysis_snapshot') is not null as exists",
+  )
+  const hasSnapshots = Boolean(snapshotTable.rows[0]?.exists)
+
   const { rows } = await client.query(`
     select 'lottery_draw' as t, count(*)::int as n from lottery_draw
     union all select 'match', count(*)::int from match
     union all select 'match_odds_snapshot', count(*)::int from match_odds_snapshot
     union all select 'crawl_run', count(*)::int from crawl_run
     union all select 'lottery_game', count(*)::int from lottery_game
+    ${hasSnapshots ? "union all select 'lottery_analysis_snapshot', count(*)::int from lottery_analysis_snapshot" : ''}
   `)
   console.log('\n[db] 当前数据量')
   for (const row of rows) {
-    console.log(`  ${row.t.padEnd(22)} ${row.n}`)
+    console.log(`  ${row.t.padEnd(28)} ${row.n}`)
+  }
+
+  if (hasSnapshots) {
+    const { rows: analysis } = await client.query(`
+      select game_key, kind, config_key, through_issue, through_draw_date, draw_count,
+             latest_issue_seq > through_issue_seq as stale
+      from lottery_analysis_latest
+      order by game_key, kind, config_key
+    `)
+    if (analysis.length > 0) {
+      console.log('\n[db] 分析快照（最新）')
+      for (const row of analysis) {
+        console.log(
+          `  ${row.stale ? '⚠' : '✓'} ${row.game_key.padEnd(4)} ${row.kind.padEnd(12)} ` +
+            `${row.config_key.padEnd(44)} 基准 ${row.through_issue} · ${row.draw_count} 期`,
+        )
+      }
+    }
   }
 
   const { rows: runs } = await client.query(`
@@ -336,6 +360,38 @@ async function commandVerify(client) {
         throw new Error(`期望 da，实际 ${sides[0]?.htft}`)
       }
       return 'dh → da'
+    } finally {
+      await client.query('rollback')
+    }
+  })
+
+  await check('分析快照：同 (彩种, 分析, 参数, 期号) 只能有一行', async () => {
+    await client.query('begin')
+    try {
+      const insert = `insert into lottery_analysis_snapshot
+          (game_no, kind, config_key, through_issue, through_issue_seq, through_draw_date, draw_count, payload)
+        values ('350133', 'prediction', '__verify__', '__verify__', 1, current_date, 1, '{}'::jsonb)`
+      await client.query(insert)
+
+      let duplicated = false
+      try {
+        await client.query('savepoint s')
+        await client.query(insert)
+        duplicated = true
+      } catch {
+        await client.query('rollback to savepoint s')
+      }
+      if (duplicated) {
+        throw new Error('同一期同一参数被重复写入')
+      }
+
+      const { rows } = await client.query(
+        `select count(*)::int as n from lottery_analysis_latest where config_key = '__verify__'`,
+      )
+      if (rows[0]?.n !== 1) {
+        throw new Error(`lottery_analysis_latest 视图应返回 1 行，实际 ${rows[0]?.n}`)
+      }
+      return '重复写入被拒绝 · 视图可查'
     } finally {
       await client.query('rollback')
     }
