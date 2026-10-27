@@ -10,6 +10,7 @@ import {
   type WechatConfig,
 } from '../api/authApi'
 import { ApiError } from '../api/httpClient'
+import { useConfirm } from '../components/ConfirmDialog'
 import { WechatSetupDialog } from '../features/account/WechatSetupDialog'
 import { useAuthStore } from '../store/authStore'
 
@@ -55,6 +56,7 @@ export function AccountPage() {
   const user = useAuthStore((state) => state.user)
   const ready = useAuthStore((state) => state.ready)
   const signOut = useAuthStore((state) => state.signOut)
+  const confirm = useConfirm()
 
   const [config, setConfig] = useState<WechatConfig | null>(null)
   const [identities, setIdentities] = useState<Identity[]>([])
@@ -127,20 +129,25 @@ export function AccountPage() {
     if (!token || busy || !wechatIdentity) {
       return
     }
-    if (!window.confirm('解绑后将不能用微信登录这个账号，确定继续吗？')) {
-      return
-    }
-    setBusy(true)
-    setError('')
-    try {
-      await unbindIdentity(token, 'wechat')
-      setNotice('已解绑微信')
-      await load()
-    } catch (unbindError) {
-      setError(describeError(unbindError))
-    } finally {
-      setBusy(false)
-    }
+    const authToken = token
+    await confirm({
+      title: '解绑微信',
+      description: '解绑后将不能用微信登录这个账号，确定继续吗？',
+      confirmText: '解绑',
+      pendingText: '解绑中…',
+      tone: 'danger',
+      onConfirm: async () => {
+        setBusy(true)
+        setError('')
+        try {
+          await unbindIdentity(authToken, 'wechat')
+          setNotice('已解绑微信')
+          await load()
+        } finally {
+          setBusy(false)
+        }
+      },
+    })
   }
 
   if (!ready || (loading && !config)) {

@@ -1,0 +1,192 @@
+/* ── 自定义确认弹窗 ───────────────────────────────────────────
+   替代 window.confirm：圆角 / 阴影 / 缓动与方案弹层保持一致，
+   确认按钮支持异步 loading，错误信息就地展示。                  */
+.confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1300; /* 高于方案弹层 60 / 详情弹层 70 / 免责提示 80 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.15rem;
+  padding-bottom: calc(1.15rem + env(safe-area-inset-bottom));
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(3px);
+  animation: confirm-dialog-fade var(--popup-fade-duration) ease;
+}
+
+.confirm-dialog.is-closing {
+  animation: confirm-dialog-fade-out 0.16s ease forwards;
+  pointer-events: none;
+}
+
+.confirm-dialog__card {
+  width: min(100%, 23rem);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.15rem 1.15rem 1rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1.2rem 2.8rem rgba(15, 23, 42, 0.26);
+  animation: confirm-dialog-in var(--popup-panel-duration) var(--popup-ease-out) both;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.confirm-dialog__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.confirm-dialog__badge {
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: #2563eb;
+
+  svg {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+}
+
+.confirm-dialog__badge.is-danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.confirm-dialog__heading {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  h3 {
+    margin: 0.12rem 0 0;
+    color: #0f172a;
+    font-size: 1rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+}
+
+.confirm-dialog__desc {
+  margin: 0.4rem 0 0;
+  color: #475569;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+
+  strong {
+    color: #0f172a;
+    font-weight: 600;
+  }
+}
+
+.confirm-dialog__error {
+  margin: 0.7rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.55rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1.05rem;
+
+  .btn-ghost:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.confirm-dialog__confirm {
+  min-width: 5.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+
+  &:disabled {
+    opacity: 0.8;
+    cursor: progress;
+    transform: none;
+  }
+}
+
+.confirm-dialog__confirm.is-danger {
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  box-shadow: 0 0.35rem 0.75rem rgba(220, 38, 38, 0.28);
+}
+
+.confirm-dialog__spinner {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  animation: confirm-dialog-spin 0.7s linear infinite;
+}
+
+@keyframes confirm-dialog-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confirm-dialog-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes confirm-dialog-in {
+  0% {
+    opacity: 0;
+    transform: translateY(0.6rem) scale(0.97);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes confirm-dialog-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-dialog,
+  .confirm-dialog__card {
+    animation: none;
+  }
+
+  .confirm-dialog.is-closing {
+    animation: none;
+  }
+}

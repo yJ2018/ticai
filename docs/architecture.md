@@ -286,6 +286,7 @@ D:\ticai
    ├─ components/HistoryPageSkeleton.tsx  # 开奖历史页骨架
    ├─ components/DltIndicatorRail.tsx     # 大乐透右栏逐期指标（与号码矩阵逐行对齐）
    ├─ components/DltRecommendationPanel.tsx # 大乐透 5+2 号码参考 + 分析理由
+   ├─ components/ConfirmDialog.tsx        # 自定义确认弹窗：异步 onConfirm + loading，替代 window.confirm
    └─ assets/                  # 未被引用的图片（可删）
 ```
 
@@ -872,6 +873,14 @@ flowchart LR
 | 每日预热 | 无 | 每天 09:00 跑一轮「仅体彩官网数据」：停售收敛 + 赛程赔率 + 开奖 + 伤停赛果 |
 
 接口清单与契约见 [docs/api.md](api.md)；数据库与上游字段实况见 [db/README.md](../db/README.md)；爬虫调度与阵容抓取见 [apps/crawler/README.md](../apps/crawler/README.md)。
+
+### 2026-10-27 增量：自定义确认弹窗
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 危险操作确认 | `window.confirm` 原生弹框，样式不可控、没有 loading | 全局 `ConfirmDialogProvider` + `useConfirm()`，与方案弹层共用圆角 / 缓动 |
+| 删除投注 / 解绑微信 | 确认后请求出错只能落到页面顶部提示 | `onConfirm` 异步执行，按钮显示「删除中… / 解绑中…」spinner，失败信息留在弹窗内可重试 |
+| 可访问性 | 依赖浏览器原生对话框 | `role="alertdialog"`、Esc / 点遮罩取消、Tab 焦点锁定、打开时锁定页面滚动 |
 
 ---
 

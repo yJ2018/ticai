@@ -9,6 +9,7 @@ import {
   type MarketPool,
 } from '../api/betApi'
 import { ApiError } from '../api/httpClient'
+import { useConfirm } from '../components/ConfirmDialog'
 import { BetDetailModal } from '../features/bets/BetDetailModal'
 import {
   OUTCOME_LABELS,
@@ -186,6 +187,7 @@ export function MyBetsPage() {
   const user = useAuthStore((state) => state.user)
   const ready = useAuthStore((state) => state.ready)
   const signOut = useAuthStore((state) => state.signOut)
+  const confirm = useConfirm()
 
   const [items, setItems] = useState<Bet[]>([])
   const [stats, setStats] = useState<BetStats | null>(null)
@@ -279,23 +281,26 @@ export function MyBetsPage() {
     if (!token || deletingId) {
       return
     }
-    const confirmed = window.confirm(`确定删除「${bet.title}」这条投注记录？删除后无法恢复。`)
-    if (!confirmed) {
-      return
-    }
-
-    setDeletingId(bet.id)
-    try {
-      await deleteBet(token, bet.id)
-      setItems((prev) => prev.filter((item) => item.id !== bet.id))
-      setStats((prev) => removeBetFromStats(prev, bet))
-      setDetailBet((current) => (current?.id === bet.id ? null : current))
-      nextOffsetRef.current = Math.max(0, nextOffsetRef.current - 1)
-    } catch (deleteError) {
-      setError(describeError(deleteError))
-    } finally {
-      setDeletingId(null)
-    }
+    const authToken = token
+    await confirm({
+      title: '删除投注记录',
+      description: `确定删除「${bet.title}」这条投注记录？删除后无法恢复。`,
+      confirmText: '删除',
+      pendingText: '删除中…',
+      tone: 'danger',
+      onConfirm: async () => {
+        setDeletingId(bet.id)
+        try {
+          await deleteBet(authToken, bet.id)
+          setItems((prev) => prev.filter((item) => item.id !== bet.id))
+          setStats((prev) => removeBetFromStats(prev, bet))
+          setDetailBet((current) => (current?.id === bet.id ? null : current))
+          nextOffsetRef.current = Math.max(0, nextOffsetRef.current - 1)
+        } finally {
+          setDeletingId(null)
+        }
+      },
+    })
   }
 
   function handleSignOut() {

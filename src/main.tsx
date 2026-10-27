@@ -4,9 +4,12 @@ import './styles/global.scss'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import { ConfirmDialogProvider } from './components/ConfirmDialog'
 
 ReactDOM.createRoot(document.getElementById('app') as HTMLElement).render(
   <BrowserRouter>
-    <App />
+    <ConfirmDialogProvider>
+      <App />
+    </ConfirmDialogProvider>
   </BrowserRouter>,
 )
