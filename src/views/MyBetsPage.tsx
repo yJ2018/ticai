@@ -21,6 +21,7 @@ import {
   formatMoney,
 } from '../features/bets/format'
 import { useAuthStore } from '../store/authStore'
+import '../features/bets/lotteryBet.scss'
 
 /**
  * 我的投注。
@@ -73,7 +74,105 @@ type BetCardProps = {
   onOpen: (bet: Bet) => void
 }
 
+function pad2(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function LotteryBalls({ main, extra, matched }: { main: number[]; extra: number[]; matched?: boolean[] }) {
+  return (
+    <p className="lottery-bet__balls">
+      {main.map((value, index) => (
+        <span key={`main-${index}`} className={`lottery-bet__ball${matched?.[index] ? ' is-hit' : ''}`}>
+          {pad2(value)}
+        </span>
+      ))}
+      {extra.length > 0 && <span className="lottery-bet__plus">+</span>}
+      {extra.map((value, index) => (
+        <span key={`extra-${index}`} className="lottery-bet__ball is-back">
+          {pad2(value)}
+        </span>
+      ))}
+    </p>
+  )
+}
+
+/** 彩票注单：号码 + 开奖对比；不打开足球的详情弹层。 */
+function LotteryBetCard({ bet, deleting, onDelete }: Omit<BetCardProps, 'onOpen'>) {
+  const lottery = bet.lottery
+  if (!lottery) {
+    return null
+  }
+  const drawn = lottery.draw
+  const hitText = lottery.positional
+    ? `命中 ${lottery.hits.main}/${lottery.numbers.main.length} 位`
+    : `命中 前区 ${lottery.hits.main}/${lottery.numbers.main.length} · 后区 ${lottery.hits.extra}/${lottery.numbers.extra.length}`
+
+  return (
+    <article className={`bet-card bet-card--lottery bet-card--${bet.status}`}>
+      <header className="bet-card__head">
+        <div className="bet-card__title">
+          <h3>{bet.title}</h3>
+          <p className="bet-card__meta">
+            <span>{formatDateTime(bet.placedAt)}</span>
+            <span>{bet.multiple} 倍</span>
+            <span>{bet.units} 注</span>
+            <span>{formatMoney(bet.amount)} 元</span>
+            <span>{lottery.name}</span>
+          </p>
+          {bet.note && <p className="bet-card__note">{bet.note}</p>}
+        </div>
+        <span className={`bet-badge bet-badge--${bet.status}`}>{STATUS_LABELS[bet.status]}</span>
+      </header>
+
+      <LotteryBalls
+        main={lottery.numbers.main}
+        extra={lottery.numbers.extra}
+        matched={drawn ? lottery.matchedMain : undefined}
+      />
+
+      <div className="lottery-bet__draw">
+        {drawn ? (
+          <>
+            <span>
+              第 {drawn.issue} 期 · {drawn.drawDate} 开奖
+            </span>
+            <LotteryBalls main={drawn.main} extra={drawn.extra} />
+            <span className="lottery-bet__hits">
+              <em className={bet.status === 'won' ? 'is-won' : 'is-lost'}>
+                {bet.status === 'won' ? `中奖：${lottery.tier ?? '—'}` : '未中奖'}
+              </em>
+              <span>{hitText}</span>
+            </span>
+            <span>奖金以体彩官方公告为准</span>
+          </>
+        ) : (
+          <span>待开奖 · 开奖后按官方号码自动判定（奖金以官方公告为准）</span>
+        )}
+      </div>
+
+      <footer className="bet-card__foot">
+        <div className="bet-card__passes" />
+        <div className="bet-card__money">
+          <button
+            type="button"
+            className="bet-card__delete"
+            aria-label={`删除投注 ${bet.title}`}
+            disabled={deleting}
+            onClick={() => onDelete(bet)}
+          >
+            {deleting ? '删除中…' : '删除'}
+          </button>
+        </div>
+      </footer>
+    </article>
+  )
+}
+
 function BetCard({ bet, deleting, onDelete, onOpen }: BetCardProps) {
+  if (bet.kind === 'lottery') {
+    return <LotteryBetCard bet={bet} deleting={deleting} onDelete={onDelete} />
+  }
+
   return (
     <article
       className={`bet-card bet-card--${bet.status}`}

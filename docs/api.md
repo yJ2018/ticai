@@ -786,6 +786,27 @@ Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，�
 
 响应 `201`，body 与列表中的单条结构一致（已带实时结算）。
 
+#### 3.10.1 彩票选号（排列五 / 七星彩 / 大乐透）
+
+同一个 `POST /api/bets`，用 `kind: "lottery"` 区分（不传 `kind` 仍是足球）：
+
+```json
+{ "kind": "lottery", "game": "dlt", "numbers": { "main": [1, 6, 10, 15, 32], "extra": [3, 8] }, "multiple": 2 }
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `game` | `pl5` / `qxc` / `dlt`，也接受 gameNo `350133` / `04` / `85` |
+| `numbers.main` | 排列五 5 位 0–9（按位）；七星彩 7 位 0–9（按位）；大乐透前区 5 个 1–35 |
+| `numbers.extra` | 只有大乐透使用：后区 2 个 1–12 |
+
+- 金额固定 2 元/注：`amount = 2 × multiple`、`units = multiple`；`multiple` 1–50。
+- 号码由服务端再校验（位数、范围、大乐透排序去重），非法直接 `400`。
+- 返回的单条结构：`kind: "lottery"`，`passTypes` / `legs` 为空，另带
+  `lottery: { gameKey, gameNo, name, positional, numbers, tier, hits, matchedMain, draw }`。
+- 判定：取 `placedAt` 之后该彩种第一场开奖（`lottery_draw`）。排列五 / 七星彩按位全中记一等奖；
+  大乐透按官方九个奖级（5+2 到 0+2）判中奖与等级。浮动奖金不代算，`payout` 恒为 `0`，以官方公告为准。
+
 ### 3.11 `GET /api/bets/:id`、`DELETE /api/bets/:id`
 
 详情 / 删除（只能操作自己的单，越权返回 `404`）。
@@ -793,6 +814,8 @@ Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，�
 ### 3.12 结算规则
 
 - 赛果来自 `match_result`；缺失即 `pending`，不提前判负。
+- 彩票单：取 `placedAt` 之后第一场开奖判定（排列五 / 七星彩全中；大乐透按九个奖级），
+  浮动奖金不代算，`payout` 恒为 `0`。
 - 每注 2 元，奖金 = 命中组合的赔率连乘 × 2 × 倍数。
 - 让球胜平负按**下注时**的 `goalLine` 重算（2:1、让一球 → 1:1 → 让球平）。
 - 复式每场多选时，最多只有一个选项能中，中奖注数 = 命中组合数。

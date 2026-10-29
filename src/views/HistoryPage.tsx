@@ -7,7 +7,9 @@ import {
   getDltFrontIndicators,
 } from '../domain/dltIndicators'
 import { useAnalysisSnapshot } from '../features/analysis/useAnalysisSnapshot'
+import { LotteryBetPanel } from '../features/bets/LotteryBetPanel'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
+import { type LotteryGameKey } from '../api/betApi'
 import { DltIndicatorRail } from '../components/DltIndicatorRail'
 import { DltRecommendationPanel } from '../components/DltRecommendationPanel'
 import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
@@ -85,6 +87,7 @@ type PagerAction = PageDirection | 'refresh'
 
 export function HistoryPage() {
   const [activeGame, setActiveGame] = useState<LotteryHistoryGameType>('pl5')
+  const [pickGame, setPickGame] = useState<LotteryGameKey | null>(null)
   const meta = GAME_META[activeGame]
   const positionLabels = POSITION_LABELS.slice(0, meta.mainCount)
   const [state, setState] = useState<HistoryState>(initialState)
@@ -243,8 +246,17 @@ export function HistoryPage() {
           >
             刷新
           </button>
+          <button
+            type="button"
+            className="history-page__pick"
+            onClick={() => setPickGame(activeGame)}
+          >
+            选号投注
+          </button>
         </div>
       </div>
+
+      {pickGame && <LotteryBetPanel game={pickGame} onClose={() => setPickGame(null)} />}
 
       <div ref={contentRef} className="history-page__content" aria-busy={state.loading || predictionLoading}>
         {isInitialLoading && !state.error && <HistoryPageSkeleton game={activeGame} />}

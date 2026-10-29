@@ -5,6 +5,35 @@ import { request } from './httpClient'
 
 export type MarketPool = 'had' | 'hhad' | 'ttg' | 'crs' | 'hafu'
 
+export type LotteryGameKey = 'pl5' | 'qxc' | 'dlt'
+
+export type LotteryNumbers = { main: number[]; extra: number[] }
+
+export type CreateLotteryBetInput = {
+  kind: 'lottery'
+  game: LotteryGameKey
+  numbers: LotteryNumbers
+  multiple: number
+  note?: string
+}
+
+export type LotteryBetInfo = {
+  gameKey: string
+  gameNo: string
+  name: string
+  positional: boolean
+  numbers: LotteryNumbers
+  tier: string | null
+  hits: { main: number; extra: number }
+  matchedMain: boolean[]
+  draw: {
+    issue: string
+    drawDate: string
+    main: number[]
+    extra: number[]
+  } | null
+}
+
 export type BetLegInput = {
   sportteryMatchId: number
   matchNumStr?: string
@@ -57,6 +86,7 @@ export type BetPassTypeDetail = {
 
 export type Bet = {
   id: string
+  kind: 'football' | 'lottery'
   title: string
   passTypes: string[]
   multiple: number
@@ -70,6 +100,8 @@ export type Bet = {
   payout: number
   passTypeDetails: BetPassTypeDetail[]
   legs: BetLeg[]
+  /** kind === 'lottery' 时存在 */
+  lottery?: LotteryBetInfo
 }
 
 export type BetStats = {
@@ -105,6 +137,16 @@ export async function listBets(
 }
 
 export async function createBet(token: string, input: CreateBetInput): Promise<Bet> {
+  const response = await request<Envelope<Bet>>(apiUrl('/api/bets'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(input),
+  })
+  return response.data
+}
+
+/** 彩票选号投注：号码与倍数由服务端再校验一遍。 */
+export async function createLotteryBet(token: string, input: CreateLotteryBetInput): Promise<Bet> {
   const response = await request<Envelope<Bet>>(apiUrl('/api/bets'), {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...authHeaders(token) },

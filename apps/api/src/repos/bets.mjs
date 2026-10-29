@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../db.mjs'
 import { HttpError } from '../lib.mjs'
+import { judgeLotteryBet, LOTTERY_GAMES, normalizeLotteryNumbers, resolveLotteryGame } from '../lottery-settlement.mjs'
 import { computePlanMetrics, parsePassType, settleBet } from '../settlement.mjs'
 import { getResultsByIds } from './results.mjs'
 
@@ -135,6 +136,10 @@ export function buildBetPlan(body) {
 }
 
 export async function createBet(config, userId, body) {
+  if (String(body?.kind ?? '').toLowerCase() === 'lottery') {
+    return createLotteryBet(config, userId, body)
+  }
+
   const plan = buildBetPlan(body)
 
   const betId = await withTransaction(config, async (client) => {
@@ -175,6 +180,65 @@ export async function createBet(config, userId, body) {
   return getBet(config, userId, betId)
 }
 
+function pad2(value) {
+  return String(value).padStart(2, '0')
+}
+
+/** 彩票注单：号码 + 倍数，校验全部在服务端做（前端选号器只是输入辅助）。 */
+export function buildLotteryBet(body) {
+  const game = resolveLotteryGame(body?.game ?? body?.gameNo)
+  if (!game) {
+    throw new HttpError(400, '不支持的彩种（排列五 / 七星彩 / 大乐透）')
+  }
+
+  const numbers = normalizeLotteryNumbers(game.key, body?.numbers)
+
+  const multiple = Number(body?.multiple ?? 1)
+  if (!Number.isInteger(multiple) || multiple < 1 || multiple > 50) {
+    throw new HttpError(400, '倍数必须是 1–50 的整数')
+  }
+
+  const numberText = game.extraCount
+    ? `${numbers.main.map(pad2).join(' ')} + ${numbers.extra.map(pad2).join(' ')}`
+    : numbers.main.join(' ')
+  const title = `${game.name} ${numberText}`.slice(0, 64)
+
+  return {
+    game,
+    numbers,
+    multiple,
+    units: multiple,
+    amount: Number((2 * multiple).toFixed(2)),
+    title,
+    note: body?.note ? String(body.note).slice(0, 200) : null,
+  }
+}
+
+export async function createLotteryBet(config, userId, body) {
+  const plan = buildLotteryBet(body)
+
+  const { rows } = await query(
+    config,
+    `insert into bet (
+       user_id, kind, title, pass_types, multiple, units, amount, max_bonus, note,
+       lottery_game_no, lottery_numbers
+     ) values ($1, 'lottery', $2, '{}', $3, $4, $5, 0, $6, $7, $8::jsonb)
+     returning id`,
+    [
+      userId,
+      plan.title,
+      plan.multiple,
+      plan.units,
+      plan.amount,
+      plan.note,
+      plan.game.gameNo,
+      JSON.stringify(plan.numbers),
+    ],
+  )
+
+  return getBet(config, userId, rows[0].id)
+}
+
 async function loadLegs(config, betIds) {
   if (betIds.length === 0) {
     return []
@@ -209,13 +273,79 @@ function toLegShape(row) {
   }
 }
 
+async function loadNextDraw(config, gameNo, placedAt) {
+  const { rows } = await query(
+    config,
+    `select issue, draw_date, main_numbers, extra_numbers
+     from lottery_draw
+     where game_no = $1
+       and coalesce(draw_at, draw_date::timestamptz + interval '21 hours') > $2::timestamptz
+     order by coalesce(draw_at, draw_date::timestamptz + interval '21 hours') asc
+     limit 1`,
+    [gameNo, placedAt],
+  )
+  return rows[0] ?? null
+}
+
+function gameByNo(gameNo) {
+  return Object.values(LOTTERY_GAMES).find((game) => game.gameNo === gameNo) ?? null
+}
+
 async function hydrate(config, betRows, legsByBet) {
   // 注意：pg 把 bigint 读成字符串，Map 的 key 必须统一成 String，
   // 否则 create/get 时按 number 取不到腿，结算会误判成「未中奖」。
   const allLegs = betRows.flatMap((row) => legsByBet.get(String(row.id)) ?? [])
   const resultMap = await getResultsByIds(config, allLegs.map((leg) => leg.sporttery_match_id))
 
+  const lotteryByBet = new Map()
+  for (const row of betRows) {
+    if (row.kind !== 'lottery') {
+      continue
+    }
+    const game = gameByNo(row.lottery_game_no)
+    if (!game) {
+      continue
+    }
+    const draw = await loadNextDraw(config, row.lottery_game_no, row.placed_at)
+    const numbers = row.lottery_numbers ?? { main: [], extra: [] }
+    const judged = judgeLotteryBet(game.key, numbers, draw)
+    lotteryByBet.set(String(row.id), { game, numbers, judged })
+  }
+
   return betRows.map((row) => {
+    if (row.kind === 'lottery') {
+      const info = lotteryByBet.get(String(row.id))
+      const judged = info?.judged ?? { status: 'pending', tier: null, hits: { main: 0, extra: 0 }, matchedMain: [], draw: null }
+      return {
+        id: String(row.id),
+        kind: 'lottery',
+        title: row.title,
+        passTypes: [],
+        multiple: Number(row.multiple),
+        units: Number(row.units),
+        amount: Number(row.amount),
+        maxBonus: Number(row.max_bonus),
+        note: row.note ?? null,
+        placedAt: toIso(row.placed_at),
+        matchCount: 0,
+        status: judged.status,
+        payout: 0,
+        passTypeDetails: [],
+        legs: [],
+        lottery: {
+          gameKey: info?.game.key ?? '',
+          gameNo: row.lottery_game_no,
+          name: info?.game.name ?? '',
+          positional: info?.game.positional ?? false,
+          numbers: info?.numbers ?? { main: [], extra: [] },
+          tier: judged.tier,
+          hits: judged.hits,
+          matchedMain: judged.matchedMain,
+          draw: judged.draw,
+        },
+      }
+    }
+
     const legs = (legsByBet.get(String(row.id)) ?? []).map(toLegShape)
     const settlement = settleBet({
       bet: { passTypes: row.pass_types, multiple: row.multiple },
@@ -225,6 +355,7 @@ async function hydrate(config, betRows, legsByBet) {
 
     return {
       id: String(row.id),
+      kind: 'football',
       title: row.title,
       passTypes: row.pass_types,
       multiple: Number(row.multiple),
@@ -253,7 +384,9 @@ async function hydrate(config, betRows, legsByBet) {
 }
 
 function betWhere(pool) {
-  return pool ? 'and exists (select 1 from bet_leg l where l.bet_id = b.id and l.pool = $4)' : ''
+  return pool
+    ? `and b.kind = 'football' and exists (select 1 from bet_leg l where l.bet_id = b.id and l.pool = $4)`
+    : ''
 }
 
 export async function listBets(config, userId, { limit = 30, offset = 0, pool = '' } = {}) {
@@ -265,7 +398,8 @@ export async function listBets(config, userId, { limit = 30, offset = 0, pool = 
 
   const { rows } = await query(
     config,
-    `select b.id, b.title, b.pass_types, b.multiple, b.units, b.amount, b.max_bonus, b.note, b.placed_at
+    `select b.id, b.kind, b.title, b.pass_types, b.multiple, b.units, b.amount, b.max_bonus, b.note, b.placed_at,
+            b.lottery_game_no, b.lottery_numbers
      from bet b
      where b.user_id = $1 ${betWhere(poolFilter)}
      order by b.placed_at desc, b.id desc
@@ -294,7 +428,8 @@ export async function getBet(config, userId, betId) {
 
   const { rows } = await query(
     config,
-    `select b.id, b.title, b.pass_types, b.multiple, b.units, b.amount, b.max_bonus, b.note, b.placed_at
+    `select b.id, b.kind, b.title, b.pass_types, b.multiple, b.units, b.amount, b.max_bonus, b.note, b.placed_at,
+            b.lottery_game_no, b.lottery_numbers
      from bet b
      where b.id = $1 and b.user_id = $2
      limit 1`,
@@ -326,7 +461,8 @@ export async function deleteBet(config, userId, betId) {
 export async function getBetStats(config, userId) {
   const { rows } = await query(
     config,
-    `select b.id, b.pass_types, b.multiple, b.amount, b.placed_at
+    `select b.id, b.kind, b.pass_types, b.multiple, b.amount, b.placed_at,
+            b.lottery_game_no, b.lottery_numbers
      from bet b where b.user_id = $1 order by b.placed_at desc limit 200`,
     [userId],
   )

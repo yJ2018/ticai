@@ -1,0 +1,369 @@
+/* 开奖历史页的「选号投注」入口 */
+.history-page__summary .history-page__pick {
+  border: 0;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0.2rem 0.6rem rgba(37, 99, 235, 0.24);
+}
+
+/* 彩票选号投注：弹层 + 我的投注里的彩票注单 */
+
+.lottery-pick {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.lottery-pick__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  width: min(42rem, 95vw);
+  max-height: 88vh;
+  padding: 1rem 1.2rem 1.1rem;
+  overflow-y: auto;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, 0.3);
+}
+
+.lottery-pick__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid #e8edf5;
+
+  h2 {
+    margin: 0.15rem 0 0;
+    color: #0f172a;
+    font-size: 1.02rem;
+    font-weight: 700;
+  }
+}
+
+.lottery-pick__eyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.lottery-pick__close {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+}
+
+.lottery-pick__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lottery-pick__row {
+  display: grid;
+  grid-template-columns: 4.2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.lottery-pick__pos {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.lottery-pick__digits {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+.lottery-pick__digit {
+  aspect-ratio: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+  }
+
+  &.is-active {
+    border-color: transparent;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+.lottery-pick__section {
+  h3 {
+    margin: 0 0 0.4rem;
+    color: #334155;
+    font-size: 0.8rem;
+  }
+}
+
+.lottery-pick__grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.lottery-pick__ball {
+  padding: 0.35rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+  }
+
+  &.is-active {
+    border-color: transparent;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+.lottery-pick__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #e8edf5;
+  border-radius: 0.6rem;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+
+  > span:first-child {
+    flex: 1 1 12rem;
+    min-width: 0;
+  }
+}
+
+.lottery-pick__multiple {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #64748b;
+  font-size: 0.76rem;
+
+  input {
+    width: 3.6rem;
+    padding: 0.2rem 0.35rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 0.35rem;
+    font: inherit;
+    font-size: 0.78rem;
+  }
+}
+
+.lottery-pick__amount {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.lottery-pick__error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.76rem;
+}
+
+.lottery-pick__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.2rem;
+
+  button {
+    padding: 0.42rem 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.55rem;
+    background: #fff;
+    color: #334155;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+
+    &:hover {
+      background: #f8fafc;
+    }
+
+    &.is-primary {
+      border-color: transparent;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0.2rem 0.6rem rgba(37, 99, 235, 0.26);
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+    }
+  }
+}
+
+.lottery-pick__success {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.lottery-pick__success-title {
+  margin: 0;
+  color: #047857;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.lottery-pick__success-meta {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.lottery-pick__numbers,
+.lottery-bet__numbers {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* 我的投注：彩票注单 */
+.lottery-bet__draw {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #eef2f7;
+  border-radius: 0.55rem;
+  background: #fbfdff;
+  color: #475569;
+  font-size: 0.76rem;
+
+  strong {
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.lottery-bet__hits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+
+  .is-won {
+    color: #047857;
+    font-weight: 700;
+  }
+
+  .is-lost {
+    color: #b45309;
+  }
+}
+
+.lottery-bet__balls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+  margin-top: 0.3rem;
+}
+
+.lottery-bet__ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+
+  &.is-back {
+    background: #fdf2f8;
+    color: #be185d;
+  }
+
+  &.is-hit {
+    background: #dcfce7;
+    color: #15803d;
+  }
+}
+
+.lottery-bet__plus {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 47.99rem) {
+  .lottery-pick {
+    align-items: flex-end;
+    padding: 0.8rem 0.6rem calc(0.8rem + env(safe-area-inset-bottom));
+  }
+
+  .lottery-pick__card {
+    width: 100%;
+    max-height: 90dvh;
+    border-radius: 1rem 1rem 0.6rem 0.6rem;
+  }
+
+  .lottery-pick__row {
+    grid-template-columns: 3.4rem minmax(0, 1fr);
+  }
+
+  .lottery-pick__digits {
+    gap: 0.22rem;
+  }
+
+  .lottery-pick__grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
