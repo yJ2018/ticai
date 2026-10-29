@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { type RecommendPlan } from '../../api/recommendApi'
-import { candidateToLeg, planToLegs, type ParlayLeg } from './recommendation'
+import { type RecommendCandidate, type RecommendPlan } from '../../api/recommendApi'
+import { candidateToLeg, type ParlayLeg } from './recommendation'
 import { type AutoParlayScope, type AutoParlayState } from './useAutoParlay'
 import './autoParlay.scss'
 
@@ -31,26 +31,66 @@ function signedPercent(value: number) {
 }
 
 const CONFIDENCE_LABEL = { high: '高', medium: '中', low: '低' } as const
+/** 与服务端风控同一上限：单张投注单最多 3 场 */
+const MAX_PLAN_LEGS = 3
 
-function PlanCard({ plan, onApply }: { plan: RecommendPlan; onApply: (legs: ParlayLeg[]) => void }) {
+type PlanCardProps = {
+  plan: RecommendPlan
+  candidates: RecommendCandidate[]
+  extras: RecommendCandidate[]
+  pickerOpen: boolean
+  onTogglePicker: () => void
+  onToggleCandidate: (candidate: RecommendCandidate) => void
+  onApply: (legs: ParlayLeg[]) => void
+}
+
+function PlanCard({
+  plan,
+  candidates,
+  extras,
+  pickerOpen,
+  onTogglePicker,
+  onToggleCandidate,
+  onApply,
+}: PlanCardProps) {
+  const planMatchIds = new Set(plan.legs.map((leg) => leg.matchId))
+  const extraIds = new Set(extras.map((candidate) => candidate.matchId))
+  const available = candidates.filter((candidate) => !planMatchIds.has(candidate.matchId) && !extraIds.has(candidate.matchId))
+  const mergedLegs = [...plan.legs, ...extras]
+  const mergedOdd = mergedLegs.reduce((product, leg) => product * leg.odd, 1)
+  const mergedHit = mergedLegs.reduce((product, leg) => product * leg.blendP, 1)
+  const remaining = MAX_PLAN_LEGS - mergedLegs.length
+  const mergedLabel = mergedLegs.length === 1 ? '单关' : `${mergedLegs.length}串1`
+  const overRisk = mergedLegs.length >= 2 && (mergedOdd > 8 || mergedHit < 0.15)
+  const mergedParlayLegs: ParlayLeg[] = [
+    ...plan.legs.map((leg) => ({
+      matchId: leg.matchId,
+      matchNo: leg.matchNo,
+      teams: leg.teams,
+      pick: { key: leg.optionKey, label: leg.optionLabel, odd: leg.odd },
+    })),
+    ...extras.map(candidateToLeg),
+  ]
+
   return (
     <article className={`auto-parlay__plan is-${plan.id}`}>
       <header className="auto-parlay__plan-head">
         <div className="auto-parlay__plan-title">
           <strong>{plan.label}</strong>
           <span className={`auto-parlay__risk is-${plan.risk}`}>风险 {plan.risk}</span>
+          {extras.length > 0 && <span className="auto-parlay__plan-merged">已补至 {mergedLabel}</span>}
         </div>
         <div className="auto-parlay__plan-stats">
           <span>
-            总赔率 <b>{plan.totalOdd.toFixed(2)}</b>
+            总赔率 <b>{mergedOdd.toFixed(2)}</b>
           </span>
           <span>
-            融合命中率 <b>{percent(plan.hitProb)}</b>
+            融合命中率 <b>{percent(mergedHit)}</b>
           </span>
           <span>
             期望回报{' '}
-            <b className={plan.expectedReturn >= 1 ? 'is-good' : 'is-bad'}>
-              {plan.expectedReturn.toFixed(2)}×
+            <b className={mergedHit * mergedOdd >= 1 ? 'is-good' : 'is-bad'}>
+              {(mergedHit * mergedOdd).toFixed(2)}×
             </b>
           </span>
         </div>
@@ -85,15 +125,84 @@ function PlanCard({ plan, onApply }: { plan: RecommendPlan; onApply: (legs: Parl
             </ul>
           </li>
         ))}
+
+        {extras.map((candidate) => (
+          <li key={candidate.matchId} className="is-extra">
+            <div className="auto-parlay__leg-head">
+              <strong>{candidate.matchNo}</strong>
+              <span>{candidate.teams}</span>
+              <em className="auto-parlay__role is-manual">手动加入</em>
+              <button
+                type="button"
+                className="auto-parlay__extra-remove"
+                onClick={() => onToggleCandidate(candidate)}
+                title="从串关里移除"
+              >
+                移除
+              </button>
+            </div>
+            <div className="auto-parlay__leg-meta">
+              <b>{candidate.optionLabel}</b>
+              <span>@ {candidate.odd.toFixed(2)}</span>
+              <span>融合 {percent(candidate.blendP)}</span>
+              {candidate.rejectReason && <span className="is-off">{candidate.rejectReason}</span>}
+            </div>
+          </li>
+        ))}
       </ol>
 
       <p className="auto-parlay__note">{plan.note}</p>
 
+      {pickerOpen && (
+        <div className="auto-parlay__extras">
+          <p className="auto-parlay__extras-head">
+            从候选里加串 · 还剩 {remaining} 席（最多 {MAX_PLAN_LEGS} 场）
+          </p>
+          {available.length === 0 ? (
+            <p className="auto-parlay__extras-empty">没有可加入的候选了</p>
+          ) : (
+            <ul className="auto-parlay__extras-list">
+              {available.map((candidate) => (
+                <li key={candidate.matchId}>
+                  <span className="auto-parlay__extras-match">
+                    <strong>{candidate.matchNo}</strong> {candidate.teams}
+                  </span>
+                  <span className="auto-parlay__extras-pick">
+                    {candidate.optionLabel} @{candidate.odd.toFixed(2)} · 融合 {percent(candidate.blendP)}
+                  </span>
+                  {candidate.rejectReason && <em className="is-off">{candidate.rejectReason}</em>}
+                  <button type="button" disabled={remaining <= 0} onClick={() => onToggleCandidate(candidate)}>
+                    加入
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {extras.length > 0 && (
+        <p className={`auto-parlay__extras-preview${overRisk ? ' is-over' : ''}`}>
+          手动组成 {mergedLabel} · 总赔率 {mergedOdd.toFixed(2)} · 参考命中率 {percent(mergedHit)}
+          {overRisk ? ' · 超出自动风控（总赔率 ≤8 且命中率 ≥15%），仅作手动参考' : ''}
+        </p>
+      )}
+
       <footer className="auto-parlay__plan-foot">
-        <span>{plan.legs.length === 1 ? '单关' : `${plan.legs.length}串1`}</span>
-        <button type="button" className="is-primary" onClick={() => onApply(planToLegs(plan))}>
-          应用到投注单
-        </button>
+        <span>
+          {mergedLabel}
+          {extras.length > 0 ? `（手动 ${extras.length} 场）` : ''}
+        </span>
+        <div className="auto-parlay__plan-actions">
+          {remaining > 0 && (
+            <button type="button" className="is-ghost" onClick={onTogglePicker} aria-expanded={pickerOpen}>
+              {pickerOpen ? '收起候选' : `加入候选（剩 ${remaining} 席）`}
+            </button>
+          )}
+          <button type="button" className="is-primary" onClick={() => onApply(mergedParlayLegs)}>
+            应用{mergedLegs.length === 1 ? '单关' : `${mergedLegs.length}串1`}
+          </button>
+        </div>
       </footer>
     </article>
   )
@@ -106,6 +215,27 @@ function PlanCard({ plan, onApply }: { plan: RecommendPlan; onApply: (legs: Parl
 export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeChange }: AutoParlayPanelProps) {
   const open = state.poolType !== null
   const [progress, setProgress] = useState(0)
+  const [pickerPlan, setPickerPlan] = useState<string | null>(null)
+  const [extrasByPlan, setExtrasByPlan] = useState<Record<string, RecommendCandidate[]>>({})
+
+  // 重新计算 / 换范围后，服务端方案变了，手动追加的腿要清空，避免串到旧方案上
+  useEffect(() => {
+    setPickerPlan(null)
+    setExtrasByPlan({})
+  }, [state.data, state.running])
+
+  function toggleCandidate(planId: string, candidate: RecommendCandidate) {
+    setExtrasByPlan((previous) => {
+      const list = previous[planId] ?? []
+      const exists = list.some((item) => item.matchId === candidate.matchId)
+      return {
+        ...previous,
+        [planId]: exists
+          ? list.filter((item) => item.matchId !== candidate.matchId)
+          : [...list, candidate],
+      }
+    })
+  }
 
   useEffect(() => {
     if (!open) {
@@ -247,7 +377,16 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
           )}
 
           {data?.plans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} onApply={onApply} />
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              candidates={data.candidates}
+              extras={extrasByPlan[plan.id] ?? []}
+              pickerOpen={pickerPlan === plan.id}
+              onTogglePicker={() => setPickerPlan((current) => (current === plan.id ? null : plan.id))}
+              onToggleCandidate={(candidate) => toggleCandidate(plan.id, candidate)}
+              onApply={onApply}
+            />
           ))}
 
           {data && !state.running && data.notes.length > 0 && (
@@ -273,17 +412,7 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
                     {candidate.passSafe || candidate.passAggressive ? (
                       <em className="is-on">已入方案</em>
                     ) : (
-                      <>
-                        <em className="is-off">{candidate.rejectReason || '未达门槛'}</em>
-                        <button
-                          type="button"
-                          className="auto-parlay__cand-add"
-                          title="未达自动推荐门槛，仍可手动加入投注单（按单场自行判断）"
-                          onClick={() => onApply([candidateToLeg(candidate)])}
-                        >
-                          手动加入
-                        </button>
-                      </>
+                      <em className="is-off">{candidate.rejectReason || '未达门槛'}</em>
                     )}
                   </li>
                 ))}
@@ -295,7 +424,7 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
             !state.running &&
             data.candidates.some((candidate) => !candidate.passSafe && !candidate.passAggressive) && (
               <p className="auto-parlay__cand-hint">
-                未达门槛的场次不会进入方案，但可以点「手动加入」按单场加到投注单——这部分不享受风控建议，请自行判断。
+                未达门槛的场次不会自动进方案；想串上它们，在上方方案卡里点「加入候选」手动补满 2/3 场，再应用投注。
               </p>
             )}
 
