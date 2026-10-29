@@ -26,7 +26,7 @@ export type RecommendLeg = {
   odd: number
   /** 去水后的市场概率 */
   marketP: number
-  /** 模型概率（市场 λ + 近况/伤停修正） */
+  /** 模型概率（市场 λ + 近况/伤停/进球数据修正） */
   modelP: number
   /** 融合概率 = w·模型 + (1-w)·市场 */
   blendP: number
@@ -35,6 +35,17 @@ export type RecommendLeg = {
   /** 模型权重（0.02–0.42，样本越多越大） */
   weight: number
   confidence: 'high' | 'medium' | 'low'
+  /** 进球数据修正（总进球推荐据此选选项，不直接取最低赔率） */
+  goalExpectation?: {
+    expectedTotal: number
+    marketTotal: number
+    homeAttack: number | null
+    homeDefense: number | null
+    awayAttack: number | null
+    awayDefense: number | null
+    homeMatches: number
+    awayMatches: number
+  }
   reasons: string[]
   sample: {
     homeMatches: number
@@ -74,6 +85,18 @@ export type RecommendCandidate = {
   passSafe: boolean
   passAggressive: boolean
   rejectReason: string
+  goalExpectation?: {
+    expectedTotal: number
+    marketTotal: number
+    homeAttack: number | null
+    homeDefense: number | null
+    awayAttack: number | null
+    awayDefense: number | null
+    homeMatches: number
+    awayMatches: number
+    leagueAverage: number | null
+    leagueMatches: number
+  }
   reasons: string[]
 }
 

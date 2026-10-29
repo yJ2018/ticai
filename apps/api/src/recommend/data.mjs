@@ -99,7 +99,7 @@ export async function loadInjuries(config, matchIds) {
 export async function loadFinishedMatches(config) {
   const { rows } = await query(
     config,
-    `select id, sporttery_match_id, kickoff_at, home_team_id, away_team_id, home_score, away_score
+    `select id, sporttery_match_id, kickoff_at, home_team_id, away_team_id, home_score, away_score, league_name
      from match
      where status = 'finished' and home_score is not null and away_score is not null
      order by kickoff_at desc
@@ -114,6 +114,7 @@ export async function loadFinishedMatches(config) {
     awayTeamId: row.away_team_id === null ? null : Number(row.away_team_id),
     homeScore: Number(row.home_score),
     awayScore: Number(row.away_score),
+    league: row.league_name ?? '',
   }))
 }
 

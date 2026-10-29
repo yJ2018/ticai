@@ -108,6 +108,7 @@
 .auto-parlay__progress {
   height: 3px;
   margin-top: 0.45rem;
+  overflow: hidden;
   background: #eef2f7;
 
   span {
@@ -115,7 +116,23 @@
     height: 100%;
     border-radius: 0 3px 3px 0;
     background: linear-gradient(90deg, #60a5fa, #2563eb);
-    transition: width 0.25s ease;
+    transition: width 0.62s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  &.is-running span {
+    background-image: linear-gradient(90deg, #60a5fa, #2563eb, #60a5fa);
+    background-size: 200% 100%;
+    animation: auto-parlay-progress-flow 1.15s linear infinite;
+  }
+}
+
+@keyframes auto-parlay-progress-flow {
+  from {
+    background-position: 0% 0;
+  }
+
+  to {
+    background-position: -200% 0;
   }
 }
 
@@ -460,8 +477,12 @@
 
 .auto-parlay__actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1.25rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid #e8edf5;
+  background: #fbfdff;
 
   button {
     padding: 0.45rem 0.9rem;
@@ -491,6 +512,123 @@
   }
 }
 
+.auto-parlay__actions-hint {
+  min-width: 0;
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 加载骨架 ─────────────────────────────────────────────────────────────── */
+
+@mixin auto-parlay-shimmer {
+  border-radius: 0.35rem;
+  background: linear-gradient(90deg, #eef2f7 25%, #f8fafc 45%, #eef2f7 65%);
+  background-size: 240% 100%;
+  animation: auto-parlay-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes auto-parlay-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+.auto-parlay__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.auto-parlay__sk-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #eef2f7;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.auto-parlay__sk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  span {
+    height: 0.8rem;
+    @include auto-parlay-shimmer;
+  }
+
+  span:first-child {
+    width: 6.5rem;
+  }
+
+  span:last-child {
+    width: 4rem;
+  }
+}
+
+.auto-parlay__sk-stats {
+  display: flex;
+  gap: 0.5rem;
+
+  span {
+    width: 4.2rem;
+    height: 0.62rem;
+    @include auto-parlay-shimmer;
+  }
+}
+
+.auto-parlay__sk-leg {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #f4f7fb;
+  border-radius: 0.6rem;
+  background: #fbfdff;
+
+  i {
+    flex: 0 0 auto;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    @include auto-parlay-shimmer;
+  }
+
+  span {
+    flex: 1 1 auto;
+    height: 0.75rem;
+    @include auto-parlay-shimmer;
+  }
+
+  b {
+    flex: 0 0 auto;
+    width: 2.8rem;
+    height: 0.75rem;
+    @include auto-parlay-shimmer;
+  }
+}
+
+.auto-parlay__sk-foot {
+  display: flex;
+  justify-content: flex-end;
+
+  span {
+    width: 5.2rem;
+    height: 0.65rem;
+    @include auto-parlay-shimmer;
+  }
+}
+
 /* ── 服务端推荐：方案卡 + 数据理由 + 回测 ─────────────────────────────────── */
 
 .auto-parlay__plan {
@@ -501,6 +639,7 @@
   border: 1px solid #e8edf5;
   border-radius: 0.75rem;
   background: #fff;
+  box-shadow: 0 0.4rem 1rem rgba(15, 23, 42, 0.05);
 
   &.is-single {
     border-color: #bfdbfe;
@@ -589,6 +728,15 @@
 
 .auto-parlay__leg-conf {
   color: #94a3b8;
+}
+
+.auto-parlay__leg-goal {
+  color: #0f766e;
+
+  em {
+    color: #94a3b8;
+    font-style: normal;
+  }
 }
 
 .auto-parlay__plan-foot {
@@ -680,6 +828,30 @@
 
 .auto-parlay__cand-pick {
   color: #334155;
+}
+
+.auto-parlay__cand-hint {
+  margin: 0.1rem 0 0;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.auto-parlay__cand-add {
+  margin-left: auto;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: #dbeafe;
+  }
 }
 
 .auto-parlay__backtest {
@@ -789,6 +961,14 @@
   .auto-parlay__backtest-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .auto-parlay__actions-hint {
+    display: none;
+  }
+
+  .auto-parlay__result {
+    padding-bottom: 0.9rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -798,5 +978,15 @@
 
   .auto-parlay__progress span {
     transition: none;
+  }
+
+  .auto-parlay__progress.is-running span,
+  .auto-parlay__sk-head span,
+  .auto-parlay__sk-stats span,
+  .auto-parlay__sk-leg i,
+  .auto-parlay__sk-leg span,
+  .auto-parlay__sk-leg b,
+  .auto-parlay__sk-foot span {
+    animation: none;
   }
 }

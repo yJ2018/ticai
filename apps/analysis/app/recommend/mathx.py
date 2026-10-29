@@ -200,8 +200,14 @@ def _fit_error(
     ttg_target: dict[str, float] | None,
     goal_line: float,
 ) -> float:
-    fast = _had_ttg_from_pmfs(lambda_home, lambda_away, goal_line)
-    if fast is None:
+    """与 Node 版完全同一套误差：CDF + 卷积快路径（不构造矩阵）。
+
+    `goal_line` 不参与：拟合目标只有胜平负与总进球，让球概率不影响 λ。
+    早期 Python 用快路径、Node 用矩阵，截断与归一化顺序不同，会让 λ 落在相邻格点
+    （实测 0.98 vs 0.97、总进球期望差 0.01）；现在两边都走同一套快路径。
+    """
+    fast = _had_ttg_from_pmfs(lambda_home, lambda_away, 0)
+    if fast is None:  # pragma: no cover - 0 恒为整数，理论到不了
         probs = pool_probabilities(score_matrix(lambda_home, lambda_away, rho=0), goal_line)
         had, ttg = probs["had"], probs["ttg"]
     else:

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T06:44:31.961Z",
+  "generatedAt": "2026-10-29T10:19:37.410Z",
   "note": "Node 引擎导出的对拍夹具；Python 版应当给出同样的方案与概率（容差 5e-3）。",
   "now": "2026-10-29T06:17:07.522Z",
   "slate": [
@@ -15,38 +15,38 @@
       "awayTeamId": 299,
       "odds": {
         "had": {
-          "a": "1.48",
-          "d": "3.85",
-          "h": "4.90",
-          "af": "0",
-          "df": "0",
-          "hf": "0",
+          "a": "1.43",
+          "d": "4.27",
+          "h": "4.85",
+          "af": "-1",
+          "df": "1",
+          "hf": "1",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "12:58:29",
+          "updateTime": "17:52:06",
           "goalLineValue": ""
         },
         "hhad": {
-          "a": "2.59",
-          "d": "3.40",
-          "h": "2.18",
-          "af": "0",
-          "df": "0",
-          "hf": "0",
+          "a": "2.45",
+          "d": "3.25",
+          "h": "2.36",
+          "af": "-1",
+          "df": "-1",
+          "hf": "1",
           "goalLine": "+1",
           "updateDate": "2026-10-29",
-          "updateTime": "12:58:36",
+          "updateTime": "17:52:15",
           "goalLineValue": "+1.00"
         },
         "ttg": {
           "s0": "16.00",
-          "s1": "5.50",
-          "s2": "3.55",
+          "s1": "5.75",
+          "s2": "3.65",
           "s3": "3.40",
           "s4": "4.90",
           "s5": "8.80",
-          "s6": "14.50",
-          "s7": "21.00",
+          "s6": "13.00",
+          "s7": "18.00",
           "s0f": "0",
           "s1f": "0",
           "s2f": "0",
@@ -57,11 +57,11 @@
           "s7f": "0",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "12:37:00",
+          "updateTime": "16:29:49",
           "goalLineValue": ""
         }
       },
-      "oddsCapturedAt": "2026-10-29T06:30:09.588Z"
+      "oddsCapturedAt": "2026-10-29T09:58:48.938Z"
     },
     {
       "matchId": 2042318,
@@ -76,37 +76,37 @@
       "odds": {
         "had": {
           "a": "2.85",
-          "d": "3.20",
-          "h": "2.10",
+          "d": "3.10",
+          "h": "2.15",
           "af": "0",
-          "df": "-1",
-          "hf": "1",
+          "df": "0",
+          "hf": "0",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "13:36:38",
+          "updateTime": "16:25:47",
           "goalLineValue": ""
         },
         "hhad": {
-          "a": "1.53",
+          "a": "1.51",
           "d": "3.85",
-          "h": "4.42",
-          "af": "-1",
+          "h": "4.60",
+          "af": "0",
           "df": "0",
-          "hf": "1",
+          "hf": "0",
           "goalLine": "-1",
           "updateDate": "2026-10-29",
-          "updateTime": "13:36:44",
+          "updateTime": "16:25:54",
           "goalLineValue": "-1.00"
         },
         "ttg": {
           "s0": "14.00",
-          "s1": "5.30",
+          "s1": "5.40",
           "s2": "3.65",
-          "s3": "3.45",
+          "s3": "3.25",
           "s4": "5.00",
-          "s5": "8.50",
-          "s6": "15.00",
-          "s7": "22.00",
+          "s5": "8.75",
+          "s6": "17.00",
+          "s7": "23.00",
           "s0f": "0",
           "s1f": "0",
           "s2f": "0",
@@ -117,11 +117,11 @@
           "s7f": "0",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "10:00:17",
+          "updateTime": "16:23:49",
           "goalLineValue": ""
         }
       },
-      "oddsCapturedAt": "2026-10-29T05:58:50.103Z"
+      "oddsCapturedAt": "2026-10-29T09:29:57.591Z"
     },
     {
       "matchId": 2042319,
@@ -135,35 +135,35 @@
       "awayTeamId": 2734,
       "odds": {
         "had": {
-          "a": "4.32",
-          "d": "4.40",
-          "h": "1.47",
-          "af": "0",
-          "df": "0",
-          "hf": "0",
+          "a": "4.40",
+          "d": "4.50",
+          "h": "1.45",
+          "af": "1",
+          "df": "1",
+          "hf": "-1",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "12:55:47",
+          "updateTime": "17:09:53",
           "goalLineValue": ""
         },
         "hhad": {
-          "a": "2.22",
+          "a": "2.26",
           "d": "3.60",
-          "h": "2.43",
-          "af": "0",
+          "h": "2.39",
+          "af": "1",
           "df": "0",
-          "hf": "0",
+          "hf": "-1",
           "goalLine": "-1",
           "updateDate": "2026-10-29",
-          "updateTime": "12:55:56",
+          "updateTime": "17:09:43",
           "goalLineValue": "-1.00"
         },
         "ttg": {
-          "s0": "24.00",
-          "s1": "8.00",
+          "s0": "28.00",
+          "s1": "8.50",
           "s2": "4.80",
-          "s3": "3.45",
-          "s4": "4.10",
+          "s3": "3.35",
+          "s4": "4.00",
           "s5": "6.20",
           "s6": "10.00",
           "s7": "12.00",
@@ -177,11 +177,11 @@
           "s7f": "0",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "12:07:36",
+          "updateTime": "15:12:37",
           "goalLineValue": ""
         }
       },
-      "oddsCapturedAt": "2026-10-29T06:30:09.588Z"
+      "oddsCapturedAt": "2026-10-29T09:29:57.591Z"
     },
     {
       "matchId": 2042320,
@@ -195,36 +195,36 @@
       "awayTeamId": 5327,
       "odds": {
         "had": {
-          "a": "5.48",
-          "d": "4.40",
-          "h": "1.37",
-          "af": "0",
-          "df": "0",
-          "hf": "0",
+          "a": "5.70",
+          "d": "4.50",
+          "h": "1.35",
+          "af": "1",
+          "df": "1",
+          "hf": "-1",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "13:01:23",
+          "updateTime": "17:13:53",
           "goalLineValue": ""
         },
         "hhad": {
-          "a": "2.56",
-          "d": "3.55",
-          "h": "2.14",
-          "af": "0",
-          "df": "0",
-          "hf": "0",
+          "a": "2.63",
+          "d": "3.40",
+          "h": "2.15",
+          "af": "1",
+          "df": "-1",
+          "hf": "-1",
           "goalLine": "-1",
           "updateDate": "2026-10-29",
-          "updateTime": "13:01:30",
+          "updateTime": "17:14:06",
           "goalLineValue": "-1.00"
         },
         "ttg": {
           "s0": "22.00",
           "s1": "7.30",
-          "s2": "4.40",
-          "s3": "3.35",
+          "s2": "4.55",
+          "s3": "3.25",
           "s4": "4.00",
-          "s5": "6.70",
+          "s5": "6.75",
           "s6": "12.00",
           "s7": "16.00",
           "s0f": "0",
@@ -237,11 +237,11 @@
           "s7f": "0",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "13:12:49",
+          "updateTime": "16:25:43",
           "goalLineValue": ""
         }
       },
-      "oddsCapturedAt": "2026-10-29T06:30:09.588Z"
+      "oddsCapturedAt": "2026-10-29T09:58:48.938Z"
     },
     {
       "matchId": 2042322,
@@ -267,41 +267,41 @@
           "goalLineValue": ""
         },
         "hhad": {
-          "a": "1.52",
+          "a": "1.51",
           "d": "3.95",
-          "h": "4.40",
-          "af": "0",
+          "h": "4.46",
+          "af": "-1",
           "df": "0",
-          "hf": "0",
+          "hf": "1",
           "goalLine": "-1",
           "updateDate": "2026-10-29",
-          "updateTime": "10:00:10",
+          "updateTime": "17:17:16",
           "goalLineValue": "-1.00"
         },
         "ttg": {
           "s0": "16.00",
-          "s1": "6.30",
-          "s2": "3.90",
-          "s3": "3.35",
-          "s4": "4.70",
+          "s1": "6.50",
+          "s2": "4.10",
+          "s3": "3.25",
+          "s4": "4.50",
           "s5": "7.50",
-          "s6": "13.00",
+          "s6": "13.50",
           "s7": "18.00",
           "s0f": "0",
-          "s1f": "1",
+          "s1f": "0",
           "s2f": "0",
-          "s3f": "-1",
+          "s3f": "0",
           "s4f": "0",
           "s5f": "0",
           "s6f": "0",
           "s7f": "0",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "14:26:24",
+          "updateTime": "15:19:58",
           "goalLineValue": ""
         }
       },
-      "oddsCapturedAt": "2026-10-29T06:30:09.588Z"
+      "oddsCapturedAt": "2026-10-29T09:29:57.591Z"
     },
     {
       "matchId": 2042321,
@@ -340,13 +340,13 @@
         },
         "ttg": {
           "s0": "14.00",
-          "s1": "5.60",
-          "s2": "3.60",
-          "s3": "3.40",
-          "s4": "4.80",
+          "s1": "6.00",
+          "s2": "3.75",
+          "s3": "3.20",
+          "s4": "4.50",
           "s5": "8.50",
-          "s6": "16.00",
-          "s7": "23.00",
+          "s6": "17.50",
+          "s7": "25.00",
           "s0f": "0",
           "s1f": "0",
           "s2f": "0",
@@ -357,11 +357,11 @@
           "s7f": "0",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "10:00:17",
+          "updateTime": "16:00:56",
           "goalLineValue": ""
         }
       },
-      "oddsCapturedAt": "2026-10-29T06:30:09.588Z"
+      "oddsCapturedAt": "2026-10-29T09:29:57.591Z"
     },
     {
       "matchId": 2042323,
@@ -375,53 +375,53 @@
       "awayTeamId": 5333,
       "odds": {
         "had": {
-          "a": "2.46",
-          "d": "3.00",
-          "h": "2.50",
-          "af": "0",
-          "df": "0",
-          "hf": "0",
+          "a": "2.50",
+          "d": "2.92",
+          "h": "2.52",
+          "af": "1",
+          "df": "-1",
+          "hf": "1",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "12:37:09",
+          "updateTime": "16:59:04",
           "goalLineValue": ""
         },
         "hhad": {
-          "a": "5.40",
+          "a": "5.85",
           "d": "4.20",
-          "h": "1.40",
-          "af": "0",
+          "h": "1.37",
+          "af": "1",
           "df": "0",
-          "hf": "0",
+          "hf": "-1",
           "goalLine": "+1",
           "updateDate": "2026-10-29",
-          "updateTime": "10:00:10",
+          "updateTime": "16:59:11",
           "goalLineValue": "+1.00"
         },
         "ttg": {
           "s0": "12.00",
           "s1": "5.10",
-          "s2": "3.30",
-          "s3": "3.25",
-          "s4": "5.50",
-          "s5": "10.00",
-          "s6": "20.00",
-          "s7": "31.00",
+          "s2": "3.20",
+          "s3": "3.20",
+          "s4": "5.60",
+          "s5": "10.50",
+          "s6": "22.00",
+          "s7": "33.00",
           "s0f": "0",
           "s1f": "0",
-          "s2f": "-1",
-          "s3f": "-1",
-          "s4f": "1",
-          "s5f": "1",
-          "s6f": "1",
-          "s7f": "1",
+          "s2f": "0",
+          "s3f": "0",
+          "s4f": "0",
+          "s5f": "0",
+          "s6f": "0",
+          "s7f": "0",
           "goalLine": "",
           "updateDate": "2026-10-29",
-          "updateTime": "14:21:50",
+          "updateTime": "16:33:01",
           "goalLineValue": ""
         }
       },
-      "oddsCapturedAt": "2026-10-29T06:30:09.588Z"
+      "oddsCapturedAt": "2026-10-29T09:58:48.938Z"
     },
     {
       "matchId": 2042355,
@@ -1154,7 +1154,7 @@
         "count": 0,
         "names": []
       },
-      "fetchedAt": "2026-10-29T04:33:52.305Z"
+      "fetchedAt": "2026-10-29T07:29:43.724Z"
     },
     "2042319": {
       "home": {
@@ -1172,7 +1172,7 @@
           "S. Pierotti"
         ]
       },
-      "fetchedAt": "2026-10-29T04:33:58.676Z"
+      "fetchedAt": "2026-10-29T07:29:53.862Z"
     },
     "2042320": {
       "home": {
@@ -1185,7 +1185,7 @@
         "count": 0,
         "names": []
       },
-      "fetchedAt": "2026-10-29T04:34:13.768Z"
+      "fetchedAt": "2026-10-29T07:30:05.568Z"
     },
     "2042321": {
       "home": {
@@ -1201,7 +1201,7 @@
           "班巴"
         ]
       },
-      "fetchedAt": "2026-10-29T04:34:20.603Z"
+      "fetchedAt": "2026-10-29T07:32:05.959Z"
     },
     "2042322": {
       "home": {
@@ -1221,7 +1221,7 @@
           "贝拉诺瓦"
         ]
       },
-      "fetchedAt": "2026-10-29T04:34:31.038Z"
+      "fetchedAt": "2026-10-29T07:31:44.635Z"
     },
     "2042323": {
       "home": {
@@ -1235,7 +1235,7 @@
           "雅德松"
         ]
       },
-      "fetchedAt": "2026-10-29T04:35:19.258Z"
+      "fetchedAt": "2026-10-29T07:33:26.152Z"
     },
     "2042324": {
       "home": {
@@ -1248,7 +1248,136 @@
           "K. Ogawa"
         ]
       },
-      "fetchedAt": "2026-10-29T04:30:15.152Z"
+      "fetchedAt": "2026-10-29T07:29:23.585Z"
+    },
+    "2042355": {
+      "home": {
+        "count": 1,
+        "names": [
+          "D. Valkanis"
+        ]
+      },
+      "away": {
+        "count": 1,
+        "names": [
+          "阿伦·卡尔弗"
+        ]
+      },
+      "fetchedAt": "2026-10-29T07:33:52.464Z"
+    },
+    "2042356": {
+      "home": {
+        "count": 0,
+        "names": []
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:33:59.247Z"
+    },
+    "2042357": {
+      "home": {
+        "count": 0,
+        "names": []
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:34:15.839Z"
+    },
+    "2042358": {
+      "home": {
+        "count": 0,
+        "names": []
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:34:05.383Z"
+    },
+    "2042359": {
+      "home": {
+        "count": 0,
+        "names": []
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:34:10.420Z"
+    },
+    "2042360": {
+      "home": {
+        "count": 0,
+        "names": []
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:34:20.917Z"
+    },
+    "2042361": {
+      "home": {
+        "count": 0,
+        "names": []
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:35:18.377Z"
+    },
+    "2042362": {
+      "home": {
+        "count": 0,
+        "names": []
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:35:29.763Z"
+    },
+    "2042363": {
+      "home": {
+        "count": 1,
+        "names": [
+          "帕普·盖伊"
+        ]
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:35:23.424Z"
+    },
+    "2042364": {
+      "home": {
+        "count": 1,
+        "names": [
+          "N. Kouassi"
+        ]
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:35:34.835Z"
+    },
+    "2042365": {
+      "home": {
+        "count": 0,
+        "names": []
+      },
+      "away": {
+        "count": 0,
+        "names": []
+      },
+      "fetchedAt": "2026-10-29T07:35:40.706Z"
     }
   },
   "finished": [
@@ -1259,7 +1388,8 @@
       "homeTeamId": 4686,
       "awayTeamId": 4687,
       "homeScore": 2,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "美国职业大联盟"
     },
     {
       "id": 2342,
@@ -1268,7 +1398,8 @@
       "homeTeamId": 4684,
       "awayTeamId": 4685,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "巴西甲级联赛"
     },
     {
       "id": 1847,
@@ -1277,7 +1408,8 @@
       "homeTeamId": 3694,
       "awayTeamId": 334,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "英格兰联赛杯"
     },
     {
       "id": 1846,
@@ -1286,7 +1418,8 @@
       "homeTeamId": 362,
       "awayTeamId": 7,
       "homeScore": 2,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1842,
@@ -1295,7 +1428,8 @@
       "homeTeamId": 4,
       "awayTeamId": 361,
       "homeScore": 3,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "英格兰联赛杯"
     },
     {
       "id": 1844,
@@ -1304,7 +1438,8 @@
       "homeTeamId": 325,
       "awayTeamId": 16,
       "homeScore": 0,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "英格兰联赛杯"
     },
     {
       "id": 1845,
@@ -1313,7 +1448,8 @@
       "homeTeamId": 40,
       "awayTeamId": 332,
       "homeScore": 1,
-      "awayScore": 4
+      "awayScore": 4,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1843,
@@ -1322,7 +1458,8 @@
       "homeTeamId": 11,
       "awayTeamId": 304,
       "homeScore": 3,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "英格兰联赛杯"
     },
     {
       "id": 2335,
@@ -1331,7 +1468,8 @@
       "homeTeamId": 4670,
       "awayTeamId": 4671,
       "homeScore": 0,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "瑞典超级联赛"
     },
     {
       "id": 2334,
@@ -1340,7 +1478,8 @@
       "homeTeamId": 4668,
       "awayTeamId": 354,
       "homeScore": 2,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "荷兰杯"
     },
     {
       "id": 1841,
@@ -1349,7 +1488,8 @@
       "homeTeamId": 341,
       "awayTeamId": 2740,
       "homeScore": 0,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1840,
@@ -1358,7 +1498,8 @@
       "homeTeamId": 12,
       "awayTeamId": 311,
       "homeScore": 2,
-      "awayScore": 4
+      "awayScore": 4,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1839,
@@ -1367,7 +1508,8 @@
       "homeTeamId": 363,
       "awayTeamId": 356,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1838,
@@ -1376,7 +1518,8 @@
       "homeTeamId": 316,
       "awayTeamId": 37,
       "homeScore": 0,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "德国杯"
     },
     {
       "id": 1835,
@@ -1385,7 +1528,8 @@
       "homeTeamId": 3670,
       "awayTeamId": 3671,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "亚洲冠军精英联赛"
     },
     {
       "id": 1836,
@@ -1394,7 +1538,8 @@
       "homeTeamId": 300,
       "awayTeamId": 3673,
       "homeScore": 3,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "亚洲冠军精英联赛"
     },
     {
       "id": 1837,
@@ -1403,7 +1548,8 @@
       "homeTeamId": 3674,
       "awayTeamId": 3675,
       "homeScore": 4,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "日本联赛杯"
     },
     {
       "id": 1831,
@@ -1412,7 +1558,8 @@
       "homeTeamId": 336,
       "awayTeamId": 315,
       "homeScore": 3,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "德国杯"
     },
     {
       "id": 1834,
@@ -1421,7 +1568,8 @@
       "homeTeamId": 39,
       "awayTeamId": 308,
       "homeScore": 1,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1833,
@@ -1430,7 +1578,8 @@
       "homeTeamId": 333,
       "awayTeamId": 310,
       "homeScore": 4,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1832,
@@ -1439,7 +1588,8 @@
       "homeTeamId": 318,
       "awayTeamId": 321,
       "homeScore": 5,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "德国杯"
     },
     {
       "id": 1830,
@@ -1448,7 +1598,8 @@
       "homeTeamId": 3660,
       "awayTeamId": 31,
       "homeScore": 2,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "瑞典超级联赛"
     },
     {
       "id": 1829,
@@ -1457,7 +1608,8 @@
       "homeTeamId": 309,
       "awayTeamId": 340,
       "homeScore": 2,
-      "awayScore": 6
+      "awayScore": 6,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1828,
@@ -1466,7 +1618,8 @@
       "homeTeamId": 317,
       "awayTeamId": 337,
       "homeScore": 1,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "德国杯"
     },
     {
       "id": 1827,
@@ -1475,7 +1628,8 @@
       "homeTeamId": 3654,
       "awayTeamId": 3655,
       "homeScore": 2,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "亚洲冠军精英联赛"
     },
     {
       "id": 1826,
@@ -1484,7 +1638,8 @@
       "homeTeamId": 3652,
       "awayTeamId": 298,
       "homeScore": 0,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "亚洲冠军精英联赛"
     },
     {
       "id": 1825,
@@ -1493,7 +1648,8 @@
       "homeTeamId": 3650,
       "awayTeamId": 3651,
       "homeScore": 5,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "亚洲冠军精英联赛"
     },
     {
       "id": 1377,
@@ -1502,7 +1658,8 @@
       "homeTeamId": 25,
       "awayTeamId": 2755,
       "homeScore": 3,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "巴西甲级联赛"
     },
     {
       "id": 1376,
@@ -1511,7 +1668,8 @@
       "homeTeamId": 2752,
       "awayTeamId": 2753,
       "homeScore": 2,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 1375,
@@ -1520,7 +1678,8 @@
       "homeTeamId": 2750,
       "awayTeamId": 2751,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "法国乙级联赛"
     },
     {
       "id": 1374,
@@ -1529,7 +1688,8 @@
       "homeTeamId": 2748,
       "awayTeamId": 2749,
       "homeScore": 1,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "葡萄牙超级联赛"
     },
     {
       "id": 1373,
@@ -1538,7 +1698,8 @@
       "homeTeamId": 2746,
       "awayTeamId": 2747,
       "homeScore": 2,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "美国职业大联盟"
     },
     {
       "id": 183,
@@ -1547,7 +1708,8 @@
       "homeTeamId": 366,
       "awayTeamId": 367,
       "homeScore": 1,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "葡萄牙超级联赛"
     },
     {
       "id": 1371,
@@ -1556,7 +1718,8 @@
       "homeTeamId": 2742,
       "awayTeamId": 2743,
       "homeScore": 1,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 1370,
@@ -1565,7 +1728,8 @@
       "homeTeamId": 2740,
       "awayTeamId": 12,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 182,
@@ -1574,7 +1738,8 @@
       "homeTeamId": 364,
       "awayTeamId": 365,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "荷兰甲级联赛"
     },
     {
       "id": 1368,
@@ -1583,7 +1748,8 @@
       "homeTeamId": 20,
       "awayTeamId": 2737,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 1367,
@@ -1592,7 +1758,8 @@
       "homeTeamId": 2734,
       "awayTeamId": 7,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1366,
@@ -1601,7 +1768,8 @@
       "homeTeamId": 24,
       "awayTeamId": 2733,
       "homeScore": 1,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "德国甲级联赛"
     },
     {
       "id": 1365,
@@ -1610,7 +1778,8 @@
       "homeTeamId": 4,
       "awayTeamId": 2731,
       "homeScore": 0,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 1364,
@@ -1619,7 +1788,8 @@
       "homeTeamId": 8,
       "awayTeamId": 2729,
       "homeScore": 3,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "法国甲级联赛"
     },
     {
       "id": 1363,
@@ -1628,7 +1798,8 @@
       "homeTeamId": 14,
       "awayTeamId": 2727,
       "homeScore": 0,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 1362,
@@ -1637,7 +1808,8 @@
       "homeTeamId": 17,
       "awayTeamId": 10,
       "homeScore": 3,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "德国甲级联赛"
     },
     {
       "id": 1357,
@@ -1646,7 +1818,8 @@
       "homeTeamId": 16,
       "awayTeamId": 2715,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 181,
@@ -1655,7 +1828,8 @@
       "homeTeamId": 362,
       "awayTeamId": 363,
       "homeScore": 1,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1360,
@@ -1664,7 +1838,8 @@
       "homeTeamId": 22,
       "awayTeamId": 2721,
       "homeScore": 4,
-      "awayScore": 4
+      "awayScore": 4,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 1361,
@@ -1673,7 +1848,8 @@
       "homeTeamId": 23,
       "awayTeamId": 2723,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "法国甲级联赛"
     },
     {
       "id": 1358,
@@ -1682,7 +1858,8 @@
       "homeTeamId": 2716,
       "awayTeamId": 11,
       "homeScore": 0,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 180,
@@ -1691,7 +1868,8 @@
       "homeTeamId": 360,
       "awayTeamId": 361,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 1355,
@@ -1700,7 +1878,8 @@
       "homeTeamId": 2710,
       "awayTeamId": 2711,
       "homeScore": 3,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "挪威超级联赛"
     },
     {
       "id": 179,
@@ -1709,7 +1888,8 @@
       "homeTeamId": 358,
       "awayTeamId": 359,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "荷兰甲级联赛"
     },
     {
       "id": 1351,
@@ -1718,7 +1898,8 @@
       "homeTeamId": 2702,
       "awayTeamId": 2703,
       "homeScore": 4,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 1352,
@@ -1727,7 +1908,8 @@
       "homeTeamId": 2704,
       "awayTeamId": 2705,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "瑞典超级联赛"
     },
     {
       "id": 1353,
@@ -1736,7 +1918,8 @@
       "homeTeamId": 2706,
       "awayTeamId": 2707,
       "homeScore": 2,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "芬兰超级联赛"
     },
     {
       "id": 178,
@@ -1745,7 +1928,8 @@
       "homeTeamId": 356,
       "awayTeamId": 357,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 177,
@@ -1754,7 +1938,8 @@
       "homeTeamId": 354,
       "awayTeamId": 355,
       "homeScore": 1,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "荷兰甲级联赛"
     },
     {
       "id": 176,
@@ -1763,7 +1948,8 @@
       "homeTeamId": 352,
       "awayTeamId": 353,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "日本职业联赛"
     },
     {
       "id": 175,
@@ -1772,7 +1958,8 @@
       "homeTeamId": 350,
       "awayTeamId": 351,
       "homeScore": 6,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "日本职业联赛"
     },
     {
       "id": 174,
@@ -1781,7 +1968,8 @@
       "homeTeamId": 348,
       "awayTeamId": 349,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "澳大利亚超级联赛"
     },
     {
       "id": 173,
@@ -1790,7 +1978,8 @@
       "homeTeamId": 346,
       "awayTeamId": 347,
       "homeScore": 0,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "葡萄牙超级联赛"
     },
     {
       "id": 172,
@@ -1799,7 +1988,8 @@
       "homeTeamId": 344,
       "awayTeamId": 345,
       "homeScore": 1,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 170,
@@ -1808,7 +1998,8 @@
       "homeTeamId": 340,
       "awayTeamId": 341,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 171,
@@ -1817,7 +2008,8 @@
       "homeTeamId": 342,
       "awayTeamId": 343,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "法国甲级联赛"
     },
     {
       "id": 169,
@@ -1826,7 +2018,8 @@
       "homeTeamId": 338,
       "awayTeamId": 339,
       "homeScore": 1,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 168,
@@ -1835,7 +2028,8 @@
       "homeTeamId": 336,
       "awayTeamId": 337,
       "homeScore": 1,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "德国甲级联赛"
     },
     {
       "id": 167,
@@ -1844,7 +2038,8 @@
       "homeTeamId": 334,
       "awayTeamId": 335,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 166,
@@ -1853,7 +2048,8 @@
       "homeTeamId": 332,
       "awayTeamId": 333,
       "homeScore": 3,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 165,
@@ -1862,7 +2058,8 @@
       "homeTeamId": 330,
       "awayTeamId": 331,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "葡萄牙超级联赛"
     },
     {
       "id": 164,
@@ -1871,7 +2068,8 @@
       "homeTeamId": 328,
       "awayTeamId": 329,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "荷兰甲级联赛"
     },
     {
       "id": 163,
@@ -1880,7 +2078,8 @@
       "homeTeamId": 326,
       "awayTeamId": 327,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 161,
@@ -1889,7 +2088,8 @@
       "homeTeamId": 322,
       "awayTeamId": 323,
       "homeScore": 2,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 162,
@@ -1898,7 +2098,8 @@
       "homeTeamId": 324,
       "awayTeamId": 325,
       "homeScore": 0,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 160,
@@ -1907,7 +2108,8 @@
       "homeTeamId": 320,
       "awayTeamId": 321,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "德国甲级联赛"
     },
     {
       "id": 157,
@@ -1916,7 +2118,8 @@
       "homeTeamId": 314,
       "awayTeamId": 315,
       "homeScore": 2,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "德国甲级联赛"
     },
     {
       "id": 158,
@@ -1925,7 +2128,8 @@
       "homeTeamId": 316,
       "awayTeamId": 317,
       "homeScore": 1,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "德国甲级联赛"
     },
     {
       "id": 159,
@@ -1934,7 +2138,8 @@
       "homeTeamId": 318,
       "awayTeamId": 319,
       "homeScore": 0,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "德国甲级联赛"
     },
     {
       "id": 156,
@@ -1943,7 +2148,8 @@
       "homeTeamId": 312,
       "awayTeamId": 313,
       "homeScore": 4,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "德国甲级联赛"
     },
     {
       "id": 154,
@@ -1952,7 +2158,8 @@
       "homeTeamId": 308,
       "awayTeamId": 309,
       "homeScore": 2,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 155,
@@ -1961,7 +2168,8 @@
       "homeTeamId": 310,
       "awayTeamId": 311,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 153,
@@ -1970,7 +2178,8 @@
       "homeTeamId": 306,
       "awayTeamId": 307,
       "homeScore": 0,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 152,
@@ -1979,7 +2188,8 @@
       "homeTeamId": 304,
       "awayTeamId": 305,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 151,
@@ -1988,7 +2198,8 @@
       "homeTeamId": 302,
       "awayTeamId": 303,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "澳大利亚超级联赛"
     },
     {
       "id": 149,
@@ -1997,7 +2208,8 @@
       "homeTeamId": 298,
       "awayTeamId": 299,
       "homeScore": 0,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "日本职业联赛"
     },
     {
       "id": 150,
@@ -2006,7 +2218,8 @@
       "homeTeamId": 300,
       "awayTeamId": 301,
       "homeScore": 2,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "日本职业联赛"
     },
     {
       "id": 147,
@@ -2015,7 +2228,8 @@
       "homeTeamId": 294,
       "awayTeamId": 295,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "韩国职业联赛"
     },
     {
       "id": 148,
@@ -2024,7 +2238,8 @@
       "homeTeamId": 296,
       "awayTeamId": 297,
       "homeScore": 3,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "韩国职业联赛"
     },
     {
       "id": 25,
@@ -2033,7 +2248,8 @@
       "homeTeamId": 49,
       "awayTeamId": 50,
       "homeScore": 5,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "葡萄牙超级联赛"
     },
     {
       "id": 22,
@@ -2042,7 +2258,8 @@
       "homeTeamId": 43,
       "awayTeamId": 44,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "英格兰超级联赛"
     },
     {
       "id": 24,
@@ -2051,7 +2268,8 @@
       "homeTeamId": 47,
       "awayTeamId": 48,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "西班牙甲级联赛"
     },
     {
       "id": 23,
@@ -2060,7 +2278,8 @@
       "homeTeamId": 45,
       "awayTeamId": 46,
       "homeScore": 1,
-      "awayScore": 5
+      "awayScore": 5,
+      "league": "英格兰冠军联赛"
     },
     {
       "id": 20,
@@ -2069,7 +2288,8 @@
       "homeTeamId": 39,
       "awayTeamId": 40,
       "homeScore": 3,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "意大利甲级联赛"
     },
     {
       "id": 21,
@@ -2078,7 +2298,8 @@
       "homeTeamId": 41,
       "awayTeamId": 42,
       "homeScore": 1,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "法国甲级联赛"
     },
     {
       "id": 19,
@@ -2087,7 +2308,8 @@
       "homeTeamId": 37,
       "awayTeamId": 38,
       "homeScore": 2,
-      "awayScore": 3
+      "awayScore": 3,
+      "league": "德国甲级联赛"
     },
     {
       "id": 17,
@@ -2096,7 +2318,8 @@
       "homeTeamId": 33,
       "awayTeamId": 34,
       "homeScore": 3,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "荷兰甲级联赛"
     },
     {
       "id": 18,
@@ -2105,7 +2328,8 @@
       "homeTeamId": 35,
       "awayTeamId": 36,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "荷兰乙级联赛"
     },
     {
       "id": 16,
@@ -2114,7 +2338,8 @@
       "homeTeamId": 31,
       "awayTeamId": 32,
       "homeScore": 0,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "瑞典超级联赛"
     },
     {
       "id": 15,
@@ -2123,7 +2348,8 @@
       "homeTeamId": 29,
       "awayTeamId": 30,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "德国乙级联赛"
     },
     {
       "id": 14,
@@ -2132,7 +2358,8 @@
       "homeTeamId": 27,
       "awayTeamId": 28,
       "homeScore": 2,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "澳大利亚超级联赛"
     },
     {
       "id": 13,
@@ -2141,7 +2368,8 @@
       "homeTeamId": 25,
       "awayTeamId": 26,
       "homeScore": 0,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "南美解放者杯"
     },
     {
       "id": 12,
@@ -2150,7 +2378,8 @@
       "homeTeamId": 23,
       "awayTeamId": 24,
       "homeScore": 3,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "欧洲协会联赛"
     },
     {
       "id": 10,
@@ -2159,7 +2388,8 @@
       "homeTeamId": 19,
       "awayTeamId": 20,
       "homeScore": 0,
-      "awayScore": 6
+      "awayScore": 6,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 8,
@@ -2168,7 +2398,8 @@
       "homeTeamId": 15,
       "awayTeamId": 16,
       "homeScore": 2,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 11,
@@ -2177,7 +2408,8 @@
       "homeTeamId": 21,
       "awayTeamId": 22,
       "homeScore": 2,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "欧洲协会联赛"
     },
     {
       "id": 6,
@@ -2186,7 +2418,8 @@
       "homeTeamId": 11,
       "awayTeamId": 12,
       "homeScore": 3,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 9,
@@ -2195,7 +2428,8 @@
       "homeTeamId": 17,
       "awayTeamId": 18,
       "homeScore": 3,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 7,
@@ -2204,7 +2438,8 @@
       "homeTeamId": 13,
       "awayTeamId": 14,
       "homeScore": 1,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 4,
@@ -2213,7 +2448,8 @@
       "homeTeamId": 7,
       "awayTeamId": 8,
       "homeScore": 2,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 3,
@@ -2222,7 +2458,8 @@
       "homeTeamId": 5,
       "awayTeamId": 6,
       "homeScore": 2,
-      "awayScore": 4
+      "awayScore": 4,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 1,
@@ -2231,7 +2468,8 @@
       "homeTeamId": 1,
       "awayTeamId": 2,
       "homeScore": 1,
-      "awayScore": 0
+      "awayScore": 0,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 2,
@@ -2240,7 +2478,8 @@
       "homeTeamId": 3,
       "awayTeamId": 4,
       "homeScore": 1,
-      "awayScore": 1
+      "awayScore": 1,
+      "league": "欧罗巴联赛"
     },
     {
       "id": 5,
@@ -2249,7 +2488,8 @@
       "homeTeamId": 9,
       "awayTeamId": 10,
       "homeScore": 0,
-      "awayScore": 2
+      "awayScore": 2,
+      "league": "欧罗巴联赛"
     }
   ],
   "backtestSamples": [
@@ -4995,7 +5235,7 @@
   ],
   "expected": {
     "had": {
-      "generatedAt": "2026-10-29T06:44:31.862Z",
+      "generatedAt": "2026-10-29T10:19:37.344Z",
       "scope": "today",
       "pool": "had",
       "poolLabel": "胜平负 + 让球",
@@ -5033,17 +5273,29 @@
               "optionKey": "h",
               "optionLabel": "胜",
               "side": "home",
-              "odd": 1.37,
-              "marketP": 0.69028959350747,
-              "modelP": 0.6732082990047616,
-              "blendP": 0.6896063417273617,
-              "edge": -0.05523931183351438,
+              "odd": 1.35,
+              "marketP": 0.7019238182127202,
+              "modelP": 0.6842628600657223,
+              "blendP": 0.7012173798868403,
+              "edge": -0.05335653715276556,
               "confidence": "high",
               "weight": 0.04,
               "goalLine": -1,
               "lambda": {
-                "home": 2.3183000000000002,
-                "away": 0.96
+                "home": 2.3668,
+                "away": 0.95
+              },
+              "goalExpectation": {
+                "expectedTotal": 3.3899999999999997,
+                "marketTotal": 3.3899999999999997,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": null,
+                "awayDefense": null,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -5057,7 +5309,7 @@
               "reasons": [
                 "本库没有这队的近期战绩，概率只按市场与伤停估",
                 "主队伤停 1 人（A. Boudri），λ 下调 3%",
-                "市场 69.0% → 模型 67.3% → 融合 69.0%（-5.5 个百分点）"
+                "市场 70.2% → 模型 68.4% → 融合 70.1%（-5.3 个百分点）"
               ],
               "alternatives": [
                 {
@@ -5071,17 +5323,29 @@
                   "optionKey": "rq-h",
                   "optionLabel": "让球(-1) 胜",
                   "side": "home",
-                  "odd": 2.14,
-                  "marketP": 0.4206064577087357,
-                  "modelP": 0.4490711653906923,
-                  "blendP": 0.421745046016014,
-                  "edge": -0.09746560152573003,
+                  "odd": 2.15,
+                  "marketP": 0.41861412383279023,
+                  "modelP": 0.46205782263648293,
+                  "blendP": 0.42035187178493794,
+                  "edge": -0.09624347566238345,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.3183000000000002,
-                    "away": 0.96
+                    "home": 2.3668,
+                    "away": 0.95
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.3899999999999997,
+                    "marketTotal": 3.3899999999999997,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5101,17 +5365,29 @@
                   "optionKey": "rq-a",
                   "optionLabel": "让球(-1) 负",
                   "side": "away",
-                  "odd": 2.56,
-                  "marketP": 0.3429912720959025,
-                  "modelP": 0.3267917009952385,
-                  "blendP": 0.34234328925187596,
-                  "edge": -0.12360117951519756,
+                  "odd": 2.63,
+                  "marketP": 0.33285349554220944,
+                  "modelP": 0.31573713993427766,
+                  "blendP": 0.33216884131789215,
+                  "edge": -0.12639594733394366,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.3183000000000002,
-                    "away": 0.96
+                    "home": 2.3668,
+                    "away": 0.95
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.3899999999999997,
+                    "marketTotal": 3.3899999999999997,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5123,10 +5399,10 @@
               ]
             }
           ],
-          "totalOdd": 1.37,
-          "hitProb": 0.6896,
-          "expectedReturn": 0.945,
-          "note": "单场命中率 69.0%。串关每多一层就多一层抽水，只想跟一场时优先看这个。"
+          "totalOdd": 1.35,
+          "hitProb": 0.7012,
+          "expectedReturn": 0.947,
+          "note": "单场命中率 70.1%。串关每多一层就多一层抽水，只想跟一场时优先看这个。"
         },
         {
           "id": "safe",
@@ -5144,17 +5420,29 @@
               "optionKey": "h",
               "optionLabel": "胜",
               "side": "home",
-              "odd": 1.37,
-              "marketP": 0.69028959350747,
-              "modelP": 0.6732082990047616,
-              "blendP": 0.6896063417273617,
-              "edge": -0.05523931183351438,
+              "odd": 1.35,
+              "marketP": 0.7019238182127202,
+              "modelP": 0.6842628600657223,
+              "blendP": 0.7012173798868403,
+              "edge": -0.05335653715276556,
               "confidence": "high",
               "weight": 0.04,
               "goalLine": -1,
               "lambda": {
-                "home": 2.3183000000000002,
-                "away": 0.96
+                "home": 2.3668,
+                "away": 0.95
+              },
+              "goalExpectation": {
+                "expectedTotal": 3.3899999999999997,
+                "marketTotal": 3.3899999999999997,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": null,
+                "awayDefense": null,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -5168,7 +5456,7 @@
               "reasons": [
                 "本库没有这队的近期战绩，概率只按市场与伤停估",
                 "主队伤停 1 人（A. Boudri），λ 下调 3%",
-                "市场 69.0% → 模型 67.3% → 融合 69.0%（-5.5 个百分点）"
+                "市场 70.2% → 模型 68.4% → 融合 70.1%（-5.3 个百分点）"
               ],
               "alternatives": [
                 {
@@ -5182,17 +5470,29 @@
                   "optionKey": "rq-h",
                   "optionLabel": "让球(-1) 胜",
                   "side": "home",
-                  "odd": 2.14,
-                  "marketP": 0.4206064577087357,
-                  "modelP": 0.4490711653906923,
-                  "blendP": 0.421745046016014,
-                  "edge": -0.09746560152573003,
+                  "odd": 2.15,
+                  "marketP": 0.41861412383279023,
+                  "modelP": 0.46205782263648293,
+                  "blendP": 0.42035187178493794,
+                  "edge": -0.09624347566238345,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.3183000000000002,
-                    "away": 0.96
+                    "home": 2.3668,
+                    "away": 0.95
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.3899999999999997,
+                    "marketTotal": 3.3899999999999997,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5212,17 +5512,29 @@
                   "optionKey": "rq-a",
                   "optionLabel": "让球(-1) 负",
                   "side": "away",
-                  "odd": 2.56,
-                  "marketP": 0.3429912720959025,
-                  "modelP": 0.3267917009952385,
-                  "blendP": 0.34234328925187596,
-                  "edge": -0.12360117951519756,
+                  "odd": 2.63,
+                  "marketP": 0.33285349554220944,
+                  "modelP": 0.31573713993427766,
+                  "blendP": 0.33216884131789215,
+                  "edge": -0.12639594733394366,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.3183000000000002,
-                    "away": 0.96
+                    "home": 2.3668,
+                    "away": 0.95
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.3899999999999997,
+                    "marketTotal": 3.3899999999999997,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5244,17 +5556,29 @@
               "optionKey": "rq-h",
               "optionLabel": "让球(+1) 胜",
               "side": "home",
-              "odd": 1.4,
-              "marketP": 0.6745272066968306,
-              "modelP": 0.6549745205770494,
-              "blendP": 0.6737450992520394,
-              "edge": -0.056756861047144946,
+              "odd": 1.37,
+              "marketP": 0.690337138268764,
+              "modelP": 0.6585496089707976,
+              "blendP": 0.6890656370968453,
+              "edge": -0.055980077177321785,
               "confidence": "high",
               "weight": 0.04,
               "goalLine": 1,
               "lambda": {
-                "home": 1.33,
-                "away": 1.2596
+                "home": 1.31,
+                "away": 1.2314
+              },
+              "goalExpectation": {
+                "expectedTotal": 2.62,
+                "marketTotal": 2.62,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": null,
+                "awayDefense": null,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -5263,11 +5587,11 @@
                 "injuriesAway": 2
               },
               "passSafe": true,
-              "passAggressive": true,
+              "passAggressive": false,
               "rejectReason": "",
               "reasons": [
                 "本库没有这队的近期战绩，概率只按市场与伤停估",
-                "市场 67.5% → 模型 65.5% → 融合 67.4%（-5.7 个百分点）"
+                "市场 69.0% → 模型 65.9% → 融合 68.9%（-5.6 个百分点）"
               ],
               "alternatives": [
                 {
@@ -5281,17 +5605,29 @@
                   "optionKey": "a",
                   "optionLabel": "负",
                   "side": "away",
-                  "odd": 2.46,
-                  "marketP": 0.3597080901392189,
-                  "modelP": 0.3450254794229508,
-                  "blendP": 0.35912078571056816,
-                  "edge": -0.11656286715200237,
+                  "odd": 2.5,
+                  "marketP": 0.3534332729717019,
+                  "modelP": 0.3414503910292024,
+                  "blendP": 0.3529539576940019,
+                  "edge": -0.11761510576499523,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
+                    "home": 1.31,
+                    "away": 1.2314
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.62,
+                    "marketTotal": 2.62,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5311,17 +5647,29 @@
                   "optionKey": "h",
                   "optionLabel": "胜",
                   "side": "home",
-                  "odd": 2.5,
-                  "marketP": 0.3531779471423702,
-                  "modelP": 0.37806013121505033,
-                  "blendP": 0.35417323450527743,
-                  "edge": -0.11456691373680639,
+                  "odd": 2.52,
+                  "marketP": 0.35025106295207,
+                  "modelP": 0.378634345323589,
+                  "blendP": 0.35138639424693074,
+                  "edge": -0.11450628649773453,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
+                    "home": 1.31,
+                    "away": 1.2314
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.62,
+                    "marketTotal": 2.62,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5333,10 +5681,10 @@
               ]
             }
           ],
-          "totalOdd": 1.92,
-          "hitProb": 0.4646,
-          "expectedReturn": 0.891,
-          "note": "2 场串关，融合命中率 46.5%。融合概率下的期望回报 0.89×（庄家抽水仍在），只作概率参考。"
+          "totalOdd": 1.85,
+          "hitProb": 0.4832,
+          "expectedReturn": 0.894,
+          "note": "2 场串关，融合命中率 48.3%。融合概率下的期望回报 0.89×（庄家抽水仍在），只作概率参考。"
         },
         {
           "id": "aggressive",
@@ -5354,17 +5702,29 @@
               "optionKey": "a",
               "optionLabel": "负",
               "side": "away",
-              "odd": 1.48,
-              "marketP": 0.6338939775332462,
-              "modelP": 0.6174585308677626,
-              "blendP": 0.6332365596666267,
-              "edge": -0.06280989169339246,
+              "odd": 1.43,
+              "marketP": 0.6584637746879765,
+              "modelP": 0.6380564882282911,
+              "blendP": 0.6576474832295891,
+              "edge": -0.059564098981687574,
               "confidence": "high",
               "weight": 0.04,
               "goalLine": 1,
               "lambda": {
-                "home": 0.92,
-                "away": 1.9884999999999997
+                "home": 0.91,
+                "away": 2.0758
+              },
+              "goalExpectation": {
+                "expectedTotal": 3.0500000000000003,
+                "marketTotal": 3.0500000000000003,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": 0,
+                "awayDefense": 0,
+                "homeMatches": 0,
+                "awayMatches": 1,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -5376,9 +5736,9 @@
               "passAggressive": true,
               "rejectReason": "",
               "reasons": [
-                "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0）",
+                "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0），客场近 1 场 0胜1平0负",
                 "客队伤停 1 人（K. Ogawa），λ 下调 3%",
-                "市场 63.4% → 模型 61.7% → 融合 63.3%（-6.3 个百分点）"
+                "市场 65.8% → 模型 63.8% → 融合 65.8%（-6.0 个百分点）"
               ],
               "alternatives": [
                 {
@@ -5392,17 +5752,29 @@
                   "optionKey": "rq-h",
                   "optionLabel": "让球(+1) 胜",
                   "side": "home",
-                  "odd": 2.18,
-                  "marketP": 0.41230171487985146,
-                  "modelP": 0.382541469132237,
-                  "blendP": 0.41111130504994686,
-                  "edge": -0.10377735499111573,
+                  "odd": 2.36,
+                  "marketP": 0.37686426332344614,
+                  "modelP": 0.3619435117717084,
+                  "blendP": 0.3762674332613766,
+                  "edge": -0.11200885750315126,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 0.92,
-                    "away": 1.9884999999999997
+                    "home": 0.91,
+                    "away": 2.0758
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.0500000000000003,
+                    "marketTotal": 3.0500000000000003,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": 0,
+                    "awayDefense": 0,
+                    "homeMatches": 0,
+                    "awayMatches": 1,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5422,17 +5794,29 @@
                   "optionKey": "rq-a",
                   "optionLabel": "让球(+1) 负",
                   "side": "away",
-                  "odd": 2.59,
-                  "marketP": 0.3389434349719995,
-                  "modelP": 0.37935377645744484,
-                  "blendP": 0.3405598486314173,
-                  "edge": -0.11794999204462919,
+                  "odd": 2.45,
+                  "marketP": 0.3611704158926008,
+                  "modelP": 0.4023487731791098,
+                  "blendP": 0.36281755018406114,
+                  "edge": -0.11109700204905015,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 0.92,
-                    "away": 1.9884999999999997
+                    "home": 0.91,
+                    "away": 2.0758
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.0500000000000003,
+                    "marketTotal": 3.0500000000000003,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": 0,
+                    "awayDefense": 0,
+                    "homeMatches": 0,
+                    "awayMatches": 1,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5454,17 +5838,29 @@
               "optionKey": "h",
               "optionLabel": "胜",
               "side": "home",
-              "odd": 1.47,
-              "marketP": 0.6389490996417808,
-              "modelP": 0.667189101083447,
-              "blendP": 0.6417730997859475,
-              "edge": -0.05659354331465716,
+              "odd": 1.45,
+              "marketP": 0.6486407215382206,
+              "modelP": 0.6676809554173121,
+              "blendP": 0.6505447449261298,
+              "edge": -0.05671011985711183,
               "confidence": "high",
               "weight": 0.1,
               "goalLine": -1,
               "lambda": {
-                "home": 2.352541,
-                "away": 1.0141706666666668
+                "home": 2.461730666666667,
+                "away": 1.1006903111111113
+              },
+              "goalExpectation": {
+                "expectedTotal": 3.7606666666666664,
+                "marketTotal": 3.57,
+                "homeAttack": 4,
+                "homeDefense": 4,
+                "awayAttack": 0,
+                "awayDefense": 2,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": 3.7222222222222223,
+                "leagueMatches": 18
               },
               "sample": {
                 "homeMatches": 1,
@@ -5477,8 +5873,9 @@
               "rejectReason": "",
               "reasons": [
                 "主队近 1 场 0胜1平0负（场均进 4.0 失 4.0）",
+                "主队主场 0 场场均进 4.0 球，对手客场场均失 2.0 球",
                 "主队伤停 1 人（F. Grillitsch），λ 下调 3%",
-                "市场 63.9% → 模型 66.7% → 融合 64.2%（-5.7 个百分点）"
+                "市场 64.9% → 模型 66.8% → 融合 65.1%（-5.7 个百分点）"
               ],
               "alternatives": [
                 {
@@ -5492,17 +5889,29 @@
                   "optionKey": "rq-a",
                   "optionLabel": "让球(-1) 负",
                   "side": "away",
-                  "odd": 2.22,
-                  "marketP": 0.4033893905396291,
-                  "modelP": 0.3328108989165537,
-                  "blendP": 0.3963315413773215,
-                  "edge": -0.12014397814234612,
+                  "odd": 2.26,
+                  "marketP": 0.3956734122580345,
+                  "modelP": 0.3323190445826877,
+                  "blendP": 0.3893379754904998,
+                  "edge": -0.12009617539147055,
                   "confidence": "low",
                   "weight": 0.1,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.352541,
-                    "away": 1.0141706666666668
+                    "home": 2.461730666666667,
+                    "away": 1.1006903111111113
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.7606666666666664,
+                    "marketTotal": 3.57,
+                    "homeAttack": 4,
+                    "homeDefense": 4,
+                    "awayAttack": 0,
+                    "awayDefense": 2,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": 3.7222222222222223,
+                    "leagueMatches": 18
                   },
                   "sample": {
                     "homeMatches": 1,
@@ -5522,17 +5931,29 @@
                   "optionKey": "rq-h",
                   "optionLabel": "让球(-1) 胜",
                   "side": "home",
-                  "odd": 2.43,
-                  "marketP": 0.3639485178378908,
-                  "modelP": 0.4459890383118353,
-                  "blendP": 0.3721525698852852,
-                  "edge": -0.0956692551787568,
+                  "odd": 2.39,
+                  "marketP": 0.3712931017543699,
+                  "modelP": 0.4530342819333107,
+                  "blendP": 0.379467219772264,
+                  "edge": -0.09307334474428897,
                   "confidence": "low",
                   "weight": 0.1,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.352541,
-                    "away": 1.0141706666666668
+                    "home": 2.461730666666667,
+                    "away": 1.1006903111111113
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.7606666666666664,
+                    "marketTotal": 3.57,
+                    "homeAttack": 4,
+                    "homeDefense": 4,
+                    "awayAttack": 0,
+                    "awayDefense": 2,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": 3.7222222222222223,
+                    "leagueMatches": 18
                   },
                   "sample": {
                     "homeMatches": 1,
@@ -5544,109 +5965,147 @@
               ]
             },
             {
-              "matchId": 2042323,
-              "matchNo": "周四007",
-              "league": "巴西甲级联赛",
-              "teams": "格雷米奥 vs 巴竞技",
-              "kickoffAt": "2026-10-30T00:30:00.000Z",
+              "matchId": 2042321,
+              "matchNo": "周四005",
+              "league": "英格兰联赛杯",
+              "teams": "埃弗顿 vs 纽卡斯尔",
+              "kickoffAt": "2026-10-29T19:45:00.000Z",
               "pool": "hhad",
               "poolLabel": "让球胜平负",
-              "optionKey": "rq-h",
-              "optionLabel": "让球(+1) 胜",
-              "side": "home",
-              "odd": 1.4,
-              "marketP": 0.6745272066968306,
-              "modelP": 0.6549745205770494,
-              "blendP": 0.6737450992520394,
-              "edge": -0.056756861047144946,
-              "confidence": "high",
-              "weight": 0.04,
-              "goalLine": 1,
+              "optionKey": "rq-a",
+              "optionLabel": "让球(-1) 负",
+              "side": "away",
+              "odd": 1.57,
+              "marketP": 0.5944132188960873,
+              "modelP": 0.6356226955270112,
+              "blendP": 0.5985341665591798,
+              "edge": -0.06030135850208773,
+              "confidence": "medium",
+              "weight": 0.1,
+              "goalLine": -1,
               "lambda": {
-                "home": 1.33,
-                "away": 1.2596
+                "home": 1.33796,
+                "away": 1.3364442666666667
+              },
+              "goalExpectation": {
+                "expectedTotal": 2.8579999999999997,
+                "marketTotal": 2.99,
+                "homeAttack": 0,
+                "homeDefense": 2,
+                "awayAttack": 2,
+                "awayDefense": 0,
+                "homeMatches": 0,
+                "awayMatches": 1,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
-                "homeMatches": 0,
-                "awayMatches": 0,
+                "homeMatches": 1,
+                "awayMatches": 1,
                 "injuriesHome": 0,
-                "injuriesAway": 2
+                "injuriesAway": 4
               },
               "passSafe": true,
               "passAggressive": true,
               "rejectReason": "",
               "reasons": [
-                "本库没有这队的近期战绩，概率只按市场与伤停估",
-                "市场 67.5% → 模型 65.5% → 融合 67.4%（-5.7 个百分点）"
+                "客队近 1 场 1胜0平0负（场均进 2.0 失 0.0），客场近 1 场 1胜0平0负",
+                "客队客场 1 场场均进 2.0 球，对手主场场均失 2.0 球",
+                "客队伤停 4 人（V.利弗拉门托、E. Jaouen），λ 下调 12%",
+                "市场 59.4% → 模型 63.6% → 融合 59.9%（-6.0 个百分点）"
               ],
               "alternatives": [
                 {
-                  "matchId": 2042323,
-                  "matchNo": "周四007",
-                  "league": "巴西甲级联赛",
-                  "teams": "格雷米奥 vs 巴竞技",
-                  "kickoffAt": "2026-10-30T00:30:00.000Z",
-                  "pool": "had",
-                  "poolLabel": "胜平负",
-                  "optionKey": "a",
-                  "optionLabel": "负",
-                  "side": "away",
-                  "odd": 2.46,
-                  "marketP": 0.3597080901392189,
-                  "modelP": 0.3450254794229508,
-                  "blendP": 0.35912078571056816,
-                  "edge": -0.11656286715200237,
-                  "confidence": "low",
-                  "weight": 0.04,
-                  "goalLine": 1,
-                  "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
-                  },
-                  "sample": {
-                    "homeMatches": 0,
-                    "awayMatches": 0,
-                    "injuriesHome": 0,
-                    "injuriesAway": 2
-                  }
-                },
-                {
-                  "matchId": 2042323,
-                  "matchNo": "周四007",
-                  "league": "巴西甲级联赛",
-                  "teams": "格雷米奥 vs 巴竞技",
-                  "kickoffAt": "2026-10-30T00:30:00.000Z",
+                  "matchId": 2042321,
+                  "matchNo": "周四005",
+                  "league": "英格兰联赛杯",
+                  "teams": "埃弗顿 vs 纽卡斯尔",
+                  "kickoffAt": "2026-10-29T19:45:00.000Z",
                   "pool": "had",
                   "poolLabel": "胜平负",
                   "optionKey": "h",
                   "optionLabel": "胜",
                   "side": "home",
-                  "odd": 2.5,
-                  "marketP": 0.3531779471423702,
-                  "modelP": 0.37806013121505033,
-                  "blendP": 0.35417323450527743,
-                  "edge": -0.11456691373680639,
+                  "odd": 2.04,
+                  "marketP": 0.44461022780433046,
+                  "modelP": 0.3643773044729883,
+                  "blendP": 0.43658693547119626,
+                  "edge": -0.10936265163875958,
                   "confidence": "low",
-                  "weight": 0.04,
-                  "goalLine": 1,
+                  "weight": 0.1,
+                  "goalLine": -1,
                   "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
+                    "home": 1.33796,
+                    "away": 1.3364442666666667
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.8579999999999997,
+                    "marketTotal": 2.99,
+                    "homeAttack": 0,
+                    "homeDefense": 2,
+                    "awayAttack": 2,
+                    "awayDefense": 0,
+                    "homeMatches": 0,
+                    "awayMatches": 1,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
-                    "homeMatches": 0,
-                    "awayMatches": 0,
+                    "homeMatches": 1,
+                    "awayMatches": 1,
                     "injuriesHome": 0,
-                    "injuriesAway": 2
+                    "injuriesAway": 4
+                  }
+                },
+                {
+                  "matchId": 2042321,
+                  "matchNo": "周四005",
+                  "league": "英格兰联赛杯",
+                  "teams": "埃弗顿 vs 纽卡斯尔",
+                  "kickoffAt": "2026-10-29T19:45:00.000Z",
+                  "pool": "had",
+                  "poolLabel": "胜平负",
+                  "optionKey": "a",
+                  "optionLabel": "负",
+                  "side": "away",
+                  "odd": 2.9,
+                  "marketP": 0.29805520402868174,
+                  "modelP": 0.36367588941779794,
+                  "blendP": 0.30461727256759336,
+                  "edge": -0.11660990955397932,
+                  "confidence": "low",
+                  "weight": 0.1,
+                  "goalLine": -1,
+                  "lambda": {
+                    "home": 1.33796,
+                    "away": 1.3364442666666667
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.8579999999999997,
+                    "marketTotal": 2.99,
+                    "homeAttack": 0,
+                    "homeDefense": 2,
+                    "awayAttack": 2,
+                    "awayDefense": 0,
+                    "homeMatches": 0,
+                    "awayMatches": 1,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
+                  },
+                  "sample": {
+                    "homeMatches": 1,
+                    "awayMatches": 1,
+                    "injuriesHome": 0,
+                    "injuriesAway": 4
                   }
                 }
               ]
             }
           ],
-          "totalOdd": 3.05,
-          "hitProb": 0.2738,
+          "totalOdd": 3.26,
+          "hitProb": 0.2561,
           "expectedReturn": 0.834,
-          "note": "3 场串关，融合命中率 27.4%。融合概率下的期望回报 0.83×（庄家抽水仍在），只作概率参考。"
+          "note": "3 场串关，融合命中率 25.6%。融合概率下的期望回报 0.83×（庄家抽水仍在），只作概率参考。"
         }
       ],
       "candidates": [
@@ -5659,20 +6118,32 @@
           "pool": "had",
           "optionKey": "h",
           "optionLabel": "胜",
-          "odd": 1.37,
-          "marketP": 0.69028959350747,
-          "modelP": 0.6732082990047616,
-          "blendP": 0.6896063417273617,
-          "edge": -0.05523931183351438,
+          "odd": 1.35,
+          "marketP": 0.7019238182127202,
+          "modelP": 0.6842628600657223,
+          "blendP": 0.7012173798868403,
+          "edge": -0.05335653715276556,
           "weight": 0.04,
           "confidence": "high",
           "passSafe": true,
           "passAggressive": false,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 3.3899999999999997,
+            "marketTotal": 3.3899999999999997,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": null,
+            "awayDefense": null,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
             "本库没有这队的近期战绩，概率只按市场与伤停估",
             "主队伤停 1 人（A. Boudri），λ 下调 3%",
-            "市场 69.0% → 模型 67.3% → 融合 69.0%（-5.5 个百分点）"
+            "市场 70.2% → 模型 68.4% → 融合 70.1%（-5.3 个百分点）"
           ]
         },
         {
@@ -5684,44 +6155,31 @@
           "pool": "hhad",
           "optionKey": "rq-h",
           "optionLabel": "让球(+1) 胜",
-          "odd": 1.4,
-          "marketP": 0.6745272066968306,
-          "modelP": 0.6549745205770494,
-          "blendP": 0.6737450992520394,
-          "edge": -0.056756861047144946,
+          "odd": 1.37,
+          "marketP": 0.690337138268764,
+          "modelP": 0.6585496089707976,
+          "blendP": 0.6890656370968453,
+          "edge": -0.055980077177321785,
           "weight": 0.04,
           "confidence": "high",
           "passSafe": true,
-          "passAggressive": true,
+          "passAggressive": false,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 2.62,
+            "marketTotal": 2.62,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": null,
+            "awayDefense": null,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
             "本库没有这队的近期战绩，概率只按市场与伤停估",
-            "市场 67.5% → 模型 65.5% → 融合 67.4%（-5.7 个百分点）"
-          ]
-        },
-        {
-          "matchId": 2042319,
-          "matchNo": "周四003",
-          "league": "意大利甲级联赛",
-          "teams": "弗洛西诺 vs 莱切",
-          "kickoffAt": "2026-10-29T17:30:00.000Z",
-          "pool": "had",
-          "optionKey": "h",
-          "optionLabel": "胜",
-          "odd": 1.47,
-          "marketP": 0.6389490996417808,
-          "modelP": 0.667189101083447,
-          "blendP": 0.6417730997859475,
-          "edge": -0.05659354331465716,
-          "weight": 0.1,
-          "confidence": "high",
-          "passSafe": true,
-          "passAggressive": true,
-          "rejectReason": "",
-          "reasons": [
-            "主队近 1 场 0胜1平0负（场均进 4.0 失 4.0）",
-            "主队伤停 1 人（F. Grillitsch），λ 下调 3%",
-            "市场 63.9% → 模型 66.7% → 融合 64.2%（-5.7 个百分点）"
+            "市场 69.0% → 模型 65.9% → 融合 68.9%（-5.6 个百分点）"
           ]
         },
         {
@@ -5733,45 +6191,70 @@
           "pool": "had",
           "optionKey": "a",
           "optionLabel": "负",
-          "odd": 1.48,
-          "marketP": 0.6338939775332462,
-          "modelP": 0.6174585308677626,
-          "blendP": 0.6332365596666267,
-          "edge": -0.06280989169339246,
+          "odd": 1.43,
+          "marketP": 0.6584637746879765,
+          "modelP": 0.6380564882282911,
+          "blendP": 0.6576474832295891,
+          "edge": -0.059564098981687574,
           "weight": 0.04,
           "confidence": "high",
           "passSafe": true,
           "passAggressive": true,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 3.0500000000000003,
+            "marketTotal": 3.0500000000000003,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": 0,
+            "awayDefense": 0,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
-            "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0）",
+            "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0），客场近 1 场 0胜1平0负",
             "客队伤停 1 人（K. Ogawa），λ 下调 3%",
-            "市场 63.4% → 模型 61.7% → 融合 63.3%（-6.3 个百分点）"
+            "市场 65.8% → 模型 63.8% → 融合 65.8%（-6.0 个百分点）"
           ]
         },
         {
-          "matchId": 2042322,
-          "matchNo": "周四006",
+          "matchId": 2042319,
+          "matchNo": "周四003",
           "league": "意大利甲级联赛",
-          "teams": "佛罗伦萨 vs 亚特兰大",
-          "kickoffAt": "2026-10-29T19:45:00.000Z",
-          "pool": "hhad",
-          "optionKey": "rq-a",
-          "optionLabel": "让球(-1) 负",
-          "odd": 1.52,
-          "marketP": 0.6159756300909758,
-          "modelP": 0.5842836124963088,
-          "blendP": 0.6128064283315091,
-          "edge": -0.06853422893610617,
+          "teams": "弗洛西诺 vs 莱切",
+          "kickoffAt": "2026-10-29T17:30:00.000Z",
+          "pool": "had",
+          "optionKey": "h",
+          "optionLabel": "胜",
+          "odd": 1.45,
+          "marketP": 0.6486407215382206,
+          "modelP": 0.6676809554173121,
+          "blendP": 0.6505447449261298,
+          "edge": -0.05671011985711183,
           "weight": 0.1,
           "confidence": "high",
           "passSafe": true,
           "passAggressive": true,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 3.7606666666666664,
+            "marketTotal": 3.57,
+            "homeAttack": 4,
+            "homeDefense": 4,
+            "awayAttack": 0,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": 3.7222222222222223,
+            "leagueMatches": 18
+          },
           "reasons": [
-            "客队近 2 场 0胜1平1负（场均进 2.0 失 3.0），同侧近 1 场 0胜1平0负",
-            "客队伤停 11 人（科拉西纳奇、克谢），λ 下调 12%",
-            "市场 61.6% → 模型 58.4% → 融合 61.3%（-6.9 个百分点）"
+            "主队近 1 场 0胜1平0负（场均进 4.0 失 4.0）",
+            "主队主场 0 场场均进 4.0 球，对手客场场均失 2.0 球",
+            "主队伤停 1 人（F. Grillitsch），λ 下调 3%",
+            "市场 64.9% → 模型 66.8% → 融合 65.1%（-5.7 个百分点）"
           ]
         },
         {
@@ -5783,19 +6266,69 @@
           "pool": "hhad",
           "optionKey": "rq-a",
           "optionLabel": "让球(-1) 负",
-          "odd": 1.53,
-          "marketP": 0.611143998148924,
-          "modelP": 0.5666205727713002,
-          "blendP": 0.609363061133819,
-          "edge": -0.0676745164652569,
+          "odd": 1.51,
+          "marketP": 0.620110169587768,
+          "modelP": 0.5762686541895232,
+          "blendP": 0.6183565089718382,
+          "edge": -0.06628167145252428,
           "weight": 0.04,
           "confidence": "high",
           "passSafe": true,
           "passAggressive": true,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 2.84,
+            "marketTotal": 2.84,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": 2,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
-            "客队近 1 场 0胜1平0负（场均进 2.0 失 2.0），同侧近 1 场 0胜1平0负",
-            "市场 61.1% → 模型 56.7% → 融合 60.9%（-6.8 个百分点）"
+            "客队近 1 场 0胜1平0负（场均进 2.0 失 2.0）",
+            "市场 62.0% → 模型 57.6% → 融合 61.8%（-6.6 个百分点）"
+          ]
+        },
+        {
+          "matchId": 2042322,
+          "matchNo": "周四006",
+          "league": "意大利甲级联赛",
+          "teams": "佛罗伦萨 vs 亚特兰大",
+          "kickoffAt": "2026-10-29T19:45:00.000Z",
+          "pool": "hhad",
+          "optionKey": "rq-a",
+          "optionLabel": "让球(-1) 负",
+          "odd": 1.51,
+          "marketP": 0.6200841358991923,
+          "modelP": 0.5755748851437694,
+          "blendP": 0.61563321082365,
+          "edge": -0.07039385165628853,
+          "weight": 0.1,
+          "confidence": "high",
+          "passSafe": true,
+          "passAggressive": true,
+          "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 3.046,
+            "marketTotal": 3.13,
+            "homeAttack": 1,
+            "homeDefense": 2,
+            "awayAttack": 0,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": 3.7222222222222223,
+            "leagueMatches": 18
+          },
+          "reasons": [
+            "客队近 2 场 0胜1平1负（场均进 2.0 失 3.0），客场近 1 场 0胜0平1负",
+            "客队客场 1 场场均进 0.0 球，对手主场场均失 2.0 球",
+            "客队伤停 11 人（科拉西纳奇、克谢），λ 下调 12%",
+            "市场 62.0% → 模型 57.6% → 融合 61.6%（-7.0 个百分点）"
           ]
         },
         {
@@ -5809,18 +6342,31 @@
           "optionLabel": "让球(-1) 负",
           "odd": 1.57,
           "marketP": 0.5944132188960873,
-          "modelP": 0.5682324410997704,
-          "blendP": 0.5917951411164557,
-          "edge": -0.0708816284471645,
+          "modelP": 0.6356226955270112,
+          "blendP": 0.5985341665591798,
+          "edge": -0.06030135850208773,
           "weight": 0.1,
           "confidence": "medium",
           "passSafe": true,
           "passAggressive": true,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 2.8579999999999997,
+            "marketTotal": 2.99,
+            "homeAttack": 0,
+            "homeDefense": 2,
+            "awayAttack": 2,
+            "awayDefense": 0,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
-            "客队近 1 场 1胜0平0负（场均进 2.0 失 0.0）",
+            "客队近 1 场 1胜0平0负（场均进 2.0 失 0.0），客场近 1 场 1胜0平0负",
+            "客队客场 1 场场均进 2.0 球，对手主场场均失 2.0 球",
             "客队伤停 4 人（V.利弗拉门托、E. Jaouen），λ 下调 12%",
-            "市场 59.4% → 模型 56.8% → 融合 59.2%（-7.1 个百分点）"
+            "市场 59.4% → 模型 63.6% → 融合 59.9%（-6.0 个百分点）"
           ]
         }
       ],
@@ -5828,7 +6374,7 @@
       "notes": []
     },
     "mixed": {
-      "generatedAt": "2026-10-29T06:44:31.921Z",
+      "generatedAt": "2026-10-29T10:19:37.379Z",
       "scope": "today",
       "pool": "mixed",
       "poolLabel": "混合玩法",
@@ -5866,17 +6412,29 @@
               "optionKey": "h",
               "optionLabel": "胜",
               "side": "home",
-              "odd": 1.37,
-              "marketP": 0.69028959350747,
-              "modelP": 0.6732082990047616,
-              "blendP": 0.6896063417273617,
-              "edge": -0.05523931183351438,
+              "odd": 1.35,
+              "marketP": 0.7019238182127202,
+              "modelP": 0.6842628600657223,
+              "blendP": 0.7012173798868403,
+              "edge": -0.05335653715276556,
               "confidence": "high",
               "weight": 0.04,
               "goalLine": -1,
               "lambda": {
-                "home": 2.3183000000000002,
-                "away": 0.96
+                "home": 2.3668,
+                "away": 0.95
+              },
+              "goalExpectation": {
+                "expectedTotal": 3.3899999999999997,
+                "marketTotal": 3.3899999999999997,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": null,
+                "awayDefense": null,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -5890,7 +6448,7 @@
               "reasons": [
                 "本库没有这队的近期战绩，概率只按市场与伤停估",
                 "主队伤停 1 人（A. Boudri），λ 下调 3%",
-                "市场 69.0% → 模型 67.3% → 融合 69.0%（-5.5 个百分点）"
+                "市场 70.2% → 模型 68.4% → 融合 70.1%（-5.3 个百分点）"
               ],
               "alternatives": [
                 {
@@ -5904,17 +6462,29 @@
                   "optionKey": "rq-h",
                   "optionLabel": "让球(-1) 胜",
                   "side": "home",
-                  "odd": 2.14,
-                  "marketP": 0.4206064577087357,
-                  "modelP": 0.4490711653906923,
-                  "blendP": 0.421745046016014,
-                  "edge": -0.09746560152573003,
+                  "odd": 2.15,
+                  "marketP": 0.41861412383279023,
+                  "modelP": 0.46205782263648293,
+                  "blendP": 0.42035187178493794,
+                  "edge": -0.09624347566238345,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.3183000000000002,
-                    "away": 0.96
+                    "home": 2.3668,
+                    "away": 0.95
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.3899999999999997,
+                    "marketTotal": 3.3899999999999997,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5934,17 +6504,29 @@
                   "optionKey": "rq-a",
                   "optionLabel": "让球(-1) 负",
                   "side": "away",
-                  "odd": 2.56,
-                  "marketP": 0.3429912720959025,
-                  "modelP": 0.3267917009952385,
-                  "blendP": 0.34234328925187596,
-                  "edge": -0.12360117951519756,
+                  "odd": 2.63,
+                  "marketP": 0.33285349554220944,
+                  "modelP": 0.31573713993427766,
+                  "blendP": 0.33216884131789215,
+                  "edge": -0.12639594733394366,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.3183000000000002,
-                    "away": 0.96
+                    "home": 2.3668,
+                    "away": 0.95
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.3899999999999997,
+                    "marketTotal": 3.3899999999999997,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -5956,10 +6538,10 @@
               ]
             }
           ],
-          "totalOdd": 1.37,
-          "hitProb": 0.6896,
-          "expectedReturn": 0.945,
-          "note": "单场命中率 69.0%。串关每多一层就多一层抽水，只想跟一场时优先看这个。"
+          "totalOdd": 1.35,
+          "hitProb": 0.7012,
+          "expectedReturn": 0.947,
+          "note": "单场命中率 70.1%。串关每多一层就多一层抽水，只想跟一场时优先看这个。"
         },
         {
           "id": "safe",
@@ -5977,17 +6559,29 @@
               "optionKey": "h",
               "optionLabel": "胜",
               "side": "home",
-              "odd": 1.37,
-              "marketP": 0.69028959350747,
-              "modelP": 0.6732082990047616,
-              "blendP": 0.6896063417273617,
-              "edge": -0.05523931183351438,
+              "odd": 1.35,
+              "marketP": 0.7019238182127202,
+              "modelP": 0.6842628600657223,
+              "blendP": 0.7012173798868403,
+              "edge": -0.05335653715276556,
               "confidence": "high",
               "weight": 0.04,
               "goalLine": -1,
               "lambda": {
-                "home": 2.3183000000000002,
-                "away": 0.96
+                "home": 2.3668,
+                "away": 0.95
+              },
+              "goalExpectation": {
+                "expectedTotal": 3.3899999999999997,
+                "marketTotal": 3.3899999999999997,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": null,
+                "awayDefense": null,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -6001,7 +6595,7 @@
               "reasons": [
                 "本库没有这队的近期战绩，概率只按市场与伤停估",
                 "主队伤停 1 人（A. Boudri），λ 下调 3%",
-                "市场 69.0% → 模型 67.3% → 融合 69.0%（-5.5 个百分点）"
+                "市场 70.2% → 模型 68.4% → 融合 70.1%（-5.3 个百分点）"
               ],
               "alternatives": [
                 {
@@ -6015,17 +6609,29 @@
                   "optionKey": "rq-h",
                   "optionLabel": "让球(-1) 胜",
                   "side": "home",
-                  "odd": 2.14,
-                  "marketP": 0.4206064577087357,
-                  "modelP": 0.4490711653906923,
-                  "blendP": 0.421745046016014,
-                  "edge": -0.09746560152573003,
+                  "odd": 2.15,
+                  "marketP": 0.41861412383279023,
+                  "modelP": 0.46205782263648293,
+                  "blendP": 0.42035187178493794,
+                  "edge": -0.09624347566238345,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.3183000000000002,
-                    "away": 0.96
+                    "home": 2.3668,
+                    "away": 0.95
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.3899999999999997,
+                    "marketTotal": 3.3899999999999997,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -6045,17 +6651,29 @@
                   "optionKey": "rq-a",
                   "optionLabel": "让球(-1) 负",
                   "side": "away",
-                  "odd": 2.56,
-                  "marketP": 0.3429912720959025,
-                  "modelP": 0.3267917009952385,
-                  "blendP": 0.34234328925187596,
-                  "edge": -0.12360117951519756,
+                  "odd": 2.63,
+                  "marketP": 0.33285349554220944,
+                  "modelP": 0.31573713993427766,
+                  "blendP": 0.33216884131789215,
+                  "edge": -0.12639594733394366,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.3183000000000002,
-                    "away": 0.96
+                    "home": 2.3668,
+                    "away": 0.95
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.3899999999999997,
+                    "marketTotal": 3.3899999999999997,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -6077,17 +6695,29 @@
               "optionKey": "rq-h",
               "optionLabel": "让球(+1) 胜",
               "side": "home",
-              "odd": 1.4,
-              "marketP": 0.6745272066968306,
-              "modelP": 0.6549745205770494,
-              "blendP": 0.6737450992520394,
-              "edge": -0.056756861047144946,
+              "odd": 1.37,
+              "marketP": 0.690337138268764,
+              "modelP": 0.6585496089707976,
+              "blendP": 0.6890656370968453,
+              "edge": -0.055980077177321785,
               "confidence": "high",
               "weight": 0.04,
               "goalLine": 1,
               "lambda": {
-                "home": 1.33,
-                "away": 1.2596
+                "home": 1.31,
+                "away": 1.2314
+              },
+              "goalExpectation": {
+                "expectedTotal": 2.62,
+                "marketTotal": 2.62,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": null,
+                "awayDefense": null,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -6096,11 +6726,11 @@
                 "injuriesAway": 2
               },
               "passSafe": true,
-              "passAggressive": true,
+              "passAggressive": false,
               "rejectReason": "",
               "reasons": [
                 "本库没有这队的近期战绩，概率只按市场与伤停估",
-                "市场 67.5% → 模型 65.5% → 融合 67.4%（-5.7 个百分点）"
+                "市场 69.0% → 模型 65.9% → 融合 68.9%（-5.6 个百分点）"
               ],
               "alternatives": [
                 {
@@ -6114,17 +6744,29 @@
                   "optionKey": "a",
                   "optionLabel": "负",
                   "side": "away",
-                  "odd": 2.46,
-                  "marketP": 0.3597080901392189,
-                  "modelP": 0.3450254794229508,
-                  "blendP": 0.35912078571056816,
-                  "edge": -0.11656286715200237,
+                  "odd": 2.5,
+                  "marketP": 0.3534332729717019,
+                  "modelP": 0.3414503910292024,
+                  "blendP": 0.3529539576940019,
+                  "edge": -0.11761510576499523,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
+                    "home": 1.31,
+                    "away": 1.2314
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.62,
+                    "marketTotal": 2.62,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -6144,17 +6786,29 @@
                   "optionKey": "h",
                   "optionLabel": "胜",
                   "side": "home",
-                  "odd": 2.5,
-                  "marketP": 0.3531779471423702,
-                  "modelP": 0.37806013121505033,
-                  "blendP": 0.35417323450527743,
-                  "edge": -0.11456691373680639,
+                  "odd": 2.52,
+                  "marketP": 0.35025106295207,
+                  "modelP": 0.378634345323589,
+                  "blendP": 0.35138639424693074,
+                  "edge": -0.11450628649773453,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
+                    "home": 1.31,
+                    "away": 1.2314
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.62,
+                    "marketTotal": 2.62,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -6166,10 +6820,10 @@
               ]
             }
           ],
-          "totalOdd": 1.92,
-          "hitProb": 0.4646,
-          "expectedReturn": 0.891,
-          "note": "2 场串关，融合命中率 46.5%。融合概率下的期望回报 0.89×（庄家抽水仍在），只作概率参考。"
+          "totalOdd": 1.85,
+          "hitProb": 0.4832,
+          "expectedReturn": 0.894,
+          "note": "2 场串关，融合命中率 48.3%。融合概率下的期望回报 0.89×（庄家抽水仍在），只作概率参考。"
         },
         {
           "id": "aggressive",
@@ -6187,17 +6841,29 @@
               "optionKey": "a",
               "optionLabel": "负",
               "side": "away",
-              "odd": 1.48,
-              "marketP": 0.6338939775332462,
-              "modelP": 0.6174585308677626,
-              "blendP": 0.6332365596666267,
-              "edge": -0.06280989169339246,
+              "odd": 1.43,
+              "marketP": 0.6584637746879765,
+              "modelP": 0.6380564882282911,
+              "blendP": 0.6576474832295891,
+              "edge": -0.059564098981687574,
               "confidence": "high",
               "weight": 0.04,
               "goalLine": 1,
               "lambda": {
-                "home": 0.92,
-                "away": 1.9884999999999997
+                "home": 0.91,
+                "away": 2.0758
+              },
+              "goalExpectation": {
+                "expectedTotal": 3.0500000000000003,
+                "marketTotal": 3.0500000000000003,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": 0,
+                "awayDefense": 0,
+                "homeMatches": 0,
+                "awayMatches": 1,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -6209,9 +6875,9 @@
               "passAggressive": true,
               "rejectReason": "",
               "reasons": [
-                "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0）",
+                "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0），客场近 1 场 0胜1平0负",
                 "客队伤停 1 人（K. Ogawa），λ 下调 3%",
-                "市场 63.4% → 模型 61.7% → 融合 63.3%（-6.3 个百分点）"
+                "市场 65.8% → 模型 63.8% → 融合 65.8%（-6.0 个百分点）"
               ],
               "alternatives": [
                 {
@@ -6225,17 +6891,29 @@
                   "optionKey": "rq-h",
                   "optionLabel": "让球(+1) 胜",
                   "side": "home",
-                  "odd": 2.18,
-                  "marketP": 0.41230171487985146,
-                  "modelP": 0.382541469132237,
-                  "blendP": 0.41111130504994686,
-                  "edge": -0.10377735499111573,
+                  "odd": 2.36,
+                  "marketP": 0.37686426332344614,
+                  "modelP": 0.3619435117717084,
+                  "blendP": 0.3762674332613766,
+                  "edge": -0.11200885750315126,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 0.92,
-                    "away": 1.9884999999999997
+                    "home": 0.91,
+                    "away": 2.0758
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.0500000000000003,
+                    "marketTotal": 3.0500000000000003,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": 0,
+                    "awayDefense": 0,
+                    "homeMatches": 0,
+                    "awayMatches": 1,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -6255,17 +6933,29 @@
                   "optionKey": "rq-a",
                   "optionLabel": "让球(+1) 负",
                   "side": "away",
-                  "odd": 2.59,
-                  "marketP": 0.3389434349719995,
-                  "modelP": 0.37935377645744484,
-                  "blendP": 0.3405598486314173,
-                  "edge": -0.11794999204462919,
+                  "odd": 2.45,
+                  "marketP": 0.3611704158926008,
+                  "modelP": 0.4023487731791098,
+                  "blendP": 0.36281755018406114,
+                  "edge": -0.11109700204905015,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 0.92,
-                    "away": 1.9884999999999997
+                    "home": 0.91,
+                    "away": 2.0758
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.0500000000000003,
+                    "marketTotal": 3.0500000000000003,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": 0,
+                    "awayDefense": 0,
+                    "homeMatches": 0,
+                    "awayMatches": 1,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -6287,17 +6977,29 @@
               "optionKey": "h",
               "optionLabel": "胜",
               "side": "home",
-              "odd": 1.47,
-              "marketP": 0.6389490996417808,
-              "modelP": 0.667189101083447,
-              "blendP": 0.6417730997859475,
-              "edge": -0.05659354331465716,
+              "odd": 1.45,
+              "marketP": 0.6486407215382206,
+              "modelP": 0.6676809554173121,
+              "blendP": 0.6505447449261298,
+              "edge": -0.05671011985711183,
               "confidence": "high",
               "weight": 0.1,
               "goalLine": -1,
               "lambda": {
-                "home": 2.352541,
-                "away": 1.0141706666666668
+                "home": 2.461730666666667,
+                "away": 1.1006903111111113
+              },
+              "goalExpectation": {
+                "expectedTotal": 3.7606666666666664,
+                "marketTotal": 3.57,
+                "homeAttack": 4,
+                "homeDefense": 4,
+                "awayAttack": 0,
+                "awayDefense": 2,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": 3.7222222222222223,
+                "leagueMatches": 18
               },
               "sample": {
                 "homeMatches": 1,
@@ -6310,8 +7012,9 @@
               "rejectReason": "",
               "reasons": [
                 "主队近 1 场 0胜1平0负（场均进 4.0 失 4.0）",
+                "主队主场 0 场场均进 4.0 球，对手客场场均失 2.0 球",
                 "主队伤停 1 人（F. Grillitsch），λ 下调 3%",
-                "市场 63.9% → 模型 66.7% → 融合 64.2%（-5.7 个百分点）"
+                "市场 64.9% → 模型 66.8% → 融合 65.1%（-5.7 个百分点）"
               ],
               "alternatives": [
                 {
@@ -6325,17 +7028,29 @@
                   "optionKey": "rq-a",
                   "optionLabel": "让球(-1) 负",
                   "side": "away",
-                  "odd": 2.22,
-                  "marketP": 0.4033893905396291,
-                  "modelP": 0.3328108989165537,
-                  "blendP": 0.3963315413773215,
-                  "edge": -0.12014397814234612,
+                  "odd": 2.26,
+                  "marketP": 0.3956734122580345,
+                  "modelP": 0.3323190445826877,
+                  "blendP": 0.3893379754904998,
+                  "edge": -0.12009617539147055,
                   "confidence": "low",
                   "weight": 0.1,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.352541,
-                    "away": 1.0141706666666668
+                    "home": 2.461730666666667,
+                    "away": 1.1006903111111113
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.7606666666666664,
+                    "marketTotal": 3.57,
+                    "homeAttack": 4,
+                    "homeDefense": 4,
+                    "awayAttack": 0,
+                    "awayDefense": 2,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": 3.7222222222222223,
+                    "leagueMatches": 18
                   },
                   "sample": {
                     "homeMatches": 1,
@@ -6355,17 +7070,29 @@
                   "optionKey": "rq-h",
                   "optionLabel": "让球(-1) 胜",
                   "side": "home",
-                  "odd": 2.43,
-                  "marketP": 0.3639485178378908,
-                  "modelP": 0.4459890383118353,
-                  "blendP": 0.3721525698852852,
-                  "edge": -0.0956692551787568,
+                  "odd": 2.39,
+                  "marketP": 0.3712931017543699,
+                  "modelP": 0.4530342819333107,
+                  "blendP": 0.379467219772264,
+                  "edge": -0.09307334474428897,
                   "confidence": "low",
                   "weight": 0.1,
                   "goalLine": -1,
                   "lambda": {
-                    "home": 2.352541,
-                    "away": 1.0141706666666668
+                    "home": 2.461730666666667,
+                    "away": 1.1006903111111113
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 3.7606666666666664,
+                    "marketTotal": 3.57,
+                    "homeAttack": 4,
+                    "homeDefense": 4,
+                    "awayAttack": 0,
+                    "awayDefense": 2,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": 3.7222222222222223,
+                    "leagueMatches": 18
                   },
                   "sample": {
                     "homeMatches": 1,
@@ -6377,109 +7104,147 @@
               ]
             },
             {
-              "matchId": 2042323,
-              "matchNo": "周四007",
-              "league": "巴西甲级联赛",
-              "teams": "格雷米奥 vs 巴竞技",
-              "kickoffAt": "2026-10-30T00:30:00.000Z",
+              "matchId": 2042321,
+              "matchNo": "周四005",
+              "league": "英格兰联赛杯",
+              "teams": "埃弗顿 vs 纽卡斯尔",
+              "kickoffAt": "2026-10-29T19:45:00.000Z",
               "pool": "hhad",
               "poolLabel": "让球胜平负",
-              "optionKey": "rq-h",
-              "optionLabel": "让球(+1) 胜",
-              "side": "home",
-              "odd": 1.4,
-              "marketP": 0.6745272066968306,
-              "modelP": 0.6549745205770494,
-              "blendP": 0.6737450992520394,
-              "edge": -0.056756861047144946,
-              "confidence": "high",
-              "weight": 0.04,
-              "goalLine": 1,
+              "optionKey": "rq-a",
+              "optionLabel": "让球(-1) 负",
+              "side": "away",
+              "odd": 1.57,
+              "marketP": 0.5944132188960873,
+              "modelP": 0.6356226955270112,
+              "blendP": 0.5985341665591798,
+              "edge": -0.06030135850208773,
+              "confidence": "medium",
+              "weight": 0.1,
+              "goalLine": -1,
               "lambda": {
-                "home": 1.33,
-                "away": 1.2596
+                "home": 1.33796,
+                "away": 1.3364442666666667
+              },
+              "goalExpectation": {
+                "expectedTotal": 2.8579999999999997,
+                "marketTotal": 2.99,
+                "homeAttack": 0,
+                "homeDefense": 2,
+                "awayAttack": 2,
+                "awayDefense": 0,
+                "homeMatches": 0,
+                "awayMatches": 1,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
-                "homeMatches": 0,
-                "awayMatches": 0,
+                "homeMatches": 1,
+                "awayMatches": 1,
                 "injuriesHome": 0,
-                "injuriesAway": 2
+                "injuriesAway": 4
               },
               "passSafe": true,
               "passAggressive": true,
               "rejectReason": "",
               "reasons": [
-                "本库没有这队的近期战绩，概率只按市场与伤停估",
-                "市场 67.5% → 模型 65.5% → 融合 67.4%（-5.7 个百分点）"
+                "客队近 1 场 1胜0平0负（场均进 2.0 失 0.0），客场近 1 场 1胜0平0负",
+                "客队客场 1 场场均进 2.0 球，对手主场场均失 2.0 球",
+                "客队伤停 4 人（V.利弗拉门托、E. Jaouen），λ 下调 12%",
+                "市场 59.4% → 模型 63.6% → 融合 59.9%（-6.0 个百分点）"
               ],
               "alternatives": [
                 {
-                  "matchId": 2042323,
-                  "matchNo": "周四007",
-                  "league": "巴西甲级联赛",
-                  "teams": "格雷米奥 vs 巴竞技",
-                  "kickoffAt": "2026-10-30T00:30:00.000Z",
-                  "pool": "had",
-                  "poolLabel": "胜平负",
-                  "optionKey": "a",
-                  "optionLabel": "负",
-                  "side": "away",
-                  "odd": 2.46,
-                  "marketP": 0.3597080901392189,
-                  "modelP": 0.3450254794229508,
-                  "blendP": 0.35912078571056816,
-                  "edge": -0.11656286715200237,
-                  "confidence": "low",
-                  "weight": 0.04,
-                  "goalLine": 1,
-                  "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
-                  },
-                  "sample": {
-                    "homeMatches": 0,
-                    "awayMatches": 0,
-                    "injuriesHome": 0,
-                    "injuriesAway": 2
-                  }
-                },
-                {
-                  "matchId": 2042323,
-                  "matchNo": "周四007",
-                  "league": "巴西甲级联赛",
-                  "teams": "格雷米奥 vs 巴竞技",
-                  "kickoffAt": "2026-10-30T00:30:00.000Z",
+                  "matchId": 2042321,
+                  "matchNo": "周四005",
+                  "league": "英格兰联赛杯",
+                  "teams": "埃弗顿 vs 纽卡斯尔",
+                  "kickoffAt": "2026-10-29T19:45:00.000Z",
                   "pool": "had",
                   "poolLabel": "胜平负",
                   "optionKey": "h",
                   "optionLabel": "胜",
                   "side": "home",
-                  "odd": 2.5,
-                  "marketP": 0.3531779471423702,
-                  "modelP": 0.37806013121505033,
-                  "blendP": 0.35417323450527743,
-                  "edge": -0.11456691373680639,
+                  "odd": 2.04,
+                  "marketP": 0.44461022780433046,
+                  "modelP": 0.3643773044729883,
+                  "blendP": 0.43658693547119626,
+                  "edge": -0.10936265163875958,
                   "confidence": "low",
-                  "weight": 0.04,
-                  "goalLine": 1,
+                  "weight": 0.1,
+                  "goalLine": -1,
                   "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
+                    "home": 1.33796,
+                    "away": 1.3364442666666667
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.8579999999999997,
+                    "marketTotal": 2.99,
+                    "homeAttack": 0,
+                    "homeDefense": 2,
+                    "awayAttack": 2,
+                    "awayDefense": 0,
+                    "homeMatches": 0,
+                    "awayMatches": 1,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
-                    "homeMatches": 0,
-                    "awayMatches": 0,
+                    "homeMatches": 1,
+                    "awayMatches": 1,
                     "injuriesHome": 0,
-                    "injuriesAway": 2
+                    "injuriesAway": 4
+                  }
+                },
+                {
+                  "matchId": 2042321,
+                  "matchNo": "周四005",
+                  "league": "英格兰联赛杯",
+                  "teams": "埃弗顿 vs 纽卡斯尔",
+                  "kickoffAt": "2026-10-29T19:45:00.000Z",
+                  "pool": "had",
+                  "poolLabel": "胜平负",
+                  "optionKey": "a",
+                  "optionLabel": "负",
+                  "side": "away",
+                  "odd": 2.9,
+                  "marketP": 0.29805520402868174,
+                  "modelP": 0.36367588941779794,
+                  "blendP": 0.30461727256759336,
+                  "edge": -0.11660990955397932,
+                  "confidence": "low",
+                  "weight": 0.1,
+                  "goalLine": -1,
+                  "lambda": {
+                    "home": 1.33796,
+                    "away": 1.3364442666666667
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.8579999999999997,
+                    "marketTotal": 2.99,
+                    "homeAttack": 0,
+                    "homeDefense": 2,
+                    "awayAttack": 2,
+                    "awayDefense": 0,
+                    "homeMatches": 0,
+                    "awayMatches": 1,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
+                  },
+                  "sample": {
+                    "homeMatches": 1,
+                    "awayMatches": 1,
+                    "injuriesHome": 0,
+                    "injuriesAway": 4
                   }
                 }
               ]
             }
           ],
-          "totalOdd": 3.05,
-          "hitProb": 0.2738,
+          "totalOdd": 3.26,
+          "hitProb": 0.2561,
           "expectedReturn": 0.834,
-          "note": "3 场串关，融合命中率 27.4%。融合概率下的期望回报 0.83×（庄家抽水仍在），只作概率参考。"
+          "note": "3 场串关，融合命中率 25.6%。融合概率下的期望回报 0.83×（庄家抽水仍在），只作概率参考。"
         }
       ],
       "candidates": [
@@ -6492,20 +7257,32 @@
           "pool": "had",
           "optionKey": "h",
           "optionLabel": "胜",
-          "odd": 1.37,
-          "marketP": 0.69028959350747,
-          "modelP": 0.6732082990047616,
-          "blendP": 0.6896063417273617,
-          "edge": -0.05523931183351438,
+          "odd": 1.35,
+          "marketP": 0.7019238182127202,
+          "modelP": 0.6842628600657223,
+          "blendP": 0.7012173798868403,
+          "edge": -0.05335653715276556,
           "weight": 0.04,
           "confidence": "high",
           "passSafe": true,
           "passAggressive": false,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 3.3899999999999997,
+            "marketTotal": 3.3899999999999997,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": null,
+            "awayDefense": null,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
             "本库没有这队的近期战绩，概率只按市场与伤停估",
             "主队伤停 1 人（A. Boudri），λ 下调 3%",
-            "市场 69.0% → 模型 67.3% → 融合 69.0%（-5.5 个百分点）"
+            "市场 70.2% → 模型 68.4% → 融合 70.1%（-5.3 个百分点）"
           ]
         },
         {
@@ -6517,44 +7294,31 @@
           "pool": "hhad",
           "optionKey": "rq-h",
           "optionLabel": "让球(+1) 胜",
-          "odd": 1.4,
-          "marketP": 0.6745272066968306,
-          "modelP": 0.6549745205770494,
-          "blendP": 0.6737450992520394,
-          "edge": -0.056756861047144946,
+          "odd": 1.37,
+          "marketP": 0.690337138268764,
+          "modelP": 0.6585496089707976,
+          "blendP": 0.6890656370968453,
+          "edge": -0.055980077177321785,
           "weight": 0.04,
           "confidence": "high",
           "passSafe": true,
-          "passAggressive": true,
+          "passAggressive": false,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 2.62,
+            "marketTotal": 2.62,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": null,
+            "awayDefense": null,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
             "本库没有这队的近期战绩，概率只按市场与伤停估",
-            "市场 67.5% → 模型 65.5% → 融合 67.4%（-5.7 个百分点）"
-          ]
-        },
-        {
-          "matchId": 2042319,
-          "matchNo": "周四003",
-          "league": "意大利甲级联赛",
-          "teams": "弗洛西诺 vs 莱切",
-          "kickoffAt": "2026-10-29T17:30:00.000Z",
-          "pool": "had",
-          "optionKey": "h",
-          "optionLabel": "胜",
-          "odd": 1.47,
-          "marketP": 0.6389490996417808,
-          "modelP": 0.667189101083447,
-          "blendP": 0.6417730997859475,
-          "edge": -0.05659354331465716,
-          "weight": 0.1,
-          "confidence": "high",
-          "passSafe": true,
-          "passAggressive": true,
-          "rejectReason": "",
-          "reasons": [
-            "主队近 1 场 0胜1平0负（场均进 4.0 失 4.0）",
-            "主队伤停 1 人（F. Grillitsch），λ 下调 3%",
-            "市场 63.9% → 模型 66.7% → 融合 64.2%（-5.7 个百分点）"
+            "市场 69.0% → 模型 65.9% → 融合 68.9%（-5.6 个百分点）"
           ]
         },
         {
@@ -6566,45 +7330,70 @@
           "pool": "had",
           "optionKey": "a",
           "optionLabel": "负",
-          "odd": 1.48,
-          "marketP": 0.6338939775332462,
-          "modelP": 0.6174585308677626,
-          "blendP": 0.6332365596666267,
-          "edge": -0.06280989169339246,
+          "odd": 1.43,
+          "marketP": 0.6584637746879765,
+          "modelP": 0.6380564882282911,
+          "blendP": 0.6576474832295891,
+          "edge": -0.059564098981687574,
           "weight": 0.04,
           "confidence": "high",
           "passSafe": true,
           "passAggressive": true,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 3.0500000000000003,
+            "marketTotal": 3.0500000000000003,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": 0,
+            "awayDefense": 0,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
-            "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0）",
+            "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0），客场近 1 场 0胜1平0负",
             "客队伤停 1 人（K. Ogawa），λ 下调 3%",
-            "市场 63.4% → 模型 61.7% → 融合 63.3%（-6.3 个百分点）"
+            "市场 65.8% → 模型 63.8% → 融合 65.8%（-6.0 个百分点）"
           ]
         },
         {
-          "matchId": 2042322,
-          "matchNo": "周四006",
+          "matchId": 2042319,
+          "matchNo": "周四003",
           "league": "意大利甲级联赛",
-          "teams": "佛罗伦萨 vs 亚特兰大",
-          "kickoffAt": "2026-10-29T19:45:00.000Z",
-          "pool": "hhad",
-          "optionKey": "rq-a",
-          "optionLabel": "让球(-1) 负",
-          "odd": 1.52,
-          "marketP": 0.6159756300909758,
-          "modelP": 0.5842836124963088,
-          "blendP": 0.6128064283315091,
-          "edge": -0.06853422893610617,
+          "teams": "弗洛西诺 vs 莱切",
+          "kickoffAt": "2026-10-29T17:30:00.000Z",
+          "pool": "had",
+          "optionKey": "h",
+          "optionLabel": "胜",
+          "odd": 1.45,
+          "marketP": 0.6486407215382206,
+          "modelP": 0.6676809554173121,
+          "blendP": 0.6505447449261298,
+          "edge": -0.05671011985711183,
           "weight": 0.1,
           "confidence": "high",
           "passSafe": true,
           "passAggressive": true,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 3.7606666666666664,
+            "marketTotal": 3.57,
+            "homeAttack": 4,
+            "homeDefense": 4,
+            "awayAttack": 0,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": 3.7222222222222223,
+            "leagueMatches": 18
+          },
           "reasons": [
-            "客队近 2 场 0胜1平1负（场均进 2.0 失 3.0），同侧近 1 场 0胜1平0负",
-            "客队伤停 11 人（科拉西纳奇、克谢），λ 下调 12%",
-            "市场 61.6% → 模型 58.4% → 融合 61.3%（-6.9 个百分点）"
+            "主队近 1 场 0胜1平0负（场均进 4.0 失 4.0）",
+            "主队主场 0 场场均进 4.0 球，对手客场场均失 2.0 球",
+            "主队伤停 1 人（F. Grillitsch），λ 下调 3%",
+            "市场 64.9% → 模型 66.8% → 融合 65.1%（-5.7 个百分点）"
           ]
         },
         {
@@ -6616,19 +7405,69 @@
           "pool": "hhad",
           "optionKey": "rq-a",
           "optionLabel": "让球(-1) 负",
-          "odd": 1.53,
-          "marketP": 0.611143998148924,
-          "modelP": 0.5666205727713002,
-          "blendP": 0.609363061133819,
-          "edge": -0.0676745164652569,
+          "odd": 1.51,
+          "marketP": 0.620110169587768,
+          "modelP": 0.5762686541895232,
+          "blendP": 0.6183565089718382,
+          "edge": -0.06628167145252428,
           "weight": 0.04,
           "confidence": "high",
           "passSafe": true,
           "passAggressive": true,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 2.84,
+            "marketTotal": 2.84,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": 2,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
-            "客队近 1 场 0胜1平0负（场均进 2.0 失 2.0），同侧近 1 场 0胜1平0负",
-            "市场 61.1% → 模型 56.7% → 融合 60.9%（-6.8 个百分点）"
+            "客队近 1 场 0胜1平0负（场均进 2.0 失 2.0）",
+            "市场 62.0% → 模型 57.6% → 融合 61.8%（-6.6 个百分点）"
+          ]
+        },
+        {
+          "matchId": 2042322,
+          "matchNo": "周四006",
+          "league": "意大利甲级联赛",
+          "teams": "佛罗伦萨 vs 亚特兰大",
+          "kickoffAt": "2026-10-29T19:45:00.000Z",
+          "pool": "hhad",
+          "optionKey": "rq-a",
+          "optionLabel": "让球(-1) 负",
+          "odd": 1.51,
+          "marketP": 0.6200841358991923,
+          "modelP": 0.5755748851437694,
+          "blendP": 0.61563321082365,
+          "edge": -0.07039385165628853,
+          "weight": 0.1,
+          "confidence": "high",
+          "passSafe": true,
+          "passAggressive": true,
+          "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 3.046,
+            "marketTotal": 3.13,
+            "homeAttack": 1,
+            "homeDefense": 2,
+            "awayAttack": 0,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": 3.7222222222222223,
+            "leagueMatches": 18
+          },
+          "reasons": [
+            "客队近 2 场 0胜1平1负（场均进 2.0 失 3.0），客场近 1 场 0胜0平1负",
+            "客队客场 1 场场均进 0.0 球，对手主场场均失 2.0 球",
+            "客队伤停 11 人（科拉西纳奇、克谢），λ 下调 12%",
+            "市场 62.0% → 模型 57.6% → 融合 61.6%（-7.0 个百分点）"
           ]
         },
         {
@@ -6642,18 +7481,31 @@
           "optionLabel": "让球(-1) 负",
           "odd": 1.57,
           "marketP": 0.5944132188960873,
-          "modelP": 0.5682324410997704,
-          "blendP": 0.5917951411164557,
-          "edge": -0.0708816284471645,
+          "modelP": 0.6356226955270112,
+          "blendP": 0.5985341665591798,
+          "edge": -0.06030135850208773,
           "weight": 0.1,
           "confidence": "medium",
           "passSafe": true,
           "passAggressive": true,
           "rejectReason": "",
+          "goalExpectation": {
+            "expectedTotal": 2.8579999999999997,
+            "marketTotal": 2.99,
+            "homeAttack": 0,
+            "homeDefense": 2,
+            "awayAttack": 2,
+            "awayDefense": 0,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
-            "客队近 1 场 1胜0平0负（场均进 2.0 失 0.0）",
+            "客队近 1 场 1胜0平0负（场均进 2.0 失 0.0），客场近 1 场 1胜0平0负",
+            "客队客场 1 场场均进 2.0 球，对手主场场均失 2.0 球",
             "客队伤停 4 人（V.利弗拉门托、E. Jaouen），λ 下调 12%",
-            "市场 59.4% → 模型 56.8% → 融合 59.2%（-7.1 个百分点）"
+            "市场 59.4% → 模型 63.6% → 融合 59.9%（-6.0 个百分点）"
           ]
         }
       ],
@@ -6661,7 +7513,7 @@
       "notes": []
     },
     "ttg": {
-      "generatedAt": "2026-10-29T06:44:31.960Z",
+      "generatedAt": "2026-10-29T10:19:37.410Z",
       "scope": "today",
       "pool": "ttg",
       "poolLabel": "总进球",
@@ -6696,20 +7548,32 @@
               "kickoffAt": "2026-10-30T00:30:00.000Z",
               "pool": "ttg",
               "poolLabel": "总进球",
-              "optionKey": "s3",
-              "optionLabel": "总进球 3",
+              "optionKey": "s2",
+              "optionLabel": "总进球 2",
               "side": "home",
-              "odd": 3.25,
-              "marketP": 0.26075496902789486,
-              "modelP": 0.21722292560669598,
-              "blendP": 0.2590136872910469,
-              "edge": -0.15820551630409763,
+              "odd": 3.2,
+              "marketP": 0.2649705936177679,
+              "modelP": 0.2606877329254395,
+              "blendP": 0.2647992791900748,
+              "edge": -0.1526423065917606,
               "confidence": "low",
               "weight": 0.04,
               "goalLine": 1,
               "lambda": {
-                "home": 1.33,
-                "away": 1.2596
+                "home": 1.31,
+                "away": 1.2314
+              },
+              "goalExpectation": {
+                "expectedTotal": 2.62,
+                "marketTotal": 2.62,
+                "homeAttack": null,
+                "homeDefense": null,
+                "awayAttack": null,
+                "awayDefense": null,
+                "homeMatches": 0,
+                "awayMatches": 0,
+                "leagueAverage": null,
+                "leagueMatches": 0
               },
               "sample": {
                 "homeMatches": 0,
@@ -6719,11 +7583,12 @@
               },
               "passSafe": false,
               "passAggressive": false,
-              "rejectReason": "市场概率 26.1% 太低，不推",
+              "rejectReason": "市场概率 26.5% 太低，不推",
               "reasons": [
                 "本库没有这两队的近期战绩，概率只按市场与伤停估",
+                "本库缺少两队进球样本，期望总进球沿用市场 2.6；有样本后会按主客场进球与对手失球修正",
                 "客队伤停 2 人（吉尔伯托·儒尼奥尔、雅德松），λ 下调 6%",
-                "市场 26.1% → 模型 21.7% → 融合 25.9%（-15.8 个百分点）"
+                "市场 26.5% → 模型 26.1% → 融合 26.5%（-15.3 个百分点）"
               ],
               "alternatives": [
                 {
@@ -6734,20 +7599,32 @@
                   "kickoffAt": "2026-10-30T00:30:00.000Z",
                   "pool": "ttg",
                   "poolLabel": "总进球",
-                  "optionKey": "s2",
-                  "optionLabel": "总进球 2",
+                  "optionKey": "s3",
+                  "optionLabel": "总进球 3",
                   "side": "home",
-                  "odd": 3.3,
-                  "marketP": 0.2562541330288466,
-                  "modelP": 0.2579349921515155,
-                  "blendP": 0.25632136739375333,
-                  "edge": -0.15413948760061402,
+                  "odd": 3.2,
+                  "marketP": 0.2649705936177679,
+                  "modelP": 0.21545601991335556,
+                  "blendP": 0.26299001066959143,
+                  "edge": -0.15843196585730734,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
+                    "home": 1.31,
+                    "away": 1.2314
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.62,
+                    "marketTotal": 2.62,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -6768,16 +7645,28 @@
                   "optionLabel": "总进球 1",
                   "side": "home",
                   "odd": 5.1,
-                  "marketP": 0.15597872901729185,
-                  "modelP": 0.18178000626109667,
-                  "blendP": 0.15701078010704403,
-                  "edge": -0.19924502145407552,
+                  "marketP": 0.15562001423712574,
+                  "modelP": 0.187449189007647,
+                  "blendP": 0.15689318122794657,
+                  "edge": -0.1998447757374725,
                   "confidence": "low",
                   "weight": 0.04,
                   "goalLine": 1,
                   "lambda": {
-                    "home": 1.33,
-                    "away": 1.2596
+                    "home": 1.31,
+                    "away": 1.2314
+                  },
+                  "goalExpectation": {
+                    "expectedTotal": 2.62,
+                    "marketTotal": 2.62,
+                    "homeAttack": null,
+                    "homeDefense": null,
+                    "awayAttack": null,
+                    "awayDefense": null,
+                    "homeMatches": 0,
+                    "awayMatches": 0,
+                    "leagueAverage": null,
+                    "leagueMatches": 0
                   },
                   "sample": {
                     "homeMatches": 0,
@@ -6789,10 +7678,10 @@
               ]
             }
           ],
-          "totalOdd": 3.25,
-          "hitProb": 0.259,
-          "expectedReturn": 0.842,
-          "note": "这个玩法单场概率上限就低（25.9%），只给单关参考，不串关。"
+          "totalOdd": 3.2,
+          "hitProb": 0.2648,
+          "expectedReturn": 0.847,
+          "note": "这个玩法单场概率上限就低（26.5%），只给单关参考，不串关。"
         }
       ],
       "candidates": [
@@ -6803,22 +7692,74 @@
           "teams": "格雷米奥 vs 巴竞技",
           "kickoffAt": "2026-10-30T00:30:00.000Z",
           "pool": "ttg",
-          "optionKey": "s3",
-          "optionLabel": "总进球 3",
-          "odd": 3.25,
-          "marketP": 0.26075496902789486,
-          "modelP": 0.21722292560669598,
-          "blendP": 0.2590136872910469,
-          "edge": -0.15820551630409763,
+          "optionKey": "s2",
+          "optionLabel": "总进球 2",
+          "odd": 3.2,
+          "marketP": 0.2649705936177679,
+          "modelP": 0.2606877329254395,
+          "blendP": 0.2647992791900748,
+          "edge": -0.1526423065917606,
           "weight": 0.04,
           "confidence": "low",
           "passSafe": false,
           "passAggressive": false,
-          "rejectReason": "市场概率 26.1% 太低，不推",
+          "rejectReason": "市场概率 26.5% 太低，不推",
+          "goalExpectation": {
+            "expectedTotal": 2.62,
+            "marketTotal": 2.62,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": null,
+            "awayDefense": null,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
             "本库没有这两队的近期战绩，概率只按市场与伤停估",
+            "本库缺少两队进球样本，期望总进球沿用市场 2.6；有样本后会按主客场进球与对手失球修正",
             "客队伤停 2 人（吉尔伯托·儒尼奥尔、雅德松），λ 下调 6%",
-            "市场 26.1% → 模型 21.7% → 融合 25.9%（-15.8 个百分点）"
+            "市场 26.5% → 模型 26.1% → 融合 26.5%（-15.3 个百分点）"
+          ]
+        },
+        {
+          "matchId": 2042321,
+          "matchNo": "周四005",
+          "league": "英格兰联赛杯",
+          "teams": "埃弗顿 vs 纽卡斯尔",
+          "kickoffAt": "2026-10-29T19:45:00.000Z",
+          "pool": "ttg",
+          "optionKey": "s3",
+          "optionLabel": "总进球 3",
+          "odd": 3.2,
+          "marketP": 0.2660763759598604,
+          "modelP": 0.21981675956869828,
+          "blendP": 0.2614504143207442,
+          "edge": -0.1633586741736186,
+          "weight": 0.1,
+          "confidence": "low",
+          "passSafe": false,
+          "passAggressive": false,
+          "rejectReason": "市场概率 26.6% 太低，不推",
+          "goalExpectation": {
+            "expectedTotal": 2.8579999999999997,
+            "marketTotal": 2.99,
+            "homeAttack": 0,
+            "homeDefense": 2,
+            "awayAttack": 2,
+            "awayDefense": 0,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
+          "reasons": [
+            "主队近 1 场 0胜0平1负（场均进 0.0 失 2.0）；客队近 1 场 1胜0平0负（场均进 2.0 失 0.0）",
+            "客队客场 1 场场均进 2.0 球、失 0.0 球",
+            "数据期望总进球 2.9（市场 3.0）：按主客场进球与对手失球修正后选概率最高的选项，不直接取最低赔率",
+            "客队伤停 4 人（V.利弗拉门托、E. Jaouen），λ 下调 12%",
+            "市场 26.6% → 模型 22.0% → 融合 26.1%（-16.3 个百分点）"
           ]
         },
         {
@@ -6830,20 +7771,70 @@
           "pool": "ttg",
           "optionKey": "s3",
           "optionLabel": "总进球 3",
-          "odd": 3.35,
-          "marketP": 0.25361693159042703,
-          "modelP": 0.22148389163485338,
-          "blendP": 0.25233160999220405,
-          "edge": -0.15468910652611645,
+          "odd": 3.25,
+          "marketP": 0.2623120025745537,
+          "modelP": 0.22073902555347294,
+          "blendP": 0.2606490834937105,
+          "edge": -0.1528904786454408,
           "weight": 0.04,
           "confidence": "low",
           "passSafe": false,
           "passAggressive": false,
-          "rejectReason": "市场概率 25.4% 太低，不推",
+          "rejectReason": "市场概率 26.2% 太低，不推",
+          "goalExpectation": {
+            "expectedTotal": 3.3899999999999997,
+            "marketTotal": 3.3899999999999997,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": null,
+            "awayDefense": null,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
             "本库没有这两队的近期战绩，概率只按市场与伤停估",
+            "本库缺少两队进球样本，期望总进球沿用市场 3.4；有样本后会按主客场进球与对手失球修正",
             "主队伤停 1 人（A. Boudri），λ 下调 3%",
-            "市场 25.4% → 模型 22.1% → 融合 25.2%（-15.5 个百分点）"
+            "市场 26.2% → 模型 22.1% → 融合 26.1%（-15.3 个百分点）"
+          ]
+        },
+        {
+          "matchId": 2042318,
+          "matchNo": "周四002",
+          "league": "芬兰超级联赛",
+          "teams": "国际图尔 vs 赫尔辛基",
+          "kickoffAt": "2026-10-29T16:00:00.000Z",
+          "pool": "ttg",
+          "optionKey": "s3",
+          "optionLabel": "总进球 3",
+          "odd": 3.25,
+          "marketP": 0.2615234066763966,
+          "modelP": 0.22306228287978835,
+          "blendP": 0.2599849617245323,
+          "edge": -0.15504887439527004,
+          "weight": 0.04,
+          "confidence": "low",
+          "passSafe": false,
+          "passAggressive": false,
+          "rejectReason": "市场概率 26.2% 太低，不推",
+          "goalExpectation": {
+            "expectedTotal": 2.84,
+            "marketTotal": 2.84,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": 2,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
+          "reasons": [
+            "客队近 1 场 0胜1平0负（场均进 2.0 失 2.0）",
+            "本库缺少两队进球样本，期望总进球沿用市场 2.8；有样本后会按主客场进球与对手失球修正",
+            "市场 26.2% → 模型 22.3% → 融合 26.0%（-15.5 个百分点）"
           ]
         },
         {
@@ -6855,21 +7846,74 @@
           "pool": "ttg",
           "optionKey": "s3",
           "optionLabel": "总进球 3",
+          "odd": 3.25,
+          "marketP": 0.2625769727297917,
+          "modelP": 0.22110097747189217,
+          "blendP": 0.2584293732040017,
+          "edge": -0.16010453708699446,
+          "weight": 0.1,
+          "confidence": "low",
+          "passSafe": false,
+          "passAggressive": false,
+          "rejectReason": "市场概率 26.3% 太低，不推",
+          "goalExpectation": {
+            "expectedTotal": 3.046,
+            "marketTotal": 3.13,
+            "homeAttack": 1,
+            "homeDefense": 2,
+            "awayAttack": 0,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": 3.7222222222222223,
+            "leagueMatches": 18
+          },
+          "reasons": [
+            "主队近 1 场 0胜0平1负（场均进 1.0 失 2.0）；客队近 2 场 0胜1平1负（场均进 2.0 失 3.0）",
+            "客队客场 1 场场均进 0.0 球、失 2.0 球",
+            "数据期望总进球 3.0（市场 3.1）：按主客场进球与对手失球修正后选概率最高的选项，不直接取最低赔率",
+            "主队伤停 3 人（蓬格拉契奇、F. Parisi），λ 下调 9%",
+            "客队伤停 11 人（科拉西纳奇、克谢），λ 下调 12%",
+            "市场 26.3% → 模型 22.1% → 融合 25.8%（-16.0 个百分点）"
+          ]
+        },
+        {
+          "matchId": 2042319,
+          "matchNo": "周四003",
+          "league": "意大利甲级联赛",
+          "teams": "弗洛西诺 vs 莱切",
+          "kickoffAt": "2026-10-29T17:30:00.000Z",
+          "pool": "ttg",
+          "optionKey": "s3",
+          "optionLabel": "总进球 3",
           "odd": 3.35,
-          "marketP": 0.25356161323785653,
-          "modelP": 0.22206714213270415,
-          "blendP": 0.2504121661273413,
-          "edge": -0.16111924347340667,
+          "marketP": 0.253683439191463,
+          "modelP": 0.21398911787428798,
+          "blendP": 0.24971400705974553,
+          "edge": -0.16345807634985243,
           "weight": 0.1,
           "confidence": "low",
           "passSafe": false,
           "passAggressive": false,
           "rejectReason": "市场概率 25.4% 太低，不推",
+          "goalExpectation": {
+            "expectedTotal": 3.7606666666666664,
+            "marketTotal": 3.57,
+            "homeAttack": 4,
+            "homeDefense": 4,
+            "awayAttack": 0,
+            "awayDefense": 2,
+            "homeMatches": 0,
+            "awayMatches": 0,
+            "leagueAverage": 3.7222222222222223,
+            "leagueMatches": 18
+          },
           "reasons": [
-            "主队近 1 场 0胜0平1负（场均进 1.0 失 2.0）；客队近 2 场 0胜1平1负（场均进 2.0 失 3.0）",
-            "主队伤停 3 人（蓬格拉契奇、F. Parisi），λ 下调 9%",
-            "客队伤停 11 人（科拉西纳奇、克谢），λ 下调 12%",
-            "市场 25.4% → 模型 22.2% → 融合 25.0%（-16.1 个百分点）"
+            "主队近 1 场 0胜1平0负（场均进 4.0 失 4.0）；客队近 1 场 0胜0平1负（场均进 0.0 失 2.0）",
+            "数据期望总进球 3.8（市场 3.6）：按主客场进球与对手失球修正后选概率最高的选项，不直接取最低赔率",
+            "主队伤停 1 人（F. Grillitsch），λ 下调 3%",
+            "客队伤停 6 人（Kialonda Gaspar、拉萨纳·库里巴利），λ 下调 12%",
+            "市场 25.4% → 模型 21.4% → 融合 25.0%（-16.3 个百分点）"
           ]
         },
         {
@@ -6882,94 +7926,33 @@
           "optionKey": "s3",
           "optionLabel": "总进球 3",
           "odd": 3.4,
-          "marketP": 0.24873373555115663,
-          "modelP": 0.22377399553009245,
-          "blendP": 0.24773534595031405,
-          "edge": -0.1576998237689322,
+          "marketP": 0.24912543642622806,
+          "modelP": 0.22410394133041942,
+          "blendP": 0.2481245766223957,
+          "edge": -0.1563764394838546,
           "weight": 0.04,
           "confidence": "low",
           "passSafe": false,
           "passAggressive": false,
           "rejectReason": "市场概率 24.9% 太低，不推",
+          "goalExpectation": {
+            "expectedTotal": 3.0500000000000003,
+            "marketTotal": 3.0500000000000003,
+            "homeAttack": null,
+            "homeDefense": null,
+            "awayAttack": 0,
+            "awayDefense": 0,
+            "homeMatches": 0,
+            "awayMatches": 1,
+            "leagueAverage": null,
+            "leagueMatches": 0
+          },
           "reasons": [
             "客队近 1 场 0胜1平0负（场均进 0.0 失 0.0）",
+            "客队客场 1 场场均进 0.0 球、失 0.0 球",
+            "本库缺少两队进球样本，期望总进球沿用市场 3.1；有样本后会按主客场进球与对手失球修正",
             "客队伤停 1 人（K. Ogawa），λ 下调 3%",
-            "市场 24.9% → 模型 22.4% → 融合 24.8%（-15.8 个百分点）"
-          ]
-        },
-        {
-          "matchId": 2042321,
-          "matchNo": "周四005",
-          "league": "英格兰联赛杯",
-          "teams": "埃弗顿 vs 纽卡斯尔",
-          "kickoffAt": "2026-10-29T19:45:00.000Z",
-          "pool": "ttg",
-          "optionKey": "s3",
-          "optionLabel": "总进球 3",
-          "odd": 3.4,
-          "marketP": 0.24882771912101342,
-          "modelP": 0.22118560041220436,
-          "blendP": 0.24606350725013254,
-          "edge": -0.16338407534954935,
-          "weight": 0.1,
-          "confidence": "low",
-          "passSafe": false,
-          "passAggressive": false,
-          "rejectReason": "市场概率 24.9% 太低，不推",
-          "reasons": [
-            "主队近 1 场 0胜0平1负（场均进 0.0 失 2.0）；客队近 1 场 1胜0平0负（场均进 2.0 失 0.0）",
-            "客队伤停 4 人（V.利弗拉门托、E. Jaouen），λ 下调 12%",
-            "市场 24.9% → 模型 22.1% → 融合 24.6%（-16.3 个百分点）"
-          ]
-        },
-        {
-          "matchId": 2042318,
-          "matchNo": "周四002",
-          "league": "芬兰超级联赛",
-          "teams": "国际图尔 vs 赫尔辛基",
-          "kickoffAt": "2026-10-29T16:00:00.000Z",
-          "pool": "ttg",
-          "optionKey": "s3",
-          "optionLabel": "总进球 3",
-          "odd": 3.45,
-          "marketP": 0.24501032996749963,
-          "modelP": 0.2232983083741375,
-          "blendP": 0.24414184910376516,
-          "edge": -0.15771062059201013,
-          "weight": 0.04,
-          "confidence": "low",
-          "passSafe": false,
-          "passAggressive": false,
-          "rejectReason": "市场概率 24.5% 太低，不推",
-          "reasons": [
-            "客队近 1 场 0胜1平0负（场均进 2.0 失 2.0）",
-            "市场 24.5% → 模型 22.3% → 融合 24.4%（-15.8 个百分点）"
-          ]
-        },
-        {
-          "matchId": 2042319,
-          "matchNo": "周四003",
-          "league": "意大利甲级联赛",
-          "teams": "弗洛西诺 vs 莱切",
-          "kickoffAt": "2026-10-29T17:30:00.000Z",
-          "pool": "ttg",
-          "optionKey": "s3",
-          "optionLabel": "总进球 3",
-          "odd": 3.45,
-          "marketP": 0.24597370819409337,
-          "modelP": 0.21960840018170705,
-          "blendP": 0.24333717739285474,
-          "edge": -0.16048673799465107,
-          "weight": 0.1,
-          "confidence": "low",
-          "passSafe": false,
-          "passAggressive": false,
-          "rejectReason": "市场概率 24.6% 太低，不推",
-          "reasons": [
-            "主队近 1 场 0胜1平0负（场均进 4.0 失 4.0）；客队近 1 场 0胜0平1负（场均进 0.0 失 2.0）",
-            "主队伤停 1 人（F. Grillitsch），λ 下调 3%",
-            "客队伤停 6 人（Kialonda Gaspar、拉萨纳·库里巴利），λ 下调 12%",
-            "市场 24.6% → 模型 22.0% → 融合 24.3%（-16.0 个百分点）"
+            "市场 24.9% → 模型 22.4% → 融合 24.8%（-15.6 个百分点）"
           ]
         }
       ],

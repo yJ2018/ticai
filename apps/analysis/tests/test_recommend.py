@@ -14,7 +14,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from app.recommend.backtest import run_backtest
-from app.recommend.engine import build_recommendation
+from app.recommend.engine import (
+    apply_league_prior,
+    build_history_index,
+    build_recommendation,
+    goal_expectation,
+    league_goal_prior,
+    team_form,
+)
 from app.recommend.mathx import devig, fit_lambdas, poisson_pmf, pool_probabilities, score_matrix
 from app.recommend.odds import market_probabilities, option_label, read_pools
 
@@ -241,6 +248,11 @@ class ParityTests(unittest.TestCase):
                 self.assert_close(actual_item["blendP"], expected_item["blendP"], f"{pool} candidate blendP")
                 self.assert_close(actual_item["modelP"], expected_item["modelP"], f"{pool} candidate modelP")
                 self.assertEqual(actual_item["passSafe"], expected_item["passSafe"], pool)
+                actual_goal = actual_item["goalExpectation"]
+                expected_goal = expected_item["goalExpectation"]
+                self.assert_close(actual_goal["expectedTotal"], expected_goal["expectedTotal"], f"{pool} goal total", 1e-9)
+                self.assert_close(actual_goal["marketTotal"], expected_goal["marketTotal"], f"{pool} goal market", 1e-9)
+                self.assertEqual(actual_goal["leagueMatches"], expected_goal["leagueMatches"], f"{pool} goal league")
 
     def test_backtest_matches(self) -> None:
         expected = self.fixture["backtest"]
@@ -255,6 +267,125 @@ class ParityTests(unittest.TestCase):
         for actual_band, expected_band in zip(actual["bands"], expected["bands"]):
             self.assertEqual(actual_band["n"], expected_band["n"], actual_band["label"])
             self.assert_close(actual_band["hitRate"], expected_band["hitRate"], f"band {actual_band['label']}", 1e-6)
+
+
+class GoalExpectationTests(unittest.TestCase):
+    """总进球不再只看市场：近期进球、主客场与对手失球要能推动 λ，但必须有界。"""
+
+    @staticmethod
+    def form(**overrides):
+        base = {
+            "n": 0,
+            "wins": 0,
+            "draws": 0,
+            "losses": 0,
+            "goalsFor": 0,
+            "goalsAgainst": 0,
+            "points": 0,
+            "homeMatches": 0,
+            "homeWins": 0,
+            "homeDraws": 0,
+            "homeLosses": 0,
+            "homeGoalsFor": 0,
+            "homeGoalsAgainst": 0,
+            "awayMatches": 0,
+            "awayWins": 0,
+            "awayDraws": 0,
+            "awayLosses": 0,
+            "awayGoalsFor": 0,
+            "awayGoalsAgainst": 0,
+        }
+        base.update(overrides)
+        return base
+
+    def test_no_sample_keeps_market(self) -> None:
+        goal = goal_expectation(self.form(), self.form(), 1.4, 1.1)
+        self.assertAlmostEqual(goal["expectedHome"], 1.4)
+        self.assertAlmostEqual(goal["expectedAway"], 1.1)
+        self.assertIsNone(goal["dataHome"])
+        self.assertEqual(goal["weightHome"], 0.0)
+        self.assertAlmostEqual(goal["expectedTotal"], 2.5)
+
+    def test_home_attack_and_away_defense_raise_total(self) -> None:
+        home = self.form(n=4, homeMatches=4, homeGoalsFor=8, homeGoalsAgainst=8, goalsFor=8, goalsAgainst=8)
+        away = self.form(n=4, awayMatches=4, awayGoalsFor=8, awayGoalsAgainst=8, goalsFor=8, goalsAgainst=8)
+        goal = goal_expectation(home, away, 1.4, 1.1)
+        self.assertAlmostEqual(goal["dataHome"], 2.0)
+        self.assertAlmostEqual(goal["dataAway"], 2.0)
+        # 权重 0.36：λ 被数据拉高，但不超过市场 λ 的 +25%
+        self.assertGreater(goal["expectedHome"], 1.4)
+        self.assertGreater(goal["expectedAway"], 1.1)
+        self.assertLessEqual(goal["expectedHome"], 1.4 * 1.25 + 1e-9)
+        self.assertLessEqual(goal["expectedAway"], 1.1 * 1.25 + 1e-9)
+        self.assertGreater(goal["expectedTotal"], 2.5)
+
+    def test_clamped_when_data_extreme(self) -> None:
+        home = self.form(n=1, homeMatches=1, homeGoalsFor=10, homeGoalsAgainst=0, goalsFor=10)
+        away = self.form(n=1, awayMatches=1, awayGoalsFor=0, awayGoalsAgainst=10)
+        goal = goal_expectation(home, away, 1.2, 0.9)
+        self.assertLessEqual(goal["expectedHome"], 1.2 * 1.25 + 1e-9)
+        self.assertLessEqual(goal["expectedAway"], 0.9 * 1.25 + 1e-9)
+
+    def test_zero_goals_is_sample_not_fallback(self) -> None:
+        # 主场 0 进球是有效样本，不能因为 0.0 是 falsy 就回落到整体场均
+        home = self.form(n=3, homeMatches=3, homeGoalsFor=0, homeGoalsAgainst=1, goalsFor=5, goalsAgainst=4)
+        goal = goal_expectation(home, self.form(), 1.3, 1.0)
+        self.assertEqual(goal["homeAttack"], 0.0)
+
+    def test_team_form_splits_home_and_away(self) -> None:
+        finished = [
+            {"kickoffAt": "2026-10-20T10:00:00.000Z", "homeTeamId": 7, "awayTeamId": 8, "homeScore": 3, "awayScore": 1},
+            {"kickoffAt": "2026-10-22T10:00:00.000Z", "homeTeamId": 9, "awayTeamId": 7, "homeScore": 0, "awayScore": 2},
+            {"kickoffAt": "2026-10-24T10:00:00.000Z", "homeTeamId": 7, "awayTeamId": 10, "homeScore": 2, "awayScore": 2},
+        ]
+        index = build_history_index(finished)
+        form = team_form(index, 7, "2026-10-30T00:00:00.000Z")
+        self.assertEqual(form["n"], 3)
+        self.assertEqual(form["homeMatches"], 2)
+        self.assertEqual(form["homeGoalsFor"], 5)
+        self.assertEqual(form["homeGoalsAgainst"], 3)
+        self.assertEqual(form["awayMatches"], 1)
+        self.assertEqual(form["awayGoalsFor"], 2)
+        self.assertEqual(form["awayGoalsAgainst"], 0)
+
+
+    def test_league_prior_scales_when_team_sample_missing(self) -> None:
+        finished = [
+            {"kickoffAt": "2026-10-0%dT10:00:00.000Z" % day, "homeScore": 2, "awayScore": 1, "league": "英超"}
+            for day in range(1, 9)
+        ]
+        prior = league_goal_prior(finished, "英超", "2026-10-30T00:00:00.000Z")
+        self.assertIsNotNone(prior)
+        assert prior is not None
+        self.assertEqual(prior["count"], 8)
+        self.assertAlmostEqual(prior["average"], 3.0)
+
+        goal = apply_league_prior(goal_expectation(self.form(), self.form(), 1.4, 1.1), prior)
+        # 市场 2.5、联赛 3.0 → 放大 1.2，被夹到 1.15
+        self.assertAlmostEqual(goal["leagueScale"], 1.15)
+        self.assertAlmostEqual(goal["expectedTotal"], 2.5 * 1.15)
+
+    def test_league_prior_needs_enough_matches(self) -> None:
+        finished = [
+            {"kickoffAt": "2026-10-01T10:00:00.000Z", "homeScore": 1, "awayScore": 1, "league": "英超"}
+            for _ in range(3)
+        ]
+        prior = league_goal_prior(finished, "英超", "2026-10-30T00:00:00.000Z")
+        goal = apply_league_prior(goal_expectation(self.form(), self.form(), 1.4, 1.1), prior)
+        self.assertIsNone(goal["leagueScale"])
+        self.assertAlmostEqual(goal["expectedTotal"], 2.5)
+
+    def test_league_prior_skipped_when_team_splits_exist(self) -> None:
+        finished = [
+            {"kickoffAt": "2026-10-0%dT10:00:00.000Z" % day, "homeScore": 2, "awayScore": 1, "league": "英超"}
+            for day in range(1, 9)
+        ]
+        home = self.form(n=4, homeMatches=4, homeGoalsFor=8, homeGoalsAgainst=4, goalsFor=8, goalsAgainst=4)
+        away = self.form(n=4, awayMatches=4, awayGoalsFor=8, awayGoalsAgainst=8, goalsFor=8, goalsAgainst=8)
+        base = goal_expectation(home, away, 1.4, 1.1)
+        goal = apply_league_prior(base, league_goal_prior(finished, "英超", "2026-10-30T00:00:00.000Z"))
+        self.assertIsNone(goal["leagueScale"])
+        self.assertAlmostEqual(goal["expectedTotal"], base["expectedTotal"])
 
 
 if __name__ == "__main__":

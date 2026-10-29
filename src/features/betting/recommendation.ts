@@ -1,10 +1,15 @@
-import { type RecommendPlan, type RecommendPool, type RecommendScope } from '../../api/recommendApi'
+import {
+  type RecommendCandidate,
+  type RecommendPlan,
+  type RecommendPool,
+  type RecommendScope,
+} from '../../api/recommendApi'
 import { type MatchPoolType } from '../../service/matchService'
 
 /**
  * 推荐相关的类型与映射：服务端方案 → 投注单选项。
  *
- * 概率、串关、风控全在服务端（apps/api/src/recommend/），这里只做「怎么落到投注单」。
+ * 概率、串关、风控全在服务端（apps/analysis/app/recommend/），这里只做「怎么落到投注单」。
  */
 
 export type ParlayLeg = {
@@ -26,6 +31,16 @@ export function planToLegs(plan: RecommendPlan): ParlayLeg[] {
     teams: leg.teams,
     pick: { key: leg.optionKey, label: leg.optionLabel, odd: leg.odd },
   }))
+}
+
+/** 未达门槛的候选也能手动加进投注单：给用户一个口子，但概率口径不变。 */
+export function candidateToLeg(candidate: RecommendCandidate): ParlayLeg {
+  return {
+    matchId: candidate.matchId,
+    matchNo: candidate.matchNo,
+    teams: candidate.teams,
+    pick: { key: candidate.optionKey, label: candidate.optionLabel, odd: candidate.odd },
+  }
 }
 
 export function scopeLabel(scope: RecommendScope) {

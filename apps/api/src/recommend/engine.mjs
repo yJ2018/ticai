@@ -116,6 +116,14 @@ function teamForm(index, teamId, before, limit = 6) {
   let homeDraws = 0
   let homeLosses = 0
   let homeMatches = 0
+  let homeGoalsFor = 0
+  let homeGoalsAgainst = 0
+  let awayWins = 0
+  let awayDraws = 0
+  let awayLosses = 0
+  let awayMatches = 0
+  let awayGoalsFor = 0
+  let awayGoalsAgainst = 0
 
   for (const entry of list) {
     if (entry.gf > entry.ga) wins += 1
@@ -125,9 +133,18 @@ function teamForm(index, teamId, before, limit = 6) {
     goalsAgainst += entry.ga
     if (entry.home) {
       homeMatches += 1
+      homeGoalsFor += entry.gf
+      homeGoalsAgainst += entry.ga
       if (entry.gf > entry.ga) homeWins += 1
       else if (entry.gf === entry.ga) homeDraws += 1
       else homeLosses += 1
+    } else {
+      awayMatches += 1
+      awayGoalsFor += entry.gf
+      awayGoalsAgainst += entry.ga
+      if (entry.gf > entry.ga) awayWins += 1
+      else if (entry.gf === entry.ga) awayDraws += 1
+      else awayLosses += 1
     }
   }
 
@@ -143,6 +160,141 @@ function teamForm(index, teamId, before, limit = 6) {
     homeWins,
     homeDraws,
     homeLosses,
+    homeGoalsFor,
+    homeGoalsAgainst,
+    awayMatches,
+    awayWins,
+    awayDraws,
+    awayLosses,
+    awayGoalsFor,
+    awayGoalsAgainst,
+  }
+}
+
+function rate(total, count) {
+  return count > 0 ? total / count : null
+}
+
+function pickRate(primary, fallback) {
+  return primary !== null ? primary : fallback
+}
+
+/**
+ * 用近期进球数据修正预期总进球，而不是直接把市场最低赔率当成推荐。
+ *
+ * 口径（全部来自本库已结束比赛，开赛前快照）：
+ *   - 主队进攻 = 主场场均进球；客队防守 = 客场场均失球；
+ *   - 客队进攻 = 客场场均进球；主队防守 = 主场场均失球；
+ *   - 主客场样本不足时回落到整体场均，权重随样本量收敛（上限 36%）；
+ *   - 修正后的 λ 单独夹在「市场 λ」的 ±25% 内，避免小样本把分布带偏。
+ */
+function goalExpectation(homeForm, awayForm, marketHome, marketAway) {
+  const homeAttack = pickRate(rate(homeForm.homeGoalsFor, homeForm.homeMatches), rate(homeForm.goalsFor, homeForm.n))
+  const homeDefense = pickRate(
+    rate(homeForm.homeGoalsAgainst, homeForm.homeMatches),
+    rate(homeForm.goalsAgainst, homeForm.n),
+  )
+  const awayAttack = pickRate(rate(awayForm.awayGoalsFor, awayForm.awayMatches), rate(awayForm.goalsFor, awayForm.n))
+  const awayDefense = pickRate(
+    rate(awayForm.awayGoalsAgainst, awayForm.awayMatches),
+    rate(awayForm.goalsAgainst, awayForm.n),
+  )
+
+  let dataHome = null
+  let dataAway = null
+  if (homeAttack !== null && awayDefense !== null) {
+    dataHome = (homeAttack + awayDefense) / 2
+  }
+  if (awayAttack !== null && homeDefense !== null) {
+    dataAway = (awayAttack + homeDefense) / 2
+  }
+
+  const sampleHome = homeForm.homeMatches || homeForm.n
+  const sampleAway = awayForm.awayMatches || awayForm.n
+  const weightHome = clamp(sampleHome / (sampleHome + 5), 0, 0.45) * 0.8
+  const weightAway = clamp(sampleAway / (sampleAway + 5), 0, 0.45) * 0.8
+
+  let expectedHome = marketHome
+  if (dataHome !== null && weightHome > 0) {
+    expectedHome = marketHome * (1 - weightHome) + dataHome * weightHome
+    expectedHome = clamp(expectedHome, marketHome * 0.75, marketHome * 1.25)
+  }
+  let expectedAway = marketAway
+  if (dataAway !== null && weightAway > 0) {
+    expectedAway = marketAway * (1 - weightAway) + dataAway * weightAway
+    expectedAway = clamp(expectedAway, marketAway * 0.75, marketAway * 1.25)
+  }
+
+  return {
+    marketHome,
+    marketAway,
+    expectedHome,
+    expectedAway,
+    marketTotal: marketHome + marketAway,
+    expectedTotal: expectedHome + expectedAway,
+    dataHome,
+    dataAway,
+    homeAttack,
+    homeDefense,
+    awayAttack,
+    awayDefense,
+    homeMatches: homeForm.homeMatches,
+    awayMatches: awayForm.awayMatches,
+    homeN: homeForm.n,
+    awayN: awayForm.n,
+    weightHome,
+    weightAway,
+  }
+}
+
+/** 联赛最近进球节奏：同一联赛、开赛前的已结束比赛，场均总进球。 */
+function leagueGoalPrior(finished, league, before) {
+  if (!league) {
+    return null
+  }
+  let total = 0
+  let count = 0
+  for (const match of finished) {
+    if ((match.league ?? '') !== league) {
+      continue
+    }
+    if (match.kickoffAt >= before) {
+      continue
+    }
+    total += match.homeScore + match.awayScore
+    count += 1
+  }
+  if (count === 0) {
+    return null
+  }
+  return { total, count, average: total / count }
+}
+
+/** 球队主客场样本不足时，用联赛近期场均总进球给总进球一个先验（±15% 以内）。 */
+function applyLeaguePrior(goal, prior, minimumMatches = 8) {
+  if (!prior || prior.count < minimumMatches) {
+    return { ...goal, leagueAverage: null, leagueMatches: 0, leagueScale: null }
+  }
+  const leagueAverage = prior.average
+  if (goal.dataHome !== null && goal.dataAway !== null) {
+    // 两队主客场样本都齐，就不用联赛先验，避免重复计权
+    return { ...goal, leagueAverage, leagueMatches: prior.count, leagueScale: null }
+  }
+  const marketTotal = goal.marketHome + goal.marketAway
+  if (marketTotal <= 0) {
+    return { ...goal, leagueAverage, leagueMatches: prior.count, leagueScale: null }
+  }
+  const scale = clamp(leagueAverage / marketTotal, 0.85, 1.15)
+  const expectedHome = goal.expectedHome * scale
+  const expectedAway = goal.expectedAway * scale
+  return {
+    ...goal,
+    expectedHome,
+    expectedAway,
+    expectedTotal: expectedHome + expectedAway,
+    leagueAverage,
+    leagueMatches: prior.count,
+    leagueScale: scale,
   }
 }
 
@@ -236,7 +388,7 @@ function pickTier(candidates, tiers, spec) {
   return null
 }
 
-function describeLeg(leg, injury, homeForm, awayForm) {
+function describeLeg(leg, injury, homeForm, awayForm, goal) {
   const reasons = []
   const formText = (form, place) =>
     form.n > 0
@@ -247,20 +399,66 @@ function describeLeg(leg, injury, homeForm, awayForm) {
 
   if (leg.pool === 'ttg') {
     const parts = [formText(homeForm, '主队'), formText(awayForm, '客队')].filter(Boolean)
-    reasons.push(parts.length > 0 ? parts.join('；') : '本库没有这两队的近期战绩，概率只按市场与伤停估')
+    if (parts.length > 0) {
+      reasons.push(parts.join('；'))
+    } else if (goal.leagueScale !== null && goal.leagueScale !== undefined) {
+      reasons.push('本库没有这两队的近期战绩，按联赛最近的进球节奏与市场估')
+    } else {
+      reasons.push('本库没有这两队的近期战绩，概率只按市场与伤停估')
+    }
+
+    const venueParts = []
+    if (goal.homeMatches > 0 && goal.homeAttack !== null && goal.homeDefense !== null) {
+      venueParts.push(
+        `主队主场 ${goal.homeMatches} 场场均进 ${goal.homeAttack.toFixed(1)} 球、失 ${goal.homeDefense.toFixed(1)} 球`,
+      )
+    }
+    if (goal.awayMatches > 0 && goal.awayAttack !== null && goal.awayDefense !== null) {
+      venueParts.push(
+        `客队客场 ${goal.awayMatches} 场场均进 ${goal.awayAttack.toFixed(1)} 球、失 ${goal.awayDefense.toFixed(1)} 球`,
+      )
+    }
+    if (venueParts.length > 0) {
+      reasons.push(venueParts.join('；'))
+    }
+    if (goal.leagueScale !== null && goal.leagueScale !== undefined && goal.leagueAverage !== null) {
+      reasons.push(
+        `联赛近 ${goal.leagueMatches} 场场均 ${goal.leagueAverage.toFixed(1)} 球（市场 ${goal.marketTotal.toFixed(
+          1,
+        )}），期望总进球修正为 ${goal.expectedTotal.toFixed(1)}，按分布选概率最高的选项`,
+      )
+    } else if (goal.dataHome !== null || goal.dataAway !== null) {
+      reasons.push(
+        `数据期望总进球 ${goal.expectedTotal.toFixed(1)}（市场 ${goal.marketTotal.toFixed(
+          1,
+        )}）：按主客场进球与对手失球修正后选概率最高的选项，不直接取最低赔率`,
+      )
+    } else {
+      reasons.push(
+        `本库缺少两队进球样本，期望总进球沿用市场 ${goal.marketTotal.toFixed(1)}；有样本后会按主客场进球与对手失球修正`,
+      )
+    }
   } else {
     const isHome = leg.side !== 'away'
     const form = isHome ? homeForm : awayForm
     if (form.n > 0) {
-      const venue =
-        form.homeMatches > 0
-          ? `，同侧近 ${form.homeMatches} 场 ${form.homeWins}胜${form.homeDraws}平${form.homeLosses}负`
-          : ''
-      reasons.push(
-        `${formText(form, isHome ? '主队' : '客队')}${venue}`,
-      )
+      let venue = ''
+      if (isHome && form.homeMatches > 0) {
+        venue = `，同侧近 ${form.homeMatches} 场 ${form.homeWins}胜${form.homeDraws}平${form.homeLosses}负`
+      } else if (!isHome && form.awayMatches > 0) {
+        venue = `，客场近 ${form.awayMatches} 场 ${form.awayWins}胜${form.awayDraws}平${form.awayLosses}负`
+      }
+      reasons.push(`${formText(form, isHome ? '主队' : '客队')}${venue}`)
     } else {
       reasons.push('本库没有这队的近期战绩，概率只按市场与伤停估')
+    }
+
+    const attack = isHome ? goal.homeAttack : goal.awayAttack
+    const defense = isHome ? goal.awayDefense : goal.homeDefense
+    const place = isHome ? `主队主场 ${goal.homeMatches} 场` : `客队客场 ${goal.awayMatches} 场`
+    const opponent = isHome ? '对手客场' : '对手主场'
+    if (attack !== null && defense !== null) {
+      reasons.push(`${place}场均进 ${attack.toFixed(1)} 球，${opponent}场均失 ${defense.toFixed(1)} 球`)
     }
   }
 
@@ -355,10 +553,18 @@ export function buildRecommendation({
     const homeScale = clamp(form.home * injuryHome, 0.75, 1.3)
     const awayScale = clamp(form.away * injuryAway, 0.75, 1.3)
 
-    const model = poolProbabilities(
-      scoreMatrix(fit.home * homeScale, fit.away * awayScale),
-      pools.hhadLine,
+    // 进球数据修正：主场进攻/客场防守 → 期望进球，再单独夹在拟合 λ 的 ±25% 内。
+    // 这一步只动 λ，不改评分权重，避免小样本把整套概率带跑。
+    const goal = applyLeaguePrior(
+      goalExpectation(homeForm, awayForm, fit.home, fit.away),
+      leagueGoalPrior(finished, match.league, before),
     )
+    const goalHomeScale = clamp(goal.expectedHome / fit.home, 0.75, 1.25)
+    const goalAwayScale = clamp(goal.expectedAway / fit.away, 0.75, 1.25)
+    const modelHome = fit.home * homeScale * goalHomeScale
+    const modelAway = fit.away * awayScale * goalAwayScale
+
+    const model = poolProbabilities(scoreMatrix(modelHome, modelAway), pools.hhadLine)
 
     // 融合权重：市场为主导，数据样本越多、伤停越确定，模型权重越大（上限 0.42）
     const sample = Math.min(homeForm.n, awayForm.n)
@@ -403,7 +609,19 @@ export function buildRecommendation({
           confidence,
           weight,
           goalLine: pools.hhadLine,
-          lambda: { home: fit.home * homeScale, away: fit.away * awayScale },
+          lambda: { home: modelHome, away: modelAway },
+          goalExpectation: {
+            expectedTotal: goal.expectedTotal,
+            marketTotal: goal.marketTotal,
+            homeAttack: goal.homeAttack,
+            homeDefense: goal.homeDefense,
+            awayAttack: goal.awayAttack,
+            awayDefense: goal.awayDefense,
+            homeMatches: goal.homeMatches,
+            awayMatches: goal.awayMatches,
+            leagueAverage: goal.leagueAverage ?? null,
+            leagueMatches: goal.leagueMatches ?? 0,
+          },
           sample: {
             homeMatches: homeForm.n,
             awayMatches: awayForm.n,
@@ -456,7 +674,7 @@ export function buildRecommendation({
       passSafe,
       passAggressive,
       rejectReason,
-      reasons: describeLeg(best, injury, homeForm, awayForm),
+      reasons: describeLeg(best, injury, homeForm, awayForm, goal),
       alternatives: matchCandidates.slice(1, 3),
     }
     candidates.push(entry)
@@ -566,6 +784,7 @@ export function buildRecommendation({
         passSafe: item.passSafe,
         passAggressive: item.passAggressive,
         rejectReason: item.rejectReason,
+        goalExpectation: item.goalExpectation,
         reasons: item.reasons,
       })),
     analyzed: analyzed.length,

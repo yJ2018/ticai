@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { type RecommendPlan } from '../../api/recommendApi'
-import { planToLegs, type ParlayLeg } from './recommendation'
+import { candidateToLeg, planToLegs, type ParlayLeg } from './recommendation'
 import { type AutoParlayScope, type AutoParlayState } from './useAutoParlay'
 import './autoParlay.scss'
 
@@ -69,6 +69,12 @@ function PlanCard({ plan, onApply }: { plan: RecommendPlan; onApply: (legs: Parl
               <span>@ {leg.odd.toFixed(2)}</span>
               <span>市场 {percent(leg.marketP)}</span>
               <span>融合 {percent(leg.blendP)}</span>
+              {leg.goalExpectation && (
+                <span className="auto-parlay__leg-goal">
+                  期望总进球 {leg.goalExpectation.expectedTotal.toFixed(1)}
+                  <em>（市场 {leg.goalExpectation.marketTotal.toFixed(1)}）</em>
+                </span>
+              )}
               <span className={leg.edge >= 0 ? 'is-good' : 'is-bad'}>{signedPercent(leg.edge)}</span>
               <span className="auto-parlay__leg-conf">置信 {CONFIDENCE_LABEL[leg.confidence]}</span>
             </div>
@@ -99,6 +105,24 @@ function PlanCard({ plan, onApply }: { plan: RecommendPlan; onApply: (legs: Parl
  */
 export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeChange }: AutoParlayPanelProps) {
   const open = state.poolType !== null
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    if (!open) {
+      setProgress(0)
+      return
+    }
+    if (state.running) {
+      setProgress(6)
+      const timer = window.setInterval(() => {
+        setProgress((value) =>
+          value >= 92 ? value : Math.min(92, value + Math.max(2, Math.round((92 - value) * 0.16))),
+        )
+      }, 420)
+      return () => window.clearInterval(timer)
+    }
+    setProgress(state.data || state.error ? 100 : 0)
+  }, [open, state.running, state.data, state.error])
 
   useEffect(() => {
     if (!open) {
@@ -180,17 +204,48 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
           </span>
         </div>
 
-        <div className="auto-parlay__progress" aria-hidden="true">
-          <span style={{ width: state.running ? '55%' : '100%' }} />
+        <div className={`auto-parlay__progress${state.running ? ' is-running' : ''}`} aria-hidden="true">
+          <span style={{ width: `${progress}%` }} />
         </div>
 
         {state.running && (
           <p className="auto-parlay__running">
-            读库 → 赔率去水 → 反推 λ → 近况/伤停有界修正 → 串关风控
+            读库 → 赔率去水 → 反推 λ → 近况/伤停/进球修正 → 串关风控
           </p>
         )}
 
         <div className="auto-parlay__result">
+          {state.running && (
+            <div className="auto-parlay__skeleton" role="status" aria-live="polite" aria-label="推荐计算中">
+              {[0, 1].map((index) => (
+                <div className="auto-parlay__sk-plan" key={index} aria-hidden="true">
+                  <div className="auto-parlay__sk-head">
+                    <span />
+                    <span />
+                  </div>
+                  <div className="auto-parlay__sk-stats">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <div className="auto-parlay__sk-leg">
+                    <i />
+                    <span />
+                    <b />
+                  </div>
+                  <div className="auto-parlay__sk-leg">
+                    <i />
+                    <span />
+                    <b />
+                  </div>
+                  <div className="auto-parlay__sk-foot">
+                    <span />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {data?.plans.map((plan) => (
             <PlanCard key={plan.id} plan={plan} onApply={onApply} />
           ))}
@@ -218,13 +273,31 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
                     {candidate.passSafe || candidate.passAggressive ? (
                       <em className="is-on">已入方案</em>
                     ) : (
-                      <em className="is-off">{candidate.rejectReason || '未达门槛'}</em>
+                      <>
+                        <em className="is-off">{candidate.rejectReason || '未达门槛'}</em>
+                        <button
+                          type="button"
+                          className="auto-parlay__cand-add"
+                          title="未达自动推荐门槛，仍可手动加入投注单（按单场自行判断）"
+                          onClick={() => onApply([candidateToLeg(candidate)])}
+                        >
+                          手动加入
+                        </button>
+                      </>
                     )}
                   </li>
                 ))}
               </ul>
             </details>
           )}
+
+          {data &&
+            !state.running &&
+            data.candidates.some((candidate) => !candidate.passSafe && !candidate.passAggressive) && (
+              <p className="auto-parlay__cand-hint">
+                未达门槛的场次不会进入方案，但可以点「手动加入」按单场加到投注单——这部分不享受风控建议，请自行判断。
+              </p>
+            )}
 
           {backtest && backtest.window.matches > 0 && (
             <section className="auto-parlay__backtest">
@@ -277,6 +350,7 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
         </div>
 
         <footer className="auto-parlay__actions">
+          <span className="auto-parlay__actions-hint">概率由服务端计算 · 仅供参考，不构成投注建议</span>
           <button type="button" onClick={onClose}>
             关闭
           </button>

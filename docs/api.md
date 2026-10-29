@@ -437,11 +437,12 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 ### 2.5 `GET /api/recommendations`
 
 > 实现位置：Node 配置了 `ANALYSIS_API_BASE` 时由 Python 分析服务（`apps/analysis`）计算并代理返回（响应头
-> `x-analysis-source: python`）；未配置或分析服务不可达时回退 Node 内联实现。两种情况的响应完全一致。
+> `x-analysis-via: python`）；未配置或分析服务不可达时回退 Node 内联实现。两种情况的响应完全一致。
 
-投注推荐，**全部在服务端算**：赔率幂法去水 → 伤停 / 近况有界修正 → 串关风控 → 同口径回测摘要。
+投注推荐，**全部在服务端算**：赔率幂法去水 → 伤停 / 近况有界修正 → 进球数据（主客场进球、对手失球、
+联赛节奏）修正期望总进球 → 串关风控 → 同口径回测摘要。
 前端不算任何概率（旧实现是浏览器里用同一份赔率反推 λ 再和市场比大小，等于自己跟自己打，
-必然挑出 22.00 这类冷门并串成 8 串 1）。
+必然挑出 22.00 这类冷门并串成 8 串 1）。总进球选项按修正后的分布取概率最高的一个，**不是直接取最低赔率**。
 
 | 参数 | 默认 | 说明 |
 | --- | --- | --- |
@@ -483,6 +484,18 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
             "edge": -0.0552,
             "weight": 0.04,
             "confidence": "high",
+            "goalExpectation": {
+              "expectedTotal": 2.98,
+              "marketTotal": 2.99,
+              "homeAttack": 1.0,
+              "homeDefense": 2.0,
+              "awayAttack": 2.0,
+              "awayDefense": 2.0,
+              "homeMatches": 1,
+              "awayMatches": 1,
+              "leagueAverage": null,
+              "leagueMatches": 0
+            },
             "reasons": [
               "本库没有这队的近期战绩，概率只按市场与伤停估",
               "主队伤停 1 人（A. Boudri），λ 下调 3%",
@@ -513,6 +526,11 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 门槛与风控（写死在 Python 实现 [apps/analysis/app/recommend/engine.py](../apps/analysis/app/recommend/engine.py)，
 Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，改这里要同步）：
+
+> `goalExpectation` 是每条候选/腿的进球数据快照：`homeAttack` / `homeDefense` 取主队主场分项、
+> `awayAttack` / `awayDefense` 取客队客场分项（无分项时回落到整体场均，`null` 表示完全没有样本）；
+> `expectedTotal` 是修正后的期望总进球，`marketTotal` 是拟合 λ 的市场口径；`leagueAverage` 只在
+> 两队样本都不足、且同联赛有 ≥8 场已结束比赛时才有值。理由文本会说明「数据期望 / 联赛节奏 / 样本不足」。
 
 | 方案 | 场次 | 单腿赔率 | 单腿融合概率 | 总赔率上限 | 命中率下限 |
 | --- | --- | --- | --- | --- | --- |
@@ -1116,6 +1134,7 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-29 | `/api/recommendations` 增加 `goalExpectation`（主客场进球 / 对手失球 / 联赛节奏 → 期望总进球），总进球按修正分布选选项；推荐面板加骨架屏、进度过渡与被过滤候选的「手动加入」 |
 | 2026-10-29 | `/api/analysis/lottery` 新增 `w=` 自定义权重参数；前端删除 TS 分析实现与 `sync-analysis` 生成链，权重滑块改为 400ms 防抖调服务端 |
 | 2026-10-29 | 单场/串关 AI 分析（`/api/ai-analysis`、`/api/ai-parlay`）迁到 Python 分析服务，SSE 协议与 `meta` 事件不变；提示词逐字节对拍 |
 | 2026-10-29 | 大乐透推演（`kind=dlt`）与 `/api/venue-weather` 迁到 Python 分析服务；三条分析路径全部由 `ANALYSIS_API_BASE` 代理，Node 保留同口径回退实现 |

@@ -111,6 +111,9 @@ def team_form(index: dict[int, list[dict]], team_id: int | None, before: str, li
 
     wins = draws = losses = goals_for = goals_against = 0
     home_wins = home_draws = home_losses = home_matches = 0
+    home_goals_for = home_goals_against = 0
+    away_matches = away_wins = away_draws = away_losses = 0
+    away_goals_for = away_goals_against = 0
 
     for entry in entries:
         if entry["gf"] > entry["ga"]:
@@ -123,12 +126,24 @@ def team_form(index: dict[int, list[dict]], team_id: int | None, before: str, li
         goals_against += entry["ga"]
         if entry["home"]:
             home_matches += 1
+            home_goals_for += entry["gf"]
+            home_goals_against += entry["ga"]
             if entry["gf"] > entry["ga"]:
                 home_wins += 1
             elif entry["gf"] == entry["ga"]:
                 home_draws += 1
             else:
                 home_losses += 1
+        else:
+            away_matches += 1
+            away_goals_for += entry["gf"]
+            away_goals_against += entry["ga"]
+            if entry["gf"] > entry["ga"]:
+                away_wins += 1
+            elif entry["gf"] == entry["ga"]:
+                away_draws += 1
+            else:
+                away_losses += 1
 
     return {
         "n": len(entries),
@@ -142,6 +157,131 @@ def team_form(index: dict[int, list[dict]], team_id: int | None, before: str, li
         "homeWins": home_wins,
         "homeDraws": home_draws,
         "homeLosses": home_losses,
+        "homeGoalsFor": home_goals_for,
+        "homeGoalsAgainst": home_goals_against,
+        "awayMatches": away_matches,
+        "awayWins": away_wins,
+        "awayDraws": away_draws,
+        "awayLosses": away_losses,
+        "awayGoalsFor": away_goals_for,
+        "awayGoalsAgainst": away_goals_against,
+    }
+
+
+def _rate(total: int, count: int) -> float | None:
+    return total / count if count > 0 else None
+
+
+def _pick_rate(primary: float | None, fallback: float | None) -> float | None:
+    return primary if primary is not None else fallback
+
+
+def goal_expectation(
+    home_form: dict,
+    away_form: dict,
+    market_home: float,
+    market_away: float,
+) -> dict[str, Any]:
+    """用近期进球数据修正预期总进球，而不是直接把市场最低赔率当成推荐。
+
+    口径（全部来自本库已结束比赛，开赛前快照）：
+      - 主队进攻 = 主场场均进球；客队防守 = 客场场均失球；
+      - 客队进攻 = 客场场均进球；主队防守 = 主场场均失球；
+      - 主客场样本不足时回落到整体场均，权重随样本量收敛（上限 36%）；
+      - 修正后的 λ 单独夹在「市场 λ」的 ±25% 内，避免小样本把分布带偏。
+    """
+    home_attack = _pick_rate(_rate(home_form["homeGoalsFor"], home_form["homeMatches"]), _rate(home_form["goalsFor"], home_form["n"]))
+    home_defense = _pick_rate(
+        _rate(home_form["homeGoalsAgainst"], home_form["homeMatches"]), _rate(home_form["goalsAgainst"], home_form["n"])
+    )
+    away_attack = _pick_rate(_rate(away_form["awayGoalsFor"], away_form["awayMatches"]), _rate(away_form["goalsFor"], away_form["n"]))
+    away_defense = _pick_rate(
+        _rate(away_form["awayGoalsAgainst"], away_form["awayMatches"]), _rate(away_form["goalsAgainst"], away_form["n"])
+    )
+
+    data_home = None
+    data_away = None
+    if home_attack is not None and away_defense is not None:
+        data_home = (home_attack + away_defense) / 2
+    if away_attack is not None and home_defense is not None:
+        data_away = (away_attack + home_defense) / 2
+
+    sample_home = home_form["homeMatches"] or home_form["n"]
+    sample_away = away_form["awayMatches"] or away_form["n"]
+    weight_home = clamp(sample_home / (sample_home + 5), 0.0, 0.45) * 0.8
+    weight_away = clamp(sample_away / (sample_away + 5), 0.0, 0.45) * 0.8
+
+    expected_home = market_home
+    if data_home is not None and weight_home > 0:
+        expected_home = market_home * (1 - weight_home) + data_home * weight_home
+        expected_home = clamp(expected_home, market_home * 0.75, market_home * 1.25)
+    expected_away = market_away
+    if data_away is not None and weight_away > 0:
+        expected_away = market_away * (1 - weight_away) + data_away * weight_away
+        expected_away = clamp(expected_away, market_away * 0.75, market_away * 1.25)
+
+    return {
+        "marketHome": market_home,
+        "marketAway": market_away,
+        "expectedHome": expected_home,
+        "expectedAway": expected_away,
+        "marketTotal": market_home + market_away,
+        "expectedTotal": expected_home + expected_away,
+        "dataHome": data_home,
+        "dataAway": data_away,
+        "homeAttack": home_attack,
+        "homeDefense": home_defense,
+        "awayAttack": away_attack,
+        "awayDefense": away_defense,
+        "homeMatches": home_form["homeMatches"],
+        "awayMatches": away_form["awayMatches"],
+        "homeN": home_form["n"],
+        "awayN": away_form["n"],
+        "weightHome": weight_home,
+        "weightAway": weight_away,
+    }
+
+
+def league_goal_prior(finished: list[dict], league: str, before: str) -> dict[str, float] | None:
+    """联赛最近进球节奏：同一联赛、开赛前的已结束比赛，场均总进球。"""
+    if not league:
+        return None
+    total = 0
+    count = 0
+    for match in finished:
+        if (match.get("league") or "") != league:
+            continue
+        if match["kickoffAt"] >= before:
+            continue
+        total += match["homeScore"] + match["awayScore"]
+        count += 1
+    if count == 0:
+        return None
+    return {"total": total, "count": count, "average": total / count}
+
+
+def apply_league_prior(goal: dict, prior: dict | None, minimum_matches: int = 8) -> dict:
+    """球队主客场样本不足时，用联赛近期场均总进球给总进球一个先验（±15% 以内）。"""
+    if not prior or prior["count"] < minimum_matches:
+        return {**goal, "leagueAverage": None, "leagueMatches": 0, "leagueScale": None}
+    league_average = prior["average"]
+    if goal["dataHome"] is not None and goal["dataAway"] is not None:
+        # 两队主客场样本都齐，就不用联赛先验，避免重复计权
+        return {**goal, "leagueAverage": league_average, "leagueMatches": prior["count"], "leagueScale": None}
+    market_total = goal["marketHome"] + goal["marketAway"]
+    if market_total <= 0:
+        return {**goal, "leagueAverage": league_average, "leagueMatches": prior["count"], "leagueScale": None}
+    scale = clamp(league_average / market_total, 0.85, 1.15)
+    expected_home = goal["expectedHome"] * scale
+    expected_away = goal["expectedAway"] * scale
+    return {
+        **goal,
+        "expectedHome": expected_home,
+        "expectedAway": expected_away,
+        "expectedTotal": expected_home + expected_away,
+        "leagueAverage": league_average,
+        "leagueMatches": prior["count"],
+        "leagueScale": scale,
     }
 
 
@@ -217,7 +357,7 @@ def pick_tier(candidates: list[dict], tiers: tuple[dict, ...], spec: dict) -> di
     return None
 
 
-def describe_leg(leg: dict, injury: dict | None, home_form: dict, away_form: dict) -> list[str]:
+def describe_leg(leg: dict, injury: dict | None, home_form: dict, away_form: dict, goal: dict) -> list[str]:
     reasons: list[str] = []
 
     def form_text(form: dict, place: str) -> str:
@@ -231,19 +371,63 @@ def describe_leg(leg: dict, injury: dict | None, home_form: dict, away_form: dic
     if leg["pool"] == "ttg":
         parts = [form_text(home_form, "主队"), form_text(away_form, "客队")]
         parts = [part for part in parts if part]
-        reasons.append("；".join(parts) if parts else "本库没有这两队的近期战绩，概率只按市场与伤停估")
+        if parts:
+            reasons.append("；".join(parts))
+        elif goal.get("leagueScale") is not None:
+            reasons.append("本库没有这两队的近期战绩，按联赛最近的进球节奏与市场估")
+        else:
+            reasons.append("本库没有这两队的近期战绩，概率只按市场与伤停估")
+
+        venue_parts = []
+        if goal["homeMatches"] > 0 and goal["homeAttack"] is not None and goal["homeDefense"] is not None:
+            venue_parts.append(
+                f"主队主场 {goal['homeMatches']} 场场均进 {goal['homeAttack']:.1f} 球、失 {goal['homeDefense']:.1f} 球"
+            )
+        if goal["awayMatches"] > 0 and goal["awayAttack"] is not None and goal["awayDefense"] is not None:
+            venue_parts.append(
+                f"客队客场 {goal['awayMatches']} 场场均进 {goal['awayAttack']:.1f} 球、失 {goal['awayDefense']:.1f} 球"
+            )
+        if venue_parts:
+            reasons.append("；".join(venue_parts))
+        if goal.get("leagueScale") is not None and goal.get("leagueAverage") is not None:
+            reasons.append(
+                f"联赛近 {goal['leagueMatches']} 场场均 {goal['leagueAverage']:.1f} 球"
+                f"（市场 {goal['marketTotal']:.1f}），期望总进球修正为 {goal['expectedTotal']:.1f}，按分布选概率最高的选项"
+            )
+        elif goal["dataHome"] is not None or goal["dataAway"] is not None:
+            reasons.append(
+                f"数据期望总进球 {goal['expectedTotal']:.1f}（市场 {goal['marketTotal']:.1f}）："
+                "按主客场进球与对手失球修正后选概率最高的选项，不直接取最低赔率"
+            )
+        else:
+            reasons.append(
+                f"本库缺少两队进球样本，期望总进球沿用市场 {goal['marketTotal']:.1f}；"
+                "有样本后会按主客场进球与对手失球修正"
+            )
     else:
         is_home = leg["side"] != "away"
         form = home_form if is_home else away_form
         if form["n"] > 0:
-            venue = (
-                f"，同侧近 {form['homeMatches']} 场 {form['homeWins']}胜{form['homeDraws']}平{form['homeLosses']}负"
-                if form["homeMatches"] > 0
-                else ""
-            )
+            if is_home and form["homeMatches"] > 0:
+                venue = f"，同侧近 {form['homeMatches']} 场 {form['homeWins']}胜{form['homeDraws']}平{form['homeLosses']}负"
+            elif not is_home and form["awayMatches"] > 0:
+                venue = f"，客场近 {form['awayMatches']} 场 {form['awayWins']}胜{form['awayDraws']}平{form['awayLosses']}负"
+            else:
+                venue = ""
             reasons.append(f"{form_text(form, '主队' if is_home else '客队')}{venue}")
         else:
             reasons.append("本库没有这队的近期战绩，概率只按市场与伤停估")
+
+        if is_home:
+            attack, defense = goal["homeAttack"], goal["awayDefense"]
+            place = f"主队主场 {goal['homeMatches']} 场"
+            opponent = "对手客场"
+        else:
+            attack, defense = goal["awayAttack"], goal["homeDefense"]
+            place = f"客队客场 {goal['awayMatches']} 场"
+            opponent = "对手主场"
+        if attack is not None and defense is not None:
+            reasons.append(f"{place}场均进 {attack:.1f} 球，{opponent}场均失 {defense:.1f} 球")
 
     sides = ("home", "away") if leg["pool"] == "ttg" else (("away",) if leg["side"] == "away" else ("home",))
     for side in sides:
@@ -332,10 +516,16 @@ def build_recommendation(
         home_scale = clamp(form["home"] * injury_home, 0.75, 1.3)
         away_scale = clamp(form["away"] * injury_away, 0.75, 1.3)
 
-        model = pool_probabilities(
-            score_matrix(fit["home"] * home_scale, fit["away"] * away_scale),
-            pools["hhadLine"],
-        )
+        # 进球数据修正：主场进攻/客场防守 → 期望进球，再单独夹在拟合 λ 的 ±25% 内。
+        # 这一步只动 λ，不改评分权重，避免小样本把整套概率带跑。
+        goal = goal_expectation(home_form, away_form, fit["home"], fit["away"])
+        goal = apply_league_prior(goal, league_goal_prior(finished, match["league"], before))
+        goal_home_scale = clamp(goal["expectedHome"] / fit["home"], 0.75, 1.25)
+        goal_away_scale = clamp(goal["expectedAway"] / fit["away"], 0.75, 1.25)
+        model_home = fit["home"] * home_scale * goal_home_scale
+        model_away = fit["away"] * away_scale * goal_away_scale
+
+        model = pool_probabilities(score_matrix(model_home, model_away), pools["hhadLine"])
 
         # 融合权重：市场为主导，数据样本越多、伤停越确定，模型权重越大（上限 0.42）
         sample = min(home_form["n"], away_form["n"])
@@ -379,7 +569,19 @@ def build_recommendation(
                         "confidence": confidence,
                         "weight": weight,
                         "goalLine": pools["hhadLine"],
-                        "lambda": {"home": fit["home"] * home_scale, "away": fit["away"] * away_scale},
+                        "lambda": {"home": model_home, "away": model_away},
+                        "goalExpectation": {
+                            "expectedTotal": goal["expectedTotal"],
+                            "marketTotal": goal["marketTotal"],
+                            "homeAttack": goal["homeAttack"],
+                            "homeDefense": goal["homeDefense"],
+                            "awayAttack": goal["awayAttack"],
+                            "awayDefense": goal["awayDefense"],
+                            "homeMatches": goal["homeMatches"],
+                            "awayMatches": goal["awayMatches"],
+                            "leagueAverage": goal.get("leagueAverage"),
+                            "leagueMatches": goal.get("leagueMatches", 0),
+                        },
                         "sample": {
                             "homeMatches": home_form["n"],
                             "awayMatches": away_form["n"],
@@ -430,7 +632,7 @@ def build_recommendation(
                 "passSafe": pass_safe,
                 "passAggressive": pass_aggressive,
                 "rejectReason": reject_reason,
-                "reasons": describe_leg(best, injury, home_form, away_form),
+                "reasons": describe_leg(best, injury, home_form, away_form, goal),
                 "alternatives": match_candidates[1:3],
             }
         )
@@ -525,6 +727,7 @@ def build_recommendation(
             "passSafe": item["passSafe"],
             "passAggressive": item["passAggressive"],
             "rejectReason": item["rejectReason"],
+            "goalExpectation": item["goalExpectation"],
             "reasons": item["reasons"],
         }
         for item in candidates[:12]

@@ -129,6 +129,39 @@ export function poolProbabilities(matrix, goalLine = 0) {
   return { had, hhad, ttg }
 }
 
+/** 与 Python 版一致的快路径：CDF + 卷积直接算胜平负与总进球，不构造 9×9 矩阵。 */
+function hadTtgFromPmfs(lambdaHome, lambdaAway) {
+  const home = poissonPmf(lambdaHome)
+  const away = poissonPmf(lambdaAway)
+  const cdfHome = []
+  let acc = 0
+  for (const value of home) {
+    acc += value
+    cdfHome.push(acc)
+  }
+
+  const had = { h: 0, d: 0, a: 0 }
+  for (let a = 0; a < away.length; a += 1) {
+    const pa = away[a]
+    if (pa <= 0) continue
+    had.h += pa * (1 - cdfHome[a])
+    had.d += pa * home[a]
+    had.a += pa * (cdfHome[a] - home[a])
+  }
+
+  const ttg = { s0: 0, s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, s6: 0, s7: 0 }
+  for (let a = 0; a < away.length; a += 1) {
+    const pa = away[a]
+    if (pa <= 0) continue
+    for (let h = 0; h < home.length; h += 1) {
+      const total = h + a
+      ttg[total >= 7 ? 's7' : `s${total}`] += pa * home[h]
+    }
+  }
+
+  return { had, ttg }
+}
+
 /** 由市场概率反推 λ：粗网格全扫 + 局部细化，目标 = 胜平负 + 总进球。 */
 export function fitLambdas({ hadTarget, ttgTarget, goalLine = 0 }) {
   const targets = []
@@ -147,13 +180,13 @@ export function fitLambdas({ hadTarget, ttgTarget, goalLine = 0 }) {
   }
 
   const error = (lambdaHome, lambdaAway) => {
-    const matrix = scoreMatrix(lambdaHome, lambdaAway, { rho: 0 })
-    const probs = poolProbabilities(matrix, goalLine)
+    // 与 Python 版完全同一套误差：CDF + 卷积快路径（不构造矩阵）。
+    const { had, ttg } = hadTtgFromPmfs(lambdaHome, lambdaAway)
     let score = 0
     for (const target of targets) {
       for (let i = 0; i < target.keys.length; i += 1) {
         const key = target.keys[i]
-        const model = target.keys.length === 3 ? probs.had[key] : probs.ttg[key]
+        const model = target.keys.length === 3 ? had[key] : ttg[key]
         const delta = model - target.values[i]
         score += target.weight * delta * delta
       }

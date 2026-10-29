@@ -45,7 +45,7 @@ SLATE_SQL = """
 """
 
 FINISHED_SQL = """
-  select id, sporttery_match_id, kickoff_at, home_team_id, away_team_id, home_score, away_score
+  select id, sporttery_match_id, kickoff_at, home_team_id, away_team_id, home_score, away_score, league_name
   from match
   where status = 'finished' and home_score is not null and away_score is not null
   order by kickoff_at desc
@@ -161,6 +161,7 @@ def load_finished_matches() -> list[dict]:
             "awayTeamId": _int(row["away_team_id"]),
             "homeScore": int(row["home_score"]),
             "awayScore": int(row["away_score"]),
+            "league": row["league_name"] or "",
         }
         for row in rows
     ]
