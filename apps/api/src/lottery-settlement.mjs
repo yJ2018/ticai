@@ -1,17 +1,22 @@
 import { HttpError } from './lib.mjs'
 
 /**
- * 彩票选号投注：号码校验与开奖判定（纯函数，可单测）。
+ * 彩票选号投注（单式 + 复式）：号码校验、注数计算与开奖判定（纯函数，可单测）。
  *
- * 目前支持单式：
- *   - 排列五：5 位 0–9
- *   - 七星彩：7 位 0–9
- *   - 超级大乐透：前区 5 个 1–35 + 后区 2 个 1–12
+ * 号码结构：
+ *   - 排列五 / 七星彩（位次型）：{ main: [[1,2], [5], [4], [4], [8]], extra: [] }
+ *     每个位次一个数组；单式就是每个数组只有 1 个数字。
+ *   - 超级大乐透（组合型）：{ main: [1,6,10,15,32], extra: [3,8] }
+ *     前区至少 5 个、后区至少 2 个；单式就是恰好 5 + 2。
  *
- * 判定口径：
- *   - 排列五 / 七星彩：按位次逐位比对，全部命中才算中奖；
- *   - 大乐透：按官方九个奖级判定（前区命中数 + 后区命中数）；
- *   - 只判「中没中、第几等奖」，浮动奖金不在这里算（以官方公告为准）。
+ * 注数：
+ *   - 位次型：各位长度的乘积；
+ *   - 大乐透：C(前区个数, 5) × C(后区个数, 2)。
+ *
+ * 判定：
+ *   - 排列五 / 七星彩：按位比对，全中记一等奖（低奖项规则未建模）；
+ *   - 大乐透：按官方九个奖级，返回中奖注数与奖级列表；
+ *   - 浮动奖金不代算（payout 恒为 0），以官方公告为准。
  */
 
 export const LOTTERY_GAMES = {
@@ -47,6 +52,9 @@ export const LOTTERY_GAMES = {
   },
 }
 
+/** 单张彩票的注数上限：1000 注 = 2000 元，避免误选几十万注。 */
+export const MAX_LOTTERY_UNITS = 1000
+
 const BY_GAME_NO = new Map(Object.values(LOTTERY_GAMES).map((game) => [game.gameNo, game]))
 
 export function resolveLotteryGame(value) {
@@ -57,16 +65,84 @@ export function resolveLotteryGame(value) {
   return LOTTERY_GAMES[raw.toLowerCase()] ?? BY_GAME_NO.get(raw) ?? null
 }
 
-function toNumberArray(value) {
+/** 组合数 C(n, k)，n 不会很大（≤35），直接乘除即可。 */
+export function combinationCount(n, k) {
+  if (!Number.isInteger(n) || !Number.isInteger(k) || k < 0 || n < k) {
+    return 0
+  }
+  let result = 1
+  for (let index = 1; index <= k; index += 1) {
+    result = (result * (n - k + index)) / index
+  }
+  return Math.round(result)
+}
+
+function toIntegerArray(value) {
   if (!Array.isArray(value)) {
     return null
   }
   return value.map((item) => Number(item))
 }
 
+function isIntegerInRange(values, min, max) {
+  return values.every((item) => Number.isInteger(item) && item >= min && item <= max)
+}
+
+function normalizePositional(game, raw) {
+  const groups = Array.isArray(raw?.main) ? raw.main : null
+  if (!groups || groups.length !== game.mainCount || !groups.every((group) => Array.isArray(group))) {
+    throw new HttpError(400, `${game.name}需要按 ${game.mainCount} 个位次选号`)
+  }
+
+  const main = groups.map((group, index) => {
+    const digits = toIntegerArray(group)
+    if (!digits || digits.length === 0) {
+      throw new HttpError(400, `第 ${index + 1} 位至少要选 1 个数字`)
+    }
+    if (!isIntegerInRange(digits, 0, 9)) {
+      throw new HttpError(400, `${game.name}号码必须是 0–9 的整数`)
+    }
+    return Array.from(new Set(digits)).sort((left, right) => left - right)
+  })
+
+  const units = main.reduce((product, digits) => product * digits.length, 1)
+  return { numbers: { main, extra: [] }, units }
+}
+
+function normalizeDlt(game, raw) {
+  const main = toIntegerArray(raw?.main)
+  if (!main || main.length < game.mainCount || main.length > game.mainMax) {
+    throw new HttpError(400, `${game.name}前区至少选 ${game.mainCount} 个（最多 ${game.mainMax} 个）`)
+  }
+  if (!isIntegerInRange(main, 1, game.mainMax)) {
+    throw new HttpError(400, `${game.name}前区号码必须是 1–${game.mainMax} 的整数`)
+  }
+
+  const extra = toIntegerArray(raw?.extra)
+  if (!extra || extra.length < game.extraCount || extra.length > game.extraMax) {
+    throw new HttpError(400, `${game.name}后区至少选 ${game.extraCount} 个（最多 ${game.extraMax} 个）`)
+  }
+  if (!isIntegerInRange(extra, 1, game.extraMax)) {
+    throw new HttpError(400, `${game.name}后区号码必须是 1–${game.extraMax} 的整数`)
+  }
+
+  const sortedMain = Array.from(new Set(main)).sort((left, right) => left - right)
+  const sortedExtra = Array.from(new Set(extra)).sort((left, right) => left - right)
+  if (sortedMain.length !== main.length) {
+    throw new HttpError(400, `${game.name}前区号码不能重复`)
+  }
+  if (sortedExtra.length !== extra.length) {
+    throw new HttpError(400, `${game.name}后区号码不能重复`)
+  }
+
+  const units = combinationCount(sortedMain.length, game.mainCount) * combinationCount(sortedExtra.length, game.extraCount)
+  return { numbers: { main: sortedMain, extra: sortedExtra }, units }
+}
+
 /**
- * 校验并归一化号码；不合法直接抛 400，客户端传什么都不信。
- * 大乐透前区/后区会排序去重（顺序不影响中奖），排列五/七星彩保留位次顺序。
+ * 校验并归一化号码。
+ *
+ * @returns {{ numbers: { main: number[] | number[][], extra: number[] }, units: number, mode: 'single'|'multiple' }}
  */
 export function normalizeLotteryNumbers(gameKey, raw) {
   const game = LOTTERY_GAMES[gameKey]
@@ -74,40 +150,11 @@ export function normalizeLotteryNumbers(gameKey, raw) {
     throw new HttpError(400, `不支持的彩种：${gameKey}`)
   }
 
-  const mainMin = game.positional ? 0 : 1
-  const main = toNumberArray(raw?.main)
-  if (!main || main.length !== game.mainCount) {
-    throw new HttpError(400, `${game.name}需要选 ${game.mainCount} 个号码`)
+  const result = game.positional ? normalizePositional(game, raw) : normalizeDlt(game, raw)
+  return {
+    ...result,
+    mode: result.units > 1 ? 'multiple' : 'single',
   }
-  if (!main.every((item) => Number.isInteger(item) && item >= mainMin && item <= game.mainMax)) {
-    throw new HttpError(400, `${game.name}号码必须是 ${mainMin}–${game.mainMax} 的整数`)
-  }
-
-  let extra = []
-  if (game.extraCount > 0) {
-    const rawExtra = toNumberArray(raw?.extra)
-    if (!rawExtra || rawExtra.length !== game.extraCount) {
-      throw new HttpError(400, `${game.name}需要选 ${game.extraCount} 个后区号码`)
-    }
-    if (!rawExtra.every((item) => Number.isInteger(item) && item >= 1 && item <= game.extraMax)) {
-      throw new HttpError(400, `${game.name}后区号码必须是 1–${game.extraMax} 的整数`)
-    }
-    extra = rawExtra
-  }
-
-  if (game.positional) {
-    return { main, extra: [] }
-  }
-
-  const sortedMain = Array.from(new Set(main)).sort((left, right) => left - right)
-  const sortedExtra = Array.from(new Set(extra)).sort((left, right) => left - right)
-  if (sortedMain.length !== game.mainCount) {
-    throw new HttpError(400, `${game.name}前区号码不能重复`)
-  }
-  if (sortedExtra.length !== game.extraCount) {
-    throw new HttpError(400, `${game.name}后区号码不能重复`)
-  }
-  return { main: sortedMain, extra: sortedExtra }
 }
 
 const DLT_TIERS = [
@@ -126,55 +173,93 @@ const DLT_TIERS = [
   { tier: '九等奖', main: 0, extra: 2 },
 ]
 
-function dltTier(mainHits, extraHits) {
-  return DLT_TIERS.find((item) => item.main === mainHits && item.extra === extraHits)?.tier ?? null
+/** 兼容旧数据：位次型曾经存成扁平数字数组。 */
+function positionalGroups(numbers) {
+  const main = Array.isArray(numbers?.main) ? numbers.main : []
+  return main.map((item) => (Array.isArray(item) ? item : [item]))
 }
 
-function intersectCount(picked, drawn) {
-  const drawnSet = new Set(drawn)
-  return picked.filter((item) => drawnSet.has(item)).length
+function judgePositional(game, numbers, drawMain) {
+  const groups = positionalGroups(numbers)
+  const matchedMain = groups.map((digits, index) => digits.includes(drawMain[index]))
+  const hits = { main: matchedMain.filter(Boolean).length, extra: 0 }
+  const won = hits.main === game.mainCount
+  return {
+    status: won ? 'won' : 'lost',
+    tier: won ? '一等奖' : null,
+    tiers: won ? [{ tier: '一等奖', units: 1 }] : [],
+    winningUnits: won ? 1 : 0,
+    hits,
+    matchedMain,
+    matchedExtra: [],
+  }
+}
+
+function judgeDlt(game, numbers, drawMain, drawExtra) {
+  const front = Array.isArray(numbers?.main) ? numbers.main : []
+  const back = Array.isArray(numbers?.extra) ? numbers.extra : []
+  const frontHit = front.filter((value) => drawMain.includes(value)).length
+  const backHit = back.filter((value) => drawExtra.includes(value)).length
+
+  const tiers = []
+  let winningUnits = 0
+  for (const tier of DLT_TIERS) {
+    const frontWays =
+      combinationCount(frontHit, tier.main) * combinationCount(front.length - frontHit, game.mainCount - tier.main)
+    const backWays =
+      combinationCount(backHit, tier.extra) * combinationCount(back.length - backHit, game.extraCount - tier.extra)
+    const units = frontWays * backWays
+    if (units > 0) {
+      const existing = tiers.find((item) => item.tier === tier.tier)
+      if (existing) {
+        existing.units += units
+      } else {
+        tiers.push({ tier: tier.tier, units })
+      }
+      winningUnits += units
+    }
+  }
+
+  return {
+    status: winningUnits > 0 ? 'won' : 'lost',
+    tier: tiers[0]?.tier ?? null,
+    tiers,
+    winningUnits,
+    hits: { main: frontHit, extra: backHit },
+    matchedMain: front.map((value) => drawMain.includes(value)),
+    matchedExtra: back.map((value) => drawExtra.includes(value)),
+  }
 }
 
 /**
- * 判定一张彩票注单。
+ * 判定一张彩票注单（单式与复式同一套逻辑）。
  *
- * @returns {{ status: 'pending'|'won'|'lost', tier: string|null, hits: {main:number, extra:number}, matchedMain: boolean[], draw: null|{issue:string, drawDate:string, main:number[], extra:number[]} }}
+ * @returns {{ status: 'pending'|'won'|'lost', tier: string|null, tiers: Array<{tier:string,units:number}>, winningUnits: number, hits: {main:number,extra:number}, matchedMain: boolean[], matchedExtra: boolean[], draw: null|{issue:string,drawDate:string,main:number[],extra:number[]} }}
  */
 export function judgeLotteryBet(gameKey, numbers, draw) {
   const game = LOTTERY_GAMES[gameKey]
-  if (!game) {
-    return { status: 'pending', tier: null, hits: { main: 0, extra: 0 }, matchedMain: [], draw: null }
+  const empty = {
+    status: 'pending',
+    tier: null,
+    tiers: [],
+    winningUnits: 0,
+    hits: { main: 0, extra: 0 },
+    matchedMain: [],
+    matchedExtra: [],
+    draw: null,
   }
-  if (!draw) {
-    return { status: 'pending', tier: null, hits: { main: 0, extra: 0 }, matchedMain: [], draw: null }
+  if (!game || !draw) {
+    return empty
   }
 
   const drawMain = (draw.main_numbers ?? []).map(Number)
   const drawExtra = (draw.extra_numbers ?? []).map(Number)
-  const pickedMain = (numbers?.main ?? []).map(Number)
-  const pickedExtra = (numbers?.extra ?? []).map(Number)
-
-  const matchedMain = game.positional
-    ? pickedMain.map((value, index) => value === drawMain[index])
-    : pickedMain.map((value) => drawMain.includes(value))
-
-  const hits = {
-    main: matchedMain.filter(Boolean).length,
-    extra: game.extraCount > 0 ? intersectCount(pickedExtra, drawExtra) : 0,
-  }
-
-  let tier = null
-  if (game.positional) {
-    tier = hits.main === game.mainCount ? '一等奖' : null
-  } else {
-    tier = dltTier(hits.main, hits.extra)
-  }
+  const judged = game.positional
+    ? judgePositional(game, numbers, drawMain)
+    : judgeDlt(game, numbers, drawMain, drawExtra)
 
   return {
-    status: tier ? 'won' : 'lost',
-    tier,
-    hits,
-    matchedMain,
+    ...judged,
     draw: {
       issue: draw.issue ?? '',
       drawDate: draw.draw_date ? String(draw.draw_date).slice(0, 10) : '',

@@ -40,6 +40,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/maintenance.sql
 | `db/migrations/0003_match_result.sql` | 竞彩赛果开奖：比分 + `had/hhad/ttg/crs/hafu` 结果 + 关联 `match` |
 | `db/migrations/0004_auth_bets.sql` | 可选登录（`app_user` / `email_code` / `user_session`）与投注单（`bet` / `bet_leg`） |
 | `db/migrations/0009_lottery_bets.sql` | `bet` 扩展 `kind` / `lottery_game_no` / `lottery_numbers`，支持排列五 / 七星彩 / 大乐透选号投注 |
+| `db/migrations/0010_lottery_complex.sql` | 彩票复式：位次型号码改为「每位一个数组」，旧单式数据原地转换；注数按位乘积/组合数计算 |
 | `db/migrations/0005_identities_wechat.sql` | 第三方身份（`user_identity`）+ 一次性登录票据（`auth_ticket`）；`app_user.email` 允许为空 |
 | `db/migrations/0006_wechat_password_nullable.sql` | 微信建的账号没有密码，`password_hash` 允许为空 |
 | `db/migrations/0007_analysis_snapshot.sql` | 开奖分析快照 `lottery_analysis_snapshot` + `lottery_analysis_latest` 视图 |

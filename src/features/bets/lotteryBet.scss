@@ -202,6 +202,12 @@
   font-weight: 700;
 }
 
+.lottery-pick__combos {
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .lottery-pick__error {
   margin: 0;
   color: #dc2626;
@@ -312,6 +318,16 @@
   gap: 0.3rem;
   align-items: center;
   margin-top: 0.3rem;
+
+  &.is-groups {
+    gap: 0.2rem;
+  }
+}
+
+.lottery-bet__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
 }
 
 .lottery-bet__ball {

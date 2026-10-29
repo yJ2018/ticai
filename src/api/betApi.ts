@@ -7,7 +7,11 @@ export type MarketPool = 'had' | 'hhad' | 'ttg' | 'crs' | 'hafu'
 
 export type LotteryGameKey = 'pl5' | 'qxc' | 'dlt'
 
-export type LotteryNumbers = { main: number[]; extra: number[] }
+export type LotteryNumbers = {
+  /** 位次型：number[][]（每位可多选）；大乐透：number[]（前区池） */
+  main: number[] | number[][]
+  extra: number[]
+}
 
 export type CreateLotteryBetInput = {
   kind: 'lottery'
@@ -22,10 +26,14 @@ export type LotteryBetInfo = {
   gameNo: string
   name: string
   positional: boolean
+  mode: 'single' | 'multiple'
   numbers: LotteryNumbers
   tier: string | null
+  tiers: Array<{ tier: string; units: number }>
+  winningUnits: number
   hits: { main: number; extra: number }
   matchedMain: boolean[]
+  matchedExtra: boolean[]
   draw: {
     issue: string
     drawDate: string

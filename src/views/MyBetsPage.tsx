@@ -96,6 +96,24 @@ function LotteryBalls({ main, extra, matched }: { main: number[]; extra: number[
   )
 }
 
+/** 复式：按位次分组渲染（每位多选），命中位次标绿。 */
+function LotteryGroups({ groups, matched }: { groups: number[][]; matched?: boolean[] }) {
+  return (
+    <p className="lottery-bet__balls is-groups">
+      {groups.map((digits, index) => (
+        <span className="lottery-bet__group" key={`group-${index}`}>
+          {digits.map((value) => (
+            <span key={`${index}-${value}`} className={`lottery-bet__ball${matched?.[index] ? ' is-hit' : ''}`}>
+              {value}
+            </span>
+          ))}
+          {index < groups.length - 1 && <span className="lottery-bet__plus">|</span>}
+        </span>
+      ))}
+    </p>
+  )
+}
+
 /** 彩票注单：号码 + 开奖对比；不打开足球的详情弹层。 */
 function LotteryBetCard({ bet, deleting, onDelete }: Omit<BetCardProps, 'onOpen'>) {
   const lottery = bet.lottery
@@ -103,9 +121,13 @@ function LotteryBetCard({ bet, deleting, onDelete }: Omit<BetCardProps, 'onOpen'
     return null
   }
   const drawn = lottery.draw
+  const main = lottery.numbers.main
+  const nested = Array.isArray(main) && Array.isArray((main as number[][])[0])
+  const front = nested ? [] : (main as number[])
   const hitText = lottery.positional
-    ? `命中 ${lottery.hits.main}/${lottery.numbers.main.length} 位`
-    : `命中 前区 ${lottery.hits.main}/${lottery.numbers.main.length} · 后区 ${lottery.hits.extra}/${lottery.numbers.extra.length}`
+    ? `命中 ${lottery.hits.main}/${nested ? (main as number[][]).length : front.length} 位`
+    : `命中 前区 ${lottery.hits.main}/${front.length} · 后区 ${lottery.hits.extra}/${lottery.numbers.extra.length}`
+  const tierText = lottery.tiers.map((item) => `${item.tier} ${item.units} 注`).join(' / ')
 
   return (
     <article className={`bet-card bet-card--lottery bet-card--${bet.status}`}>
@@ -118,17 +140,18 @@ function LotteryBetCard({ bet, deleting, onDelete }: Omit<BetCardProps, 'onOpen'
             <span>{bet.units} 注</span>
             <span>{formatMoney(bet.amount)} 元</span>
             <span>{lottery.name}</span>
+            {lottery.mode === 'multiple' && <span>复式</span>}
           </p>
           {bet.note && <p className="bet-card__note">{bet.note}</p>}
         </div>
         <span className={`bet-badge bet-badge--${bet.status}`}>{STATUS_LABELS[bet.status]}</span>
       </header>
 
-      <LotteryBalls
-        main={lottery.numbers.main}
-        extra={lottery.numbers.extra}
-        matched={drawn ? lottery.matchedMain : undefined}
-      />
+      {nested ? (
+        <LotteryGroups groups={main as number[][]} matched={drawn ? lottery.matchedMain : undefined} />
+      ) : (
+        <LotteryBalls main={front} extra={lottery.numbers.extra} matched={drawn ? lottery.matchedMain : undefined} />
+      )}
 
       <div className="lottery-bet__draw">
         {drawn ? (
@@ -139,7 +162,7 @@ function LotteryBetCard({ bet, deleting, onDelete }: Omit<BetCardProps, 'onOpen'
             <LotteryBalls main={drawn.main} extra={drawn.extra} />
             <span className="lottery-bet__hits">
               <em className={bet.status === 'won' ? 'is-won' : 'is-lost'}>
-                {bet.status === 'won' ? `中奖：${lottery.tier ?? '—'}` : '未中奖'}
+                {bet.status === 'won' ? `中奖 ${lottery.winningUnits} 注${tierText ? `：${tierText}` : ''}` : '未中奖'}
               </em>
               <span>{hitText}</span>
             </span>

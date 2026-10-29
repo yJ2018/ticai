@@ -1,6 +1,6 @@
 import { query, withTransaction } from '../db.mjs'
 import { HttpError } from '../lib.mjs'
-import { judgeLotteryBet, LOTTERY_GAMES, normalizeLotteryNumbers, resolveLotteryGame } from '../lottery-settlement.mjs'
+import { judgeLotteryBet, LOTTERY_GAMES, MAX_LOTTERY_UNITS, normalizeLotteryNumbers, resolveLotteryGame } from '../lottery-settlement.mjs'
 import { computePlanMetrics, parsePassType, settleBet } from '../settlement.mjs'
 import { getResultsByIds } from './results.mjs'
 
@@ -184,31 +184,45 @@ function pad2(value) {
   return String(value).padStart(2, '0')
 }
 
-/** 彩票注单：号码 + 倍数，校验全部在服务端做（前端选号器只是输入辅助）。 */
+/** 彩票注单：号码 + 倍数；单式/复式都由服务端算注数，前端只是输入辅助。 */
 export function buildLotteryBet(body) {
   const game = resolveLotteryGame(body?.game ?? body?.gameNo)
   if (!game) {
     throw new HttpError(400, '不支持的彩种（排列五 / 七星彩 / 大乐透）')
   }
 
-  const numbers = normalizeLotteryNumbers(game.key, body?.numbers)
+  const normalized = normalizeLotteryNumbers(game.key, body?.numbers)
 
   const multiple = Number(body?.multiple ?? 1)
   if (!Number.isInteger(multiple) || multiple < 1 || multiple > 50) {
     throw new HttpError(400, '倍数必须是 1–50 的整数')
   }
 
+  const units = normalized.units * multiple
+  if (units > MAX_LOTTERY_UNITS) {
+    throw new HttpError(
+      400,
+      `单张最多 ${MAX_LOTTERY_UNITS} 注（${MAX_LOTTERY_UNITS * 2} 元），当前 ${units} 注，请减少号码或倍数`,
+    )
+  }
+
+  const numbers = normalized.numbers
   const numberText = game.extraCount
     ? `${numbers.main.map(pad2).join(' ')} + ${numbers.extra.map(pad2).join(' ')}`
-    : numbers.main.join(' ')
-  const title = `${game.name} ${numberText}`.slice(0, 64)
+    : numbers.main.map((group) => group.join(',')).join(' | ')
+  const title =
+    normalized.mode === 'multiple'
+      ? `${game.name} 复式 ${normalized.units} 注`.slice(0, 64)
+      : `${game.name} ${numberText}`.slice(0, 64)
 
   return {
     game,
     numbers,
+    mode: normalized.mode,
+    combos: normalized.units,
     multiple,
-    units: multiple,
-    amount: Number((2 * multiple).toFixed(2)),
+    units,
+    amount: Number((2 * units).toFixed(2)),
     title,
     note: body?.note ? String(body.note).slice(0, 200) : null,
   }
@@ -337,10 +351,20 @@ async function hydrate(config, betRows, legsByBet) {
           gameNo: row.lottery_game_no,
           name: info?.game.name ?? '',
           positional: info?.game.positional ?? false,
+          mode: info?.game.positional
+            ? info?.numbers.main.some((group) => group.length > 1)
+              ? 'multiple'
+              : 'single'
+            : (info?.numbers.main.length ?? 0) > 5 || (info?.numbers.extra.length ?? 0) > 2
+              ? 'multiple'
+              : 'single',
           numbers: info?.numbers ?? { main: [], extra: [] },
           tier: judged.tier,
+          tiers: judged.tiers,
+          winningUnits: judged.winningUnits,
           hits: judged.hits,
           matchedMain: judged.matchedMain,
+          matchedExtra: judged.matchedExtra ?? [],
           draw: judged.draw,
         },
       }
