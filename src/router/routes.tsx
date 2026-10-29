@@ -1,16 +1,16 @@
-import { AboutPage } from '../pages/AboutPage'
-import { AccountPage } from '../pages/AccountPage'
-import { AuthPage } from '../pages/AuthPage'
-import { HistoryAnalysisPage } from '../pages/HistoryAnalysisPage'
-import { HistoryPage } from '../pages/HistoryPage'
-import { HomePage } from '../pages/HomePage'
-import { HoroscopePage } from '../pages/HoroscopePage'
-import { MathTrendAnalysisPage } from '../pages/MathTrendAnalysisPage'
-import { MatchDetailPage } from '../pages/MatchDetailPage'
-import { MyBetsPage } from '../pages/MyBetsPage'
-import { ProfilePage } from '../pages/ProfilePage'
-import { ResultsPage } from '../pages/ResultsPage'
-import { WechatCallbackPage } from '../pages/WechatCallbackPage'
+import { AboutPage } from '../views/AboutPage'
+import { AccountPage } from '../views/AccountPage'
+import { AuthPage } from '../views/AuthPage'
+import { HistoryAnalysisPage } from '../views/HistoryAnalysisPage'
+import { HistoryPage } from '../views/HistoryPage'
+import { HomePage } from '../views/HomePage'
+import { HoroscopePage } from '../views/HoroscopePage'
+import { MathTrendAnalysisPage } from '../views/MathTrendAnalysisPage'
+import { MatchDetailPage } from '../views/MatchDetailPage'
+import { MyBetsPage } from '../views/MyBetsPage'
+import { ProfilePage } from '../views/ProfilePage'
+import { ResultsPage } from '../views/ResultsPage'
+import { WechatCallbackPage } from '../views/WechatCallbackPage'
 import { type KeepAliveRouteItem, type NavItem } from './types'
 
 export const appRoutes: KeepAliveRouteItem[] = [
@@ -26,7 +26,7 @@ export const appRoutes: KeepAliveRouteItem[] = [
   { path: '/about', element: <AboutPage />, cache: true },
   // 登录/注册：每次进入都重新挂载，避免残留上一次的错误提示
   { path: '/login', element: <AuthPage />, cache: false },
-  // 微信回调：一次性票据换会话，必须每次重新执行
+  // 微信回调：一次性票据换会话，必须每次都重新执行
   { path: '/auth/wechat', element: <WechatCallbackPage />, cache: false },
   // 账号页：登录方式与微信绑定
   { path: '/account', element: <AccountPage />, cache: false },

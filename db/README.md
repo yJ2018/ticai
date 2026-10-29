@@ -41,6 +41,8 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/maintenance.sql
 | `db/migrations/0004_auth_bets.sql` | 可选登录（`app_user` / `email_code` / `user_session`）与投注单（`bet` / `bet_leg`） |
 | `db/migrations/0005_identities_wechat.sql` | 第三方身份（`user_identity`）+ 一次性登录票据（`auth_ticket`）；`app_user.email` 允许为空 |
 | `db/migrations/0006_wechat_password_nullable.sql` | 微信建的账号没有密码，`password_hash` 允许为空 |
+| `db/migrations/0007_analysis_snapshot.sql` | 开奖分析快照 `lottery_analysis_snapshot` + `lottery_analysis_latest` 视图 |
+| `db/migrations/0008_code_signup_password.sql` | 验证码登录即注册：`email_code.purpose` 增加 `bind`，`user_session.verified_by`，`app_user.password_updated_at` |
 | `db/seed/001_lottery_games.sql` | 四个彩种字典（gameNo 已逐个实测） |
 | `db/maintenance.sql` | 保留策略与巡检查询 |
 | `scripts/db-migrate.mjs` | 迁移执行器：`up` / `seed` / `status` / `verify` |
@@ -184,4 +186,10 @@ grant usage, select on all sequences in schema public to ticai_crawler;
 - `db/maintenance.sql` 全量执行、阵容裁剪与级联删除
 - `npm run db:verify` 7 项自检全绿
 
-**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0006_wechat_password_nullable`，`npm run db:verify` 7 项自检全绿。数据库当前共 23 张表 + 2 个视图（`match_side` / `match_odds_latest`）。
+**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0008_code_signup_password`，`npm run db:verify` 7 项自检全绿。数据库当前共 24 张表 + 3 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest`）。
+
+账号链路的三条新约定（`0008`）：
+
+- `email_code.purpose`：`register`（注册）/ `login`（免密登录，**邮箱未注册时会自动建号**）/ `bind`（给当前账号绑定邮箱）；
+- `user_session.verified_by`：会话是怎么建立的（`password` / `code` / `wechat`）。验证码登录的会话改密码时不用给当前密码，其余会话必须验一次；
+- `app_user.password_updated_at`：密码最后设置时间。`password_hash` 仍可为空（微信建的号、验证码登录自动建的号）。

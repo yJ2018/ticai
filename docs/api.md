@@ -6,8 +6,8 @@
 
 | 项 | 说明 |
 | --- | --- |
-| Base URL | 本地 `http://127.0.0.1:3001`；生产通过前端同源 `/api` 代理（Vercel rewrite → `ticai-service`），也可用 `VITE_API_BASE` 直连 |
-| 认证 | 只读接口（赛事/开奖/赛果/详情/天气）**无需登录**；`/api/bets*`、`/api/auth/identities*` 与 `/api/auth/me` 需要 `Authorization: Bearer <token>`；AI 接口依赖服务端密钥与 IP 限流 |
+| Base URL | 本地 `http://127.0.0.1:3001`；生产通过前端同源 `/api` 代理（`next.config.ts` rewrite → `ticai-service`），也可用 `NEXT_PUBLIC_API_BASE` 直连 |
+| 认证 | 只读接口（赛事/开奖/赛果/详情/天气）**无需登录**；`/api/bets*`、`/api/auth/identities*`、`/api/auth/me`、`/api/auth/password`、`/api/auth/email` 需要 `Authorization: Bearer <token>`；AI 接口依赖服务端密钥与 IP 限流 |
 | 跨域 | `CORS_ORIGINS` 白名单；留空表示只允许同源。允许的方法 `GET,POST,DELETE,OPTIONS`，允许 `authorization` 头 |
 | 编码 | 请求与响应均为 `application/json; charset=utf-8`（SSE 除外） |
 | 时间 | 所有时间戳为 ISO 8601 UTC；展示用北京时间由前端换算 |
@@ -449,10 +449,11 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 | 传输 | 认证接口强制 HTTPS：请求既不是 TLS、Host 也不是本机/内网地址时返回 `403`（`AUTH_ALLOW_INSECURE=1` 可临时放行，仅调试用） |
 | 存储 | `scrypt(password, 随机 16 字节盐, 64)`，库里只存 `scrypt$<salt>$<hash>`，无法反推 |
 | 日志 | 请求日志只记 `method / path / status / 耗时`，**从不记录请求体**；响应也不回显密码 |
-| 防爆破 | 同 IP 15 次/分、同邮箱 8 次/分（注册 10 次/小时/IP）；未知邮箱也会跑一次 scrypt，响应时间不泄露邮箱是否存在 |
+| 防爆破 | 同 IP 15 次/分、同邮箱 8 次/分（注册 10 次/小时/IP，改密同样受限）；未知邮箱也会跑一次 scrypt，响应时间不泄露邮箱是否存在 |
+| 改密 | 只有「没有密码的账号」或「验证码登录建立的会话」可以免当前密码设置；改完吊销该账号其他设备的会话 |
 
 > 本地用 `http://127.0.0.1:5199` 调试时，密码在回环网卡上是明文——只有你自己这台机器能看到。
-> 用 `vite --host` 暴露到局域网时请确保信任同网段设备，或改用 HTTPS 隧道（如 cloudflared）。
+> 用 `next dev --hostname 0.0.0.0` 暴露到局域网时请确保信任同网段设备，或改用 HTTPS 隧道（如 cloudflared）。
 
 ### 3.2 `POST /api/auth/code`
 
@@ -462,7 +463,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 { "email": "me@example.com", "purpose": "register" }
 ```
 
-`purpose`：`register`（注册验证）或 `login`（免密登录）。响应：
+`purpose`：`register`（注册验证）、`login`（免密登录，**邮箱未注册时会自动建号**）或 `bind`（给当前账号绑定新邮箱，需要登录）。响应：
 
 ```json
 { "success": true, "data": { "sent": true, "delivered": true, "expiresInSeconds": 600 } }
@@ -471,6 +472,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 - 未配置 `RESEND_API_KEY` 时 `delivered=false`，验证码只写服务端日志；
   本地 `MAIL_DEV_ECHO=1` 会额外返回 `devCode`（**线上必须关闭**）。
 - 限流：同邮箱 60 秒冷却、每小时 6 次；同 IP 每小时 20 次，超出返回 `429`。
+- `purpose=register` 时邮箱已注册返回 `409`；`purpose=bind` 时账号已有邮箱、或邮箱已被别的账号占用也返回 `409`。
 
 ### 3.3 `POST /api/auth/register`
 
@@ -487,7 +489,12 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
     "token": "…",
     "expiresAt": "2026-11-24T14:01:38.537Z",
     "expiresInDays": 30,
-    "user": { "id": "1", "email": "me@example.com", "createdAt": "2026-10-25T14:01:36.311Z" }
+    "user": {
+      "id": "1",
+      "email": "me@example.com",
+      "hasPassword": true,
+      "createdAt": "2026-10-25T14:01:36.311Z"
+    }
   }
 }
 ```
@@ -504,14 +511,60 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 { "email": "me@example.com", "code": "123456" }
 ```
 
-密码错误返回 `401 邮箱或密码不正确`；验证码错误/过期/超次返回 `400` / `429`。
+- **验证码登录不要求邮箱已注册**：验证码通过就证明邮箱归属，没注册过的邮箱会当场建一个「无密码」账号，
+  返回的 `user.hasPassword` 是 `false`，前端据此把用户送去账号页设置密码（`POST /api/auth/password`）。
+- 没设置密码的账号用密码登录返回 `401 这个账号还没有设置密码，请用验证码登录后设置`；
+  密码错误返回 `401 邮箱或密码不正确`；验证码错误/过期/超次返回 `400` / `429`。
+- 会话会记下建立方式（`user_session.verified_by`：`password` / `code` / `wechat`），它决定改密码时要不要当前密码。
 
-### 3.5 `POST /api/auth/logout`、`GET /api/auth/me`
+### 3.5 `POST /api/auth/password`
+
+设置 / 修改密码，需要登录。设置成功后这个账号就能用「邮箱 + 密码」登录。
+
+```json
+{ "password": "至少8位", "currentPassword": "旧密码（可选）" }
+```
+
+要不要当前密码，由服务端按「账号有没有密码 + 这枚会话怎么来的」判断：
+
+| 账号状态 | 会话来源 | 要求 |
+| --- | --- | --- |
+| 还没有密码（验证码登录自动建的号 / 微信建的号绑了邮箱） | 任意有效会话 | 只传 `password` |
+| 已有密码 | 验证码登录建立的会话（`verified_by=code`） | 只传 `password`，直接覆盖 —— 这就是「忘记密码」的自助路径 |
+| 已有密码 | 密码登录 / 微信登录 | 必须传 `currentPassword`，或传一条 `code`（`purpose=login`） |
+
+```json
+{
+  "success": true,
+  "data": {
+    "ok": true,
+    "revokedSessions": 2,
+    "user": { "id": "1", "email": "me@example.com", "hasPassword": true }
+  }
+}
+```
+
+- 改密码会吊销该账号**其他设备**的会话，只保留当前这枚（数量在 `revokedSessions`）。
+- 账号没有邮箱时返回 `400 请先绑定邮箱，才能用密码登录`：密码登录的唯一标识是邮箱。
+- 密码规则与注册一致（8–72 位），同样受 IP / 邮箱维度限流；错误返回 `401 当前密码不正确`。
+
+### 3.6 `POST /api/auth/email`
+
+给还没有邮箱的账号绑定邮箱（微信首次登录建的账号走这条）。需要登录；验证码用 `purpose=bind` 发到**新邮箱**。
+
+```json
+{ "email": "me@example.com", "code": "123456" }
+```
+
+成功返回最新用户（`user.email` 已填上，`hasPassword` 仍为 `false`），接着调 `/api/auth/password` 就能设置密码。
+已经绑定过邮箱、邮箱属于别的账号都返回 `409`；验证码错误 / 过期返回 `400`。
+
+### 3.7 `POST /api/auth/logout`、`GET /api/auth/me`
 
 - `logout`：吊销当前 token，返回 `{ "ok": true }`。
-- `me`：返回当前登录用户，用于刷新页面后校验本地 token。
+- `me`：返回当前登录用户（含 `hasPassword`），用于刷新页面后校验本地 token。
 
-### 3.6 `GET /api/bets`
+### 3.8 `GET /api/bets`
 
 「我的投注」列表，需要登录。
 
@@ -564,7 +617,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 `status`：`pending`（还有场次没开奖）/ `won` / `lost`；`stats` 只在 `offset=0` 时返回。
 
-### 3.7 `GET /api/bets/stats`
+### 3.9 `GET /api/bets/stats`
 
 「我的投注」顶部统计，需要登录。`GET /api/bets` 在 `offset=0` 时会顺带返回同一结构，单独拉一次的场景（如删除后刷新统计）用这个接口。
 
@@ -577,7 +630,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 字段：`total` 总单数、`pending` 待开奖、`won` 中奖、`lost` 未中、`amount` 总投入、`payout` 总奖金（已结算部分）。
 
-### 3.8 `POST /api/bets`
+### 3.10 `POST /api/bets`
 
 保存一份投注单（方案快照）。**注数、金额、最高奖金由服务端重算**，不信任客户端传值。
 
@@ -613,11 +666,11 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 响应 `201`，body 与列表中的单条结构一致（已带实时结算）。
 
-### 3.9 `GET /api/bets/:id`、`DELETE /api/bets/:id`
+### 3.11 `GET /api/bets/:id`、`DELETE /api/bets/:id`
 
 详情 / 删除（只能操作自己的单，越权返回 `404`）。
 
-### 3.10 结算规则
+### 3.12 结算规则
 
 - 赛果来自 `match_result`；缺失即 `pending`，不提前判负。
 - 每注 2 元，奖金 = 命中组合的赔率连乘 × 2 × 倍数。
@@ -625,7 +678,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 - 复式每场多选时，最多只有一个选项能中，中奖注数 = 命中组合数。
 - 比分玩法覆盖官方全部选项，包括「胜其它 / 平其它 / 负其它」。
 
-### 3.11 微信登录与绑定
+### 3.13 微信登录与绑定
 
 账号与登录方式已经拆开：`app_user` 是账号，`user_identity` 是「某种登录方式」。
 邮箱是一个身份，微信是另一个身份；同一个账号可以同时拥有两者。
@@ -937,14 +990,14 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 所有请求都经过 `src/api/base.ts` 的 `apiUrl()`：
 
 ```ts
-// 同源（本地 Vite 代理 / 生产同域 rewrite）
-VITE_API_BASE=
+// 同源（本地 Next rewrite → 127.0.0.1:3001 / 生产同域 rewrite）
+NEXT_PUBLIC_API_BASE=
 
 // 前后端分开部署
-VITE_API_BASE=https://ticai-api.vercel.app
+NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 ```
 
-`VITE_` 变量会打进浏览器 bundle，只能放域名，**不能放任何密钥**。
+`NEXT_PUBLIC_` 变量会打进浏览器 bundle，只能放域名，**不能放任何密钥**。
 
 ---
 
@@ -952,6 +1005,7 @@ VITE_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-29 | 验证码登录即注册：未注册邮箱用验证码登录会建「无密码」账号；新增 `POST /api/auth/password`（设置/修改密码，验证码登录的会话可免当前密码重设）与 `POST /api/auth/email`（给微信账号绑定邮箱）；用户对象新增 `hasPassword`，`email_code.purpose` 新增 `bind`，`user_session` 记录 `verified_by` |
 | 2026-10-27 | 新增 `/api/analysis/lottery`（+`/snapshots`）：开奖分析快照，爬虫开奖后算一次并带溯源（基于哪期/哪天/多少期样本） |
 | 2026-10-27 | 前端改走同源 `/api`（`vercel.json` rewrite 到 `ticai-service`），接口地址不再写进 bundle |
 | 2026-10-26 | 新增 `/api/bets/stats`；投注奖金按体彩单注限额封顶 |

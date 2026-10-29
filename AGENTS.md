@@ -22,7 +22,7 @@
   - `DEPLOY_STRICT=1 git push` 部署失败时阻止推送；
   - 默认部署失败仍继续推送，并提示手动重试 `npm run deploy`。
 - 部署脚本使用临时目录 + `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`，不依赖仓库根 `.vercel`；需要本机已执行 `npx vercel login`。
-- 前端发布：构建用 `VITE_API_BASE`（默认 `https://ticai-service.vercel.app`）并校验 bundle 中存在该地址；前端只连自有 API，体彩由本地爬虫访问（云厂商出口 IP 会被 WAF 拦截）。
+- 前端发布：`deploy-local.mjs` 本地 `next build` 自检 → 上传前端源码 → Vercel 远端构建（不走 `vercel build --prebuilt`：它在本机会再 spawn 一层 shell，受限环境直接失败）；`/api/**` 由 `next.config.ts` rewrite 到 `ticai-service`。
 - API 发布：`deploy-api.mjs` 上传 `apps/api` 源码，发布后尽力探 `/healthz` 与 `/api/matches`（本机 DNS 被污染时只告警）。
 
 ## 仓库结构
@@ -30,7 +30,10 @@
 - `apps/api`：独立服务端（只读库，REST + SSE），部署在 Vercel 项目 `ticai-service`。
 - `apps/crawler`：本地爬虫（只写库），`npm run crawl:daemon` 常驻；受竞彩销售时段闸门约束。
 - `db/`：迁移与保留策略，`npm run db:migrate` 执行。
-- 前端静态托管在 Vercel 项目 `ticai`，通过 `VITE_API_BASE` 指向 API；`server/` 与 `api/` 已删除。
+- 前端是 **Next.js 16 App Router**（`src/app`），部署在 Vercel 项目 `ticai`；页面外壳在根 layout（Keep-Alive 依赖它跨路由不卸载），路由清单在 `src/router/manifest.ts`。
+- 前端与 API 同源：`next.config.ts` 的 rewrite 把 `/api/**` 转到 `ticai-service`（本地转到 3001），浏览器 bundle 里不写死域名。
+- `src/views/` 是页面组件（不是 Next 的 Pages Router）；`src/pages/` 这个目录名会和 Next 冲突，不要再建。
+- 前端发布：`deploy-local.mjs` 先本地 `next build` 自检，再把前端源码暂存上传，由 Vercel 远端构建（不走 `vercel build --prebuilt`，本机受限环境会失败）；`.env*` 与 `apps/`、`db/`、`scripts/` 不上传。
 
 ## 架构图
 

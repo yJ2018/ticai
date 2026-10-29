@@ -1,5 +1,7 @@
-import { useEffect } from 'react'
-import { matchPath, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, usePathname } from '../lib/navigation'
+import { readNavigationState } from '../lib/nav-state'
+import { matchRoutePath } from '../router/match'
 
 import { type MatchCard } from '../service/matchService'
 import { MatchDetailContent } from '../features/matchDetail/MatchDetailContent'
@@ -18,13 +20,10 @@ type MatchDetailLocationState = { match?: MatchCard } | null
  */
 export function MatchDetailPage() {
   const navigate = useNavigate()
-  const location = useLocation()
-  const cachedMatch = (location.state as MatchDetailLocationState)?.match
+  const pathname = usePathname()
+  const [cachedMatch] = useState(() => readNavigationState<MatchDetailLocationState>()?.match)
 
-  // 这个仓库没有 <Routes> 上下文（自研 KeepAliveRoutes），useParams() 会返回空对象，
-  // 所以参数只能自己从 pathname 里 match 出来。
-  const routeId = matchPath({ path: '/match/:matchId', end: true }, location.pathname)?.params
-    .matchId
+  const routeId = matchRoutePath('/match/:matchId', pathname)?.matchId
   const numericId = Number(routeId ?? cachedMatch?.id ?? Number.NaN)
 
   const { detail, loading, error } = useMatchDetail(Number.isFinite(numericId) ? numericId : null)
@@ -38,7 +37,7 @@ export function MatchDetailPage() {
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
-  }, [location.pathname])
+  }, [pathname])
 
   function goBack() {
     if (window.history.length > 1) {

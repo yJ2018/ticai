@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { useNavigate } from '../lib/navigation'
 
 import { exchangeWechatTicket } from '../api/authApi'
 import { ApiError } from '../api/httpClient'
@@ -12,7 +14,7 @@ import { useAuthStore } from '../store/authStore'
  * 换完 replace 到目标页，避免票据留在历史记录里。
  */
 export function WechatCallbackPage() {
-  const [searchParams] = useSearchParams()
+  const searchParams = useSearchParams()
   const navigate = useNavigate()
   const setSession = useAuthStore((state) => state.setSession)
   const startedRef = useRef(false)
@@ -65,10 +67,10 @@ export function WechatCallbackPage() {
             <h2>微信登录未完成</h2>
             <p className="wechat-callback__error">{error}</p>
             <div className="wechat-callback__actions">
-              <Link className="btn-primary" to="/login">
+              <Link className="btn-primary" href="/login">
                 返回登录
               </Link>
-              <Link className="btn-ghost" to="/">
+              <Link className="btn-ghost" href="/">
                 回首页
               </Link>
             </div>

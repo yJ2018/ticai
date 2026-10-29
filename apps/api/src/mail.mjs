@@ -53,7 +53,7 @@ export function createMailer(config) {
   }
 
   async function sendCode({ to, code, purpose }) {
-    const label = purpose === 'register' ? '注册' : '登录'
+    const label = purpose === 'register' ? '注册' : purpose === 'bind' ? '绑定邮箱' : '登录'
     const minutes = config.auth.codeMinutes
 
     if (!configured) {

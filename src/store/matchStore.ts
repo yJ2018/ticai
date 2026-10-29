@@ -9,6 +9,8 @@ type MatchState = {
   setActivePool: (pool: MatchPoolType) => void
   setKeyword: (keyword: string) => void
   loadMatches: (pool?: MatchPoolType, force?: boolean) => Promise<void>
+  /** 把服务端预取的数据灌进缓存，等价于「已加载完成」 */
+  hydratePool: (pool: MatchPoolType, cards: MatchCard[], dataAsOf: string | null) => void
   addMockCard: () => void
 }
 
@@ -62,6 +64,20 @@ export const useMatchStore = create<MatchState>((set, get) => ({
   },
 
   setKeyword: (keyword) => set({ keyword }),
+
+  hydratePool: (pool, cards, dataAsOf) =>
+    set((state) => ({
+      poolCache: {
+        ...state.poolCache,
+        [pool]: {
+          loading: false,
+          error: '',
+          cards,
+          fetched: true,
+          dataAsOf,
+        },
+      },
+    })),
 
   loadMatches: async (pool = get().activePool, force = false) => {
     const current = get().poolCache[pool]

@@ -3,7 +3,7 @@
 > 竞彩足球赔率投注 + 中国体彩开奖历史（排列5 / 七星彩 / 超级大乐透）+ 两种号码预测分析，
 > 附带星座运势 / 天气，以及可选的账号、投注记录与中奖结算。
 >
-> **架构形态**：React SPA（静态托管 + 构建时预渲染） + 独立 Node API（`apps/api`，只读库） + 本地爬虫（`apps/crawler`，写库）。
+> **架构形态**：Next.js 16 App Router（公开页按请求 SSR + 客户端 Keep-Alive） + 独立 Node API（`apps/api`，只读库） + 本地爬虫（`apps/crawler`，写库）。
 > 浏览器只与自有 API 通信（生产走同源 `/api` rewrite）；第三方密钥、提示词、上游访问全部留在服务端。
 >
 > 2026-10-23 起 `server/` 与 `api/` 两个旧 BFF 目录已删除，`apps/api` 是唯一服务端实现；
@@ -23,13 +23,13 @@
 | 项目 | 内容 |
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
-| 形态 | SPA 静态托管 + 独立 API 服务（两个 Vercel 项目，生产用同源 `/api` rewrite 代理） |
-| 前端规模 | 13 个页面；`src` 下 88 个 TS/TSX 文件；`global.scss` 6 423 行 + 6 个按域拆分样式 |
+| 形态 | Next.js（Vercel `ticai` 项目，静态 + Serverless 函数）+ 独立 API（Vercel `ticai-service`）；生产用同源 `/api` rewrite 代理 |
+| 前端规模 | 13 个页面（`src/views`）；`src` 下 97 个 TS/TSX 文件；`global.scss` + 6 个按域拆分样式 |
 | 服务端规模 | `apps/api`：12 个 handler 模块、28 个接口路径（30 个处理方法）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
 | 数据层 | PostgreSQL 24 张表 + 3 个视图：API 只读，爬虫只写（`db/README.md`） |
-| 构建产物 | `dist/assets/index-*.js` ≈ 670 KB + 143 KB CSS + 2 个 Worker chunk（gzip 后约 185 + 24 KB） |
-| 运行时 | 浏览器（ES2022+）+ Node ≥ 20（内置 `fetch` / `AbortSignal.timeout`） |
-| 依赖 | 前端：React 19、React Router 6、Zustand 5、html2canvas、Sass；服务端仅 `pg`；爬虫可选 `playwright`（阵容） |
+| 构建产物 | `.next`：客户端 JS ≈ 670 KB + 143 KB CSS（gzip 后约 185 + 24 KB）+ 一个 SSR Serverless 函数 |
+| 运行时 | 浏览器（ES2022+）+ Node ≥ 20（Next 服务端 / API 函数，内置 `fetch` / `AbortSignal.timeout`） |
+| 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；服务端仅 `pg`；爬虫可选 `playwright`（阵容） |
 | 工程设施 | Git hooks（架构图、算法生成物、密钥扫描、自动部署）+ `node:test` 单测 107 个（API 64 + 爬虫 43） |
 | tsconfig | `strict` **未开启**；开启 `noUnusedLocals`、`noUnusedParameters`、`erasableSyntaxOnly`、`verbatimModuleSyntax` |
 
@@ -44,9 +44,9 @@
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | `GET /api/analysis/lottery?kind=math_trend` |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
 | `/results` | 赛果开奖 | 按比赛日翻看比分与五个玩法的开奖结果，未开奖场次明确标注 | `GET /api/results` |
-| `/login` | 登录 / 注册 | 邮箱 + 密码，或邮箱验证码（Resend）；可接微信扫码；登录态存 localStorage，请求带 Bearer | `/api/auth/*` |
+| `/login` | 登录 / 注册 | 邮箱 + 密码，或邮箱验证码（Resend；未注册邮箱直接建号，登录后引导设置密码）；可接微信扫码；登录态存 localStorage，请求带 Bearer | `/api/auth/*` |
 | `/auth/wechat` | 微信回调 | 用一次性 ticket 换正式会话，失败时展示原因 | `POST /api/auth/wechat/session` |
-| `/account` | 账号 | 账号资料与登录方式；绑定 / 解绑微信，展示绑定状态 | `/api/auth/identities`、`/api/auth/wechat/*` |
+| `/account` | 账号 | 账号资料与登录方式；「邮箱与密码」卡片（绑定邮箱 / 设置密码 / 修改密码）、绑定 / 解绑微信 | `/api/auth/identities`、`/api/auth/password`、`/api/auth/email`、`/api/auth/wechat/*` |
 | `/my-bets` | 我的投注 | 保存的投注方案，按玩法分类、按赛果自动判中奖与奖金；首帧骨架屏、单注详情弹层（截图 / 回填到投注页） | `/api/bets`、`/api/bets/stats` + `/api/results` |
 | `/about` | 关于页 | Keep-Alive 演示（输入框保留） | 无 |
 | `/profile` | 个人页 | 不缓存演示，**不在导航中** | 无 |
@@ -59,8 +59,8 @@
 | --- | --- |
 | 视图 | React 19.2 函数组件 + Hooks，无 UI 组件库，手写语义化 class |
 | 类型 | TypeScript 6.0，`import type` 风格，无 `enum` |
-| 构建 | Vite 8 + `@vitejs/plugin-react`，`tsc && vite build`，末尾接 Playwright 预渲染 |
-| 路由 | react-router-dom 6，但**不用 `<Routes>`**，自研 `KeepAliveRoutes` |
+| 构建 | Next.js 16（Turbopack），`next build`；不再有构建时预渲染 |
+| 路由 | Next App Router：`src/app/[[...slug]]/page.tsx` 是唯一入口，页面分发由 `src/router/manifest.ts` + `AppShell` 在客户端完成（Keep-Alive 需要） |
 | 状态 | Zustand 5（`matchStore` / `authStore`）+ 自定义 hook（`useBetSlip`） |
 | 样式 | `src/styles/global.scss`（BEM，5 552 行）+ `authBets / results / account / confirmDialog`、`features/matchDetail`、`features/betting/autoParlay` 按域拆分 |
 | 计算 | 开奖分析 = 服务端「开奖后算一次 → 存快照 → 接口直读」（§5.3.1）；前端 Worker 只保留「自定义权重调参」这一条本地重算路径（另有主线程降级） |
@@ -74,12 +74,13 @@
 npm install
 cp .env.example .env        # DATABASE_URL + 聚合数据 / DeepSeek 密钥
 
-npm run dev                 # API :3001 + Vite :5173（/api 走代理）
+npm run dev                 # API :3001 + Next :3000（/api 走 rewrite 代理）
 npm run dev:api             # 只起 API
-npm run dev:web             # 只起前端
+npm run dev:web             # 只起 Next
 npm run crawl:daemon        # 本地爬虫（抓上游、写云端库）
 
-npm run build               # 构建静态资源 → 预渲染公开页 → Vercel（前端项目）
+npm run build               # next build → .next（静态 + SSR 函数）
+npm run web:start           # 本地跑生产产物（:3000）
 ```
 
 | 环境变量 | 默认值 | 说明 |
@@ -89,7 +90,9 @@ npm run build               # 构建静态资源 → 预渲染公开页 → Verc
 | `DATABASE_SSL` | — | 云端库（Prisma Postgres 等）需设 `1` |
 | `DATABASE_POOL_MAX` | `3` | API 连接池上限；serverless 环境别开大 |
 | `CORS_ORIGINS` | 空 | 允许的前端来源，逗号分隔；留空 = 只允许同源 |
-| `VITE_API_BASE` | 空（同源） | 构建时写入前端 bundle 的 API 地址；留空时走同源 `/api` 代理 |
+| `NEXT_PUBLIC_API_BASE` | 空（同源） | 构建时写进浏览器 bundle 的 API 地址；留空时走同源 `/api` rewrite |
+| `API_PROXY_TARGET` | 本地 `127.0.0.1:3001` / 线上 `ticai-service` | `next.config.ts` 的 rewrite 目标 |
+| `SSR_API_ORIGIN` | 空 | 服务端（Server Component / SSR）取数用的绝对地址 |
 | `UPSTREAM_TIMEOUT_MS` | `8000` | 上游请求超时 |
 | `JUHE_WEATHER_KEY` | — | 缺失时 `/api/weather` 返回 503 |
 | `JUHE_HOROSCOPE_KEY` | — | 缺失时 `/api/horoscope` 返回 503 |
@@ -111,15 +114,17 @@ npm run build               # 构建静态资源 → 预渲染公开页 → Verc
 
 ```mermaid
 flowchart TB
-  subgraph L1["① 应用外壳与路由"]
+  subgraph L1["① 应用外壳与路由（Next App Router）"]
     direction LR
-    A1["index.html + main.tsx"]
-    A2["App.tsx 顶栏 + 导航 + 免责弹层"]
-    A3["KeepAliveRoutes"]
-    A4["routes.tsx（13 条）"]
+    A1["app/layout.tsx 根布局 · metadata · 挂 AppShell"]
+    A2["app/[[...slug]]/page.tsx 唯一入口 · 404 · generateMetadata"]
+    A3["AppShell（client）· 未登记路径返回 null"]
+    A4["App.tsx 顶栏 + 导航 + 免责弹层"]
+    A5["KeepAliveRoutes + router/manifest.ts（13 条）"]
+    A6["lib/navigation / lib/nav-state（替代 react-router）"]
   end
 
-  subgraph L2["② 页面层 src/pages"]
+  subgraph L2["② 页面层 src/views"]
     direction LR
     P1["HomePage + 投注 / AI 浮层"]
     P2["HistoryPage + 两种分析页"]
@@ -219,9 +224,10 @@ flowchart TB
 
 **依赖规则（实际执行情况）**
 
-- `pages → features/*`：投注页拆得最细（`betting`），登录/账号、投注记录、对战详情、SEO、免责弹层各自成模块；两个分析页仍自包含。
-- `pages → service → api/httpClient → /api/*`：统一传输层，**前端不出现任何上游域名或密钥**（`VITE_API_BASE` 只允许放 API 域名）。
-- `pages → domain`：分析页直接调用纯函数算法（通过 Worker）；`domain` 不依赖 React/DOM，可被 Worker 直接复用。
+- `views → features/*`：投注页拆得最细（`betting`），登录/账号、投注记录、对战详情、SEO、免责弹层各自成模块；两个分析页仍自包含。
+- `views → service → api/httpClient → /api/*`：统一传输层，**前端不出现任何上游域名或密钥**（`NEXT_PUBLIC_API_BASE` 只允许放 API 域名）。
+- `views → domain`：分析页直接调用纯函数算法（通过 Worker）；`domain` 不依赖 React/DOM，可被 Worker 直接复用。
+- `app/* → app-shell/AppShell → views`：页面组件只能经由外壳渲染，外壳按 `router/manifest.ts` 的 pathname 分发；`page.tsx` 不渲染页面内容（见 §4）。
 - `apps/api` 只读库，`apps/crawler` 只写库；两者不依赖前端代码，只通过 HTTP 契约与数据库耦合。
 - 外部上游只被「API（聚合数据 / DeepSeek / Open-Meteo / Resend / 微信）」或「本地爬虫（体彩 / 500.com）」访问，浏览器不直连。
 
@@ -231,11 +237,10 @@ flowchart TB
 
 ```text
 D:\ticai
-├─ index.html                  # 挂载点 <div id="app"> + SEO / OG / JSON-LD / noscript
-├─ vite.config.ts              # /api → 本地 API 代理（端口从 .env 读取）
-├─ tsconfig.json               # bundler 模式、noEmit、未开 strict
-├─ vercel.json                 # 同源 /api rewrite、预渲染路由、spa.html 兜底、静态缓存头
-├─ package.json                # dev / build / prerender / crawl:* / db:* / deploy:*
+├─ next.config.ts              # framework / rewrite(/api → API 项目) / allowedDevOrigins
+├─ tsconfig.json               # bundler 模式、noEmit、strict 未开启
+├─ vercel.json                 # framework: nextjs（发布由 Vercel 侧构建）
+├─ package.json                # dev / build / web:start / crawl:* / db:* / deploy:*
 ├─ .env / .env.example         # 数据库、AI、聚合数据、Resend、微信（.env 已被 gitignore）
 ├─ public/                     # favicon / apple-touch / PWA 图标、robots.txt、sitemap.xml、og-cover.png
 ├─ apps/
@@ -268,8 +273,7 @@ D:\ticai
 │  ├─ seed/                    # 四彩种字典
 │  └─ maintenance.sql          # 阵容/赔率/抓取记录保留策略
 ├─ scripts/
-│  ├─ dev.mjs                  # 并行拉起 API + Vite，任一退出则联动关闭
-│  ├─ prerender.mjs            # Playwright 预渲染公开页 → dist/index.html + dist/prerender
+│  ├─ dev.mjs                  # 并行拉起 API + Next dev，任一退出则联动关闭
 │  ├─ db-migrate.mjs           # 迁移执行器（up|seed|status|verify）
 │  ├─ sync-analysis.mjs        # TS 算法 → apps/api/src/analysis/*.mjs（--check 防漂移）
 │  ├─ analyze-snapshot.mjs     # 分析快照回填 / --force 重算 / --status 巡检
@@ -278,16 +282,21 @@ D:\ticai
 │  ├─ update-architecture.mjs  # 按文件清单生成 architecture.svg/.png
 │  ├─ install-git-hooks.mjs    # 安装 pre-commit / pre-push hooks
 │  ├─ git-hooks/               # 进仓库的 hook 源文件
-│  ├─ deploy-local.mjs         # 临时目录构建 + Vercel 预构建部署（前端）
+│  ├─ deploy-local.mjs         # 本地 next build 自检 → 上传源码 → Vercel 远端构建（前端）
 │  └─ deploy-api.mjs           # 临时目录上传源码 + Vercel 构建（API）
 └─ src
-   ├─ main.tsx                 # createRoot + BrowserRouter + 全局样式
+   ├─ app                      # Next App Router（layout / [[...slug]] / not-found）
+   ├─ app-shell/AppShell.tsx   # 客户端外壳：路径校验 + 挂 App
    ├─ App.tsx                  # 顶栏 + 导航 + 免责弹层 + 路由级 SEO
    ├─ router
-   │  ├─ KeepAliveRoutes.tsx   # matchPath + display 切换的缓存路由
-   │  ├─ routes.tsx            # appRoutes(13) / navLinks(7)
-   │  └─ AppRouter.tsx / types.ts
-   ├─ pages                    # 13 个页面
+   │  ├─ manifest.ts           # 路由清单（13 条）+ matchAppRoute + 公开/私有
+   │  ├─ KeepAliveRoutes.tsx   # pathname 匹配 + display 切换的缓存路由
+   │  └─ routes.tsx / match.ts / types.ts
+   ├─ lib                      # navigation · nav-state · initial-data（首屏数据类型）
+   ├─ server/prefetch.ts       # ★ 首屏取数（只在根 layout 调用，失败即降级）
+   ├─ ssr                      # seed（首屏灌 store）· initial-context（context 通道）
+   ├─ proxy.ts                 # 写 x-pathname 请求头，layout 靠它知道当前页面
+   ├─ views                    # 13 个页面（见 §4 路由表）
    │  ├─ HomePage.tsx          # 803 行：状态编排 + 组合子组件 + 方案弹层
    │  ├─ HistoryPage.tsx       # 920 行：走势矩阵 + 大乐透号码推演 + 右栏指标
    │  ├─ HistoryAnalysisPage   # 723 行（仍未拆分）
@@ -342,21 +351,28 @@ D:\ticai
 
 ## 4. 路由与 Keep-Alive
 
-`react-router-dom` 只提供 `BrowserRouter`、`NavLink`、`Navigate`、`matchPath`，**没有 `<Routes>`**：
+Next App Router 的导航会替换 `children`，页面状态天然不保留。为了保住 Keep-Alive，路由做了两件事：
+
+1. **全站只有一个路由文件** `src/app/[[...slug]]/page.tsx`（可选 catch-all）：它只做路径校验、404 与 metadata，**不渲染页面内容**；
+2. **外壳挂在根布局** `src/app/layout.tsx`：`<AppShell />` 跨路由不卸载，内部按 `usePathname()` 分发。
 
 ```mermaid
 flowchart LR
-  L["useLocation().pathname"] --> M{"routes.find<br/>matchPath(end:true)"}
-  M -- 未命中 --> N["Navigate 重定向到 /"]
-  M -- 命中 --> R["遍历 routes"]
-  R --> C{"已访问过 && cache?"}
+  U["请求 URL"] --> P["page.tsx（Server）"]
+  P --> V{"matchAppRoute(pathname)?"}
+  V -- 否 --> NF["notFound() → 404"]
+  V -- 是 --> MD["generateMetadata → title/canonical/robots"]
+  L["layout.tsx（常驻）"] --> S["AppShell（client）"]
+  S --> K["KeepAliveRoutes(pathname)"]
+  K --> C{"已访问过 && cache?"}
   C -- 缓存页 --> H["渲染 section，display:none"]
-  C -- 当前页 --> S["渲染 section，display:block"]
+  C -- 当前页 --> B["渲染 section，display:block"]
   C -- 未访问 --> X["返回 null"]
-  S --> EF["useEffect 记录到 cachedPathsRef"]
 ```
 
-### 路由清单（`appRoutes` 13 条 / `navLinks` 7 项）
+> 为什么不能按路由拆多个 `page.tsx`：Next 每次导航都会换页面组件实例，Keep-Alive 缓存和页面输入状态会全部丢失。实测把 `<AppShell />` 从 page 挪到 layout 后，`/about` → `/results` → 返回，输入内容才得以保留。
+
+### 路由清单（`appRouteManifest` 13 条 / `navLinks` 7 项）
 
 | 路径 | 页面 | 缓存 | 说明 |
 | --- | --- | --- | --- |
@@ -375,6 +391,7 @@ flowchart LR
 | `/profile` | ProfilePage | ❌ | 不在导航中 |
 
 > 导航（`navLinks`）：赛事投注 / 赛果开奖 / 开奖历史 / 分析页面 / 数学走势 / 星座运势 / 我的投注。
+> 未登记路径由 `page.tsx` 直接 `notFound()`，是**真 404**（不再有「渲染首页 + 200」的软 404）。
 
 要点：
 
@@ -384,18 +401,17 @@ flowchart LR
    路由切换时自动收起。桌面端保持平铺。
 4. **吸顶不要叠两层**：站点头部吸顶，页面自己的工具条（如首页玩法切换）不再吸顶，
    否则整页可滚动时会互相遮挡；`.app-shell` 用 `100dvh` 跟随移动端可视高度。
-5. **路由级 SEO**：`App` 在 pathname 变化时调用 `src/features/seo/seo.ts` 的 `applyPageMeta`，
-   设置 title / description / canonical / robots；登录后才可见的页面标记 `noindex`，
-   比赛详情页等拿到队名后再覆盖一次标题。静态入口在 `index.html`（OG / JSON-LD / noscript），
-   `public/robots.txt` 与 `public/sitemap.xml` 由 Vercel 直接作为静态文件返回。
-6. **构建时预渲染**：`npm run build` 末尾跑 `scripts/prerender.mjs`，用 Playwright 打开 `vite preview`，
-   把 `/` 直接写回 `dist/index.html`（Vercel 静态文件优先于 rewrite），其余公开路由
-   `/results`、`/history`、`/history-analysis`、`/math-trend-analysis`、`/horoscope`、`/about`
-   落成 `dist/prerender/*.html` 并由显式 rewrite 提供；构建出的干净壳另存为 `dist/spa.html`，
-   供 `/match/:id`、登录后页面等动态路由回落，避免深链先闪首页内容。
-   本地 API 不在线或没装浏览器时用 SPA 壳兜底，不影响构建。
+5. **路由级 SEO**：服务端 `generateMetadata` 产出 title / description / canonical / robots / OG；
+   客户端导航后由 `App` 调 `applyPageMeta` 补齐，两者共用 `resolvePageMeta()` 同一份规则。
+   登录后才可见的页面标记 `noindex`。站点级 OG / JSON-LD 在 `src/app/layout.tsx`，
+   `public/robots.txt` 与 `public/sitemap.xml` 仍作为静态文件返回。
+6. **SSR 与首屏预取**：页面外壳由服务端渲染（`force-dynamic`，每次请求渲染，不做构建期静态化）；
+   **首页与赛果开奖页已在服务端预取**（`src/proxy.ts` 写 `x-pathname` → 根 layout 取数 → context 下发），
+   其余页面（history / 两个分析页）仍是客户端拉取，见 §13.6。
 7. 精确匹配为主；`/match/:matchId` 是唯一的动态路由（`cache: false`），切换不同 `matchId` 时组件不卸载，但 `useMatchDetail` 会按 id 重新拉取。
 8. 副作用常驻：页面的定时器与后台请求在切走后仍运行（`historyService` 的后台补页就是全局单例，不受影响）。
+9. **导航与传参**：`react-router` 已移除。`src/lib/navigation.ts` 提供 `useNavigate` / `usePathname`，
+   `src/lib/nav-state.ts` 用一次性内存槽替代 `location.state`（「我的投注 → 带方案去投注」「列表 → 详情占位队名」「登录后回哪」三处）。
 
 对战详情有两条入口，同一份正文组件（`MatchDetailContent`）：
 
@@ -549,7 +565,7 @@ sequenceDiagram
 | 现状（浏览器） | 实测 |
 | --- | --- |
 | 首屏要翻完 78 页开奖（100 期/页、1.8s 节流） | 1805 KB 明文 / 184 KB gzip、约 140s 才凑齐全量 |
-| 样本数取决于「进场时本地缓存里有多少」 | 预渲染出来的静态页里写死「本地样本 100 期」，与回访用户看到的 7760 期不一致 |
+| 样本数取决于「进场时本地缓存里有多少」 | 旧版构建时预渲染的静态页里写死「本地样本 100 期」，与回访用户看到的 7760 期不一致 |
 | 每翻一页在 Worker 里全量重算 | 7760 期一次约 1.4–1.9s（桌面），手机数秒 |
 
 **做法**：开奖入库后立刻算一次，结果连同「基于哪一期 / 哪一天 / 多少期样本」一起存进
@@ -737,13 +753,13 @@ flowchart LR
 
 ---
 
-### 5.8 账号与第三方身份（微信）
+### 5.8 账号、登录方式与密码（微信 / 邮箱 / 验证码）
 
 账号（`app_user`）与登录方式（`user_identity`）是两层：
 
 ```mermaid
 flowchart LR
-    U[app_user<br/>邮箱可空] --> I1[user_identity<br/>email]
+    U[app_user<br/>邮箱可空 · 密码可空] --> I1[user_identity<br/>email]
     U --> I2[user_identity<br/>wechat / wechat_mp]
     I2 -->|openid / unionid| W[微信开放平台]
     A[前端 /login] -->|start?mode=login| W
@@ -754,10 +770,37 @@ flowchart LR
     D -->|POST session| E[正式会话 token]
 ```
 
+密码是「可选升级项」，不是注册门槛——验证码登录即注册，之后再设置密码：
+
+```mermaid
+flowchart LR
+    L["前端 /login<br/>验证码登录"] -->|"POST auth/code purpose=login"| M["发码<br/>不要求邮箱已注册"]
+    M -->|"POST auth/login + code"| N{"邮箱注册过?"}
+    N -->|否| O["建无密码账号<br/>+ email 身份"]
+    N -->|是| P["已有账号"]
+    O --> Q["会话 verified_by=code"]
+    P --> Q
+    Q --> R["前端 /account?setup=password"]
+    R -->|"POST auth/password"| S["写入 scrypt 哈希<br/>吊销其他设备会话"]
+    S --> V["下次 邮箱 + 密码 登录"]
+
+    X["微信建的账号<br/>email = null"] -->|"POST auth/email + bind 验证码"| Y["补上邮箱"]
+    Y -->|"POST auth/password"| S
+```
+
 设计要点：
 
 - **一个账号多条身份**：邮箱注册的用户再绑微信，是给已有账号加一条 `wechat` 身份，投注记录不动；
   反过来微信首次登录没有邮箱，就直接建一个 `email = null` 的账号。
+- **验证码登录即注册**：`purpose=login` 不要求邮箱已注册——验证码通过就证明邮箱归属，未注册时当场建号（`password_hash = null`）。
+  前端拿到 `user.hasPassword === false` 就跳到 `/account?setup=password` 引导设置密码。
+- **密码的三条授权规则**（`apps/api/src/handlers/auth.mjs` 的 `setPassword`）：
+  1. 账号还没有密码 → 任意有效会话都能设置；
+  2. 已有密码 + 会话是验证码登录建立的（`user_session.verified_by='code'`）→ 可以直接覆盖，这就是「忘记密码」的自助路径；
+  3. 已有密码 + 其他会话（密码 / 微信登录）→ 必须验当前密码，或再收一条验证码。
+  改完密码吊销该账号其他设备的会话，只留当前这枚（密码是长期凭据）。
+- **微信账号要先绑邮箱**：密码登录的唯一标识是邮箱，所以 `email = null` 的账号调 `setPassword` 会得到 `400`；
+  账号页让用户先走 `purpose=bind` 的验证码绑定邮箱，再设置密码。
 - **state 自签名**：HMAC 里带 mode、渠道、绑定用户 id 与 10 分钟过期，不依赖服务端 session 存储，多实例也成立。
 - **回调不直发 token**：URL 会进历史记录/日志，所以只放 2 分钟、一次性的 `auth_ticket`，前端换取正式会话后立即作废。
 - **渠道可扩展**：`wechat_web`（开放平台扫码）与 `wechat_mp`（公众号网页授权）共用同一条回调与建号逻辑；
@@ -781,6 +824,7 @@ flowchart LR
 | 对战详情 | `GET /api/match-detail` | 数据库 | 无（按场次） |
 | AI | `POST /api/ai-analysis`、`POST /api/ai-parlay`、`POST /api/ai-chat` | 数据库 + DeepSeek | 无（SSE） |
 | 认证 | `POST /api/auth/code` `/register` `/login` `/logout`、`GET /api/auth/me` | 数据库 + Resend | 无 |
+| 账号安全 | `POST /api/auth/password`（设置 / 修改密码）、`POST /api/auth/email`（绑定邮箱） | 数据库 + Resend | 无 |
 | 身份 | `GET /api/auth/identities`、`DELETE /api/auth/identities/:provider` | 数据库 | 无 |
 | 微信 | `GET /api/auth/wechat/config` `/start` `/callback`、`POST /api/auth/wechat/session` | 微信开放平台 | 无 |
 | 投注 | `GET/POST /api/bets`、`GET /api/bets/stats`、`GET/DELETE /api/bets/:id` | 数据库 | 无（实时结算） |
@@ -809,8 +853,9 @@ flowchart LR
 - 密钥仅存在于服务端 `.env`；构建产物中**已确认不含任何密钥**（`npm run check:secrets` 在 pre-commit 再扫一遍）。
 - 默认只监听 `127.0.0.1`；CORS 白名单支持 `GET,POST,DELETE,OPTIONS`，留空 = 仅同源。
 - 入参全部白名单/类型校验，不透传任意 query。
-- 密码登录：认证接口在公网明文请求下返回 `403`；库里只存 scrypt 哈希；登录/注册有 IP 与邮箱维度限流。
+- 密码登录：认证接口在公网明文请求下返回 `403`；库里只存 scrypt 哈希；登录/注册/改密有 IP 与邮箱维度限流。
 - 会话：30 天不透明 Bearer token，服务端只存 sha256；`/api/bets*` 一律要求登录，越权按 `404`。
+- 密码变更：没有密码时任何有效会话都能设置；已有密码必须验当前密码，只有「验证码登录」建立的会话（`user_session.verified_by='code'`）可以免当前密码重设；改完吊销该账号其他会话。
 - AI 接口有单实例内存限流（默认 10 次/分钟/IP），`/api/venue-weather` 另有 20 次/分钟/IP 限流；城市解析与天气都缓存。
 - ⚠️ 赛事 / 开奖 / 赛果等只读接口仍**没有鉴权与限流**：对外暴露时配额可能被刷，建议前置网关或在 API 增加限流。
 
@@ -850,7 +895,7 @@ flowchart LR
 | 赛果 | `match_result` | 赛果开奖爬虫 | 永久（按 sporttery_match_id 幂等覆盖） |
 | 补充 | `player` / `injury` / `match_lineup` / `match_lineup_player` | 自建爬虫 | 阵容每队只留最近 1 场 |
 | 映射 | `external_ref` | 人工确认后写入 | 永久 |
-| 账户 | `app_user` / `email_code` / `user_session` | API（登录链路） | 会话 30 天，验证码 10 分钟 |
+| 账户 | `app_user` / `email_code` / `user_session` | API（登录链路） | 会话 30 天，验证码 10 分钟（用途 `register` / `login` / `bind`）；会话记 `verified_by` |
 | 身份 | `user_identity` / `auth_ticket` | API（登录/绑定链路） | 身份永久；票据 2 分钟一次性 |
 | 投注 | `bet` / `bet_leg` | API（登录用户） | 永久（用户删除即级联删除） |
 | 可观测 | `crawl_run` | 每条爬虫链路 | 30 天 |
@@ -886,7 +931,7 @@ flowchart LR
 | `/api/ai-chat` | DeepSeek | `stream:true` → SSE |
 | `/api/health` `/healthz` | 数据库 / — | readiness（库不通 503）与 liveness 分离 |
 
-关键约定：**响应形状保持与旧实现一致**，前端 `matchService` / `historyService` 无需感知库结构；生产环境前端走同源 `/api`，由 `vercel.json` rewrite 到 `ticai-service`，需要直连时才设置 `VITE_API_BASE`。
+关键约定：**响应形状保持与旧实现一致**，前端 `matchService` / `historyService` 无需感知库结构；生产环境前端走同源 `/api`，由 `next.config.ts` 的 rewrite 转到 `ticai-service`，需要直连时才设置 `NEXT_PUBLIC_API_BASE`。
 
 前端 AI 分析在打开面板时由服务端并行装配 `/api/match-detail` 的伤停、历史交锋、近期战绩、联赛排名与射手（[apps/api/src/ai/context.mjs](../apps/api/src/ai/context.mjs)），接口不可用时静默降级，**不改变原有行为**；数据缺失时提示词明确写「缺失，不要编造」，而不是交给模型猜。
 
@@ -935,12 +980,12 @@ flowchart LR
 2. **零框架 Node API**：不引入 Express/Fastify，用 `node:http`（本地）与单函数（Vercel）共用一套 `createApp()`，避免供应链与安装成本；服务端唯一运行时依赖是 `pg`。
 3. **IndexedDB 而非 localStorage**：开奖数据是只追加序列，5 MB 配额与"整份重写"都不合适；改为 meta + 单条记录两 store，只写增量、按序裁剪。
 4. **内存 Map 为权威、IDB 为持久化**：读路径零 await 抖动，写入异步且失败静默降级，保证弱网/隐私模式仍可用。
-5. **自研 Keep-Alive**：React Router 6 无内置方案，`display:none` + 常驻挂载成本最低；代价是无淘汰、无懒加载。
+5. **自研 Keep-Alive**：Next 无内置方案，`display:none` + 常驻挂载成本最低；代价是无淘汰、无懒加载，且**迫使外壳挂在根布局、全站只用一个 catch-all 路由**。
 6. **视图模型下沉到 service**：`MatchCard` 让页面不感知 `ttg/crs/had/hafu` 原始字段。
 7. **投注逻辑抽成纯函数 + hook**：`betSlipMath.ts` 可独立测试，`useBetSlip` 让页面只做编排；保存投注时服务端再算一遍，客户端数字只用于展示。
-8. **同源 `/api` 而非写死 API 域名**：前端 bundle 不含 `*.vercel.app`，换域名、加自定义域或前后端合并部署都不需要重新构建前端；代价是 `vercel.json` 多一条 rewrite。
+8. **同源 `/api` 而非写死 API 域名**：前端 bundle 不含 `*.vercel.app`，换域名、加自定义域或前后端合并部署都不需要重新构建前端；代价是 `next.config.ts` 多一条 rewrite。
 9. **登录可选、身份分层**：`app_user` 与 `user_identity` 分开，邮箱/微信只是不同身份；不登录也能用全部只读功能，登录只解锁保存投注与结算。
-10. **构建时预渲染而非 SSR**：公开页用 Playwright 生成静态 HTML，兼顾首屏与 SEO；代价是数据停留在构建时刻，动态路由回落 `spa.html`。
+10. **Next.js 承载 SSR 而非自建 Vite SSR**：公开页按请求渲染，meta / canonical / 404 由服务端产出，不再有构建时快照；代价是路由模型要迁就框架（只保留一个 catch-all + 全客户端 Keep-Alive）。
 
 ---
 
@@ -960,13 +1005,13 @@ flowchart LR
 | --- | --- | --- | --- |
 | 4 | 分析页仍巨型 | `HistoryAnalysisPage` 723 行、`MathTrendAnalysisPage` 444 行 | 与已拆分的 `HomePage` 风格不一致，复用困难 |
 | 5 | 全局样式仍集中 | `global.scss` 6 423 行（另有 6 个按域拆分的 SCSS） | 无作用域隔离，删除困难 |
-| 6 | 单 chunk 668 KB，无路由懒加载 | 构建产物 | 首屏体积偏大，超 Vite 500 KB 告警线（gzip 后 185 KB） |
+| 6 | 单 chunk 668 KB，无路由懒加载 | 构建产物 | 首屏体积偏大（gzip 后 185 KB）；Next 侧也只有一个 catch-all，代码分割收益有限 |
 | 7 | 类型宽松 | 领域类型含 `[key: string]: unknown`；`strict` 未开 | 接口字段漂移无法在编译期发现 |
 | 8 | 截图以 base64 常驻 state | `HomePage.tsx` | 多次截图累积数 MB 内存 |
 | 9 | 缓存无 TTL 过期 | `historyService.ts` | 老数据长期保留（裁剪只按数量） |
 | 10 | 无 ESLint / Prettier / CI | 全仓 | 已有 `node:test` 单测 92 个，但没有 lint 与流水线 |
-| 11 | 预渲染是构建时快照 | `scripts/prerender.mjs` | 不重新构建 / 不跑 `npm run prerender` 时，静态 HTML 里的数据会过期 |
-| 12 | 同源 rewrite 依赖 `ticai-service` | `vercel.json` | API 项目改名或迁移时前端要同步改 rewrite（不需重新打包） |
+| 11 | 只预取了两页 | `src/server/prefetch.ts` | `/` 与 `/results` 已 SSR；`/history` 与两个分析页仍靠客户端拉取，禁用 JS 看不到数据 |
+| 12 | 同源 rewrite 依赖 `ticai-service` | `next.config.ts` | API 项目改名或迁移时前端要同步改 rewrite（不需重新打包） |
 
 ### 低
 
@@ -985,10 +1030,11 @@ flowchart LR
 1. **API 加固**：给只读接口加 IP 维度限流或简单 token 鉴权，`/api/health` 接入编排；必要时换 Fastify 以获得成熟中间件。
 2. **测试基线**：给 `betSlipMath.ts`、`historyPrediction.ts`、`historyDb.ts` 加 Vitest（纯函数/仓储，收益最高）；把 CDP 冒烟固化成 `scripts/smoke.mjs`。
 3. **继续拆页面**：`HistoryAnalysisPage` 按「参数面板 / 每位明细 / 统计卡」拆分，复用 `useAnalysisWorker`。
-4. **分包与懒加载**：路由级 `React.lazy` + 手动 chunk（worker 已独立，主 chunk 约 668 KB）。
+4. **分包与懒加载**：`views` 按路由动态 import（Keep-Alive 的常驻挂载与懒加载天然冲突，需要先决定优先级）。
 5. **样式模块化**：把剩余页面级样式继续拆成 `*.module.scss`，`global.scss` 只留 reset 与设计 token。
 6. **缓存治理**：给 IndexedDB 加 TTL 与"最近访问"策略；超范围分页明确返回空态提示。
-7. **预渲染增量更新**：爬虫跑完后触发一次 `npm run prerender`（或用部署钩子），缩短静态快照与实时数据的差距。
+7. **继续扩服务端预取**：首页已经跑通（proxy 写 pathname → layout 取数 → context 下发），
+   按同一模式补 `/results`、`/history` 与两个分析页（见 §13.6）。
 8. **分析快照再压缩**：`payload` 目前每期 × 每参数存一条（约 11 KB），一年约 80 MB；
    如果以后参数变多，可以只存「最近 3 期」的完整 payload + 更早的摘要，或把 payload 挪到对象存储。
 9. **串关也快照化**：一键串关现在是浏览器里算（20 场十毫秒级），搬服务端的价值在于「定时每日推荐 / 可分享方案」，
@@ -997,6 +1043,9 @@ flowchart LR
 ---
 
 ## 11. 本次改造记录
+
+> 以下是历史记录，描述的是各时间点的状态；前端已从 Vite SPA 迁到 Next.js（见 §13），
+> 其中 `VITE_API_BASE` 现对应 `NEXT_PUBLIC_API_BASE`，`vercel.json` 的 rewrite 已移到 `next.config.ts`。
 
 | 项 | 改造前 | 改造后 |
 | --- | --- | --- |
@@ -1108,6 +1157,17 @@ flowchart LR
 | --- | --- | --- |
 | 加载顺序 | 先等 `validate()` 里 `/api/auth/me` 校验完登录态，期间页面只有一行「正在读取登录状态…」，之后才出现骨架屏（文字 → 骨架 → 列表三次跳变） | 首帧直接渲染页面骨架（标题 + 统计 + 筛选 + 列表卡片），登录态校验通过后再加载列表并无缝替换；`!ready` / 无 token 时同样走骨架，未登录由重定向送到登录页 |
 
+### 2026-10-29 增量：验证码登录即注册 + 登录后设置密码
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 验证码登录 | 邮箱没注册直接 `404`「请先注册」 | 验证码通过即证明邮箱归属，未注册邮箱当场建「无密码」账号；`purpose=login` 发码不再要求邮箱已注册 |
+| 密码 | 只能在注册时设置；忘记密码没有自助路径 | 账号页「邮箱与密码」卡片：设置 / 修改密码；验证码登录建立的会话可免当前密码重设，忘记密码闭环 |
+| 微信账号 | 没有邮箱，永远只能用微信登录 | 先用 `purpose=bind` 验证码绑定邮箱，再设置密码；`user_identity` 同步补一条 email 身份 |
+| 会话 | 只记 `user_agent` | 记 `verified_by`（`password` / `code` / `wechat`），决定改密要不要当前密码；改密吊销该账号其他设备的会话 |
+| 登录后路由 | 验证码登录一律回首页 | `user.hasPassword === false` 时跳 `/account?setup=password`，账号页高亮密码卡片 |
+| 数据 | — | 迁移 [`0008_code_signup_password.sql`](../db/migrations/0008_code_signup_password.sql)：`app_user.password_updated_at`、`user_session.verified_by`、`email_code.purpose` 增加 `bind` |
+
 ---
 
 ## 12. 关键文件索引
@@ -1122,17 +1182,19 @@ flowchart LR
 | API 赛果 | [apps/api/src/handlers/results.mjs](../apps/api/src/handlers/results.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs) |
 | 开发双进程脚本 | [scripts/dev.mjs](../scripts/dev.mjs) |
 | 环境变量样例 | [.env.example](../.env.example) |
-| 构建 / 预渲染 / 代理 | [vite.config.ts](../vite.config.ts)、[scripts/prerender.mjs](../scripts/prerender.mjs)、[vercel.json](../vercel.json) |
-| 应用入口 / 外壳 | [src/main.tsx](../src/main.tsx)、[src/App.tsx](../src/App.tsx) |
-| 缓存路由 / 路由表 | [src/router/KeepAliveRoutes.tsx](../src/router/KeepAliveRoutes.tsx)、[src/router/routes.tsx](../src/router/routes.tsx) |
-| 投注页 | [src/pages/HomePage.tsx](../src/pages/HomePage.tsx) |
+| 构建 / 代理 / 部署 | [next.config.ts](../next.config.ts)、[vercel.json](../vercel.json)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs) |
+| 应用入口 / 外壳 | [src/app/layout.tsx](../src/app/layout.tsx)、[src/app/[[...slug]]/page.tsx](../src/app/[[...slug]]/page.tsx)、[src/app-shell/AppShell.tsx](../src/app-shell/AppShell.tsx)、[src/App.tsx](../src/App.tsx) |
+| 缓存路由 / 路由表 | [src/router/KeepAliveRoutes.tsx](../src/router/KeepAliveRoutes.tsx)、[src/router/manifest.ts](../src/router/manifest.ts)、[src/router/routes.tsx](../src/router/routes.tsx) |
+| 导航适配 | [src/lib/navigation.ts](../src/lib/navigation.ts)、[src/lib/nav-state.ts](../src/lib/nav-state.ts) |
+| 首屏预取 | [src/proxy.ts](../src/proxy.ts)、[src/server/prefetch.ts](../src/server/prefetch.ts)、[src/ssr/initial-context.tsx](../src/ssr/initial-context.tsx)、[src/ssr/seed.ts](../src/ssr/seed.ts) |
+| 投注页 | [src/views/HomePage.tsx](../src/views/HomePage.tsx) |
 | 投注逻辑 | [src/features/betting/useBetSlip.ts](../src/features/betting/useBetSlip.ts)、[betSlipMath.ts](../src/features/betting/betSlipMath.ts)、[parlayModel.ts](../src/features/betting/parlayModel.ts)、[betPayload.ts](../src/features/betting/betPayload.ts) |
 | 投注组件 | [MatchPoolList.tsx](../src/features/betting/MatchPoolList.tsx)、[MatchListSkeleton.tsx](../src/features/betting/MatchListSkeleton.tsx)、[BetSlipFooter.tsx](../src/features/betting/BetSlipFooter.tsx)、[PlanModal.tsx](../src/features/betting/PlanModal.tsx)、[SnapshotOverlay.tsx](../src/features/betting/SnapshotOverlay.tsx) |
 | 单场 AI | [AiAnalysisPanel.tsx](../src/features/betting/AiAnalysisPanel.tsx)、[useMatchAiAnalysis.ts](../src/features/betting/useMatchAiAnalysis.ts)、[aiAnalysis.ts](../src/features/betting/aiAnalysis.ts) |
 | 方案 AI | [ParlayAiAnalysisPanel.tsx](../src/features/betting/ParlayAiAnalysisPanel.tsx)、[useParlayAiAnalysis.ts](../src/features/betting/useParlayAiAnalysis.ts)、[parlayAiAnalysis.ts](../src/features/betting/parlayAiAnalysis.ts) |
 | AI 本地缓存 | [aiAnalysisCache.ts](../src/features/betting/aiAnalysisCache.ts)（`localStorage`，3 小时 TTL） |
-| 我的投注 | [src/pages/MyBetsPage.tsx](../src/pages/MyBetsPage.tsx)、[src/features/bets/BetDetailModal.tsx](../src/features/bets/BetDetailModal.tsx)、[src/api/betApi.ts](../src/api/betApi.ts) |
-| 账号 / 微信 | [src/pages/AuthPage.tsx](../src/pages/AuthPage.tsx)、[src/pages/AccountPage.tsx](../src/pages/AccountPage.tsx)、[src/pages/WechatCallbackPage.tsx](../src/pages/WechatCallbackPage.tsx)、[src/store/authStore.ts](../src/store/authStore.ts) |
+| 我的投注 | [src/views/MyBetsPage.tsx](../src/views/MyBetsPage.tsx)、[src/features/bets/BetDetailModal.tsx](../src/features/bets/BetDetailModal.tsx)、[src/api/betApi.ts](../src/api/betApi.ts) |
+| 账号 / 微信 | [src/views/AuthPage.tsx](../src/views/AuthPage.tsx)、[src/views/AccountPage.tsx](../src/views/AccountPage.tsx)、[src/views/WechatCallbackPage.tsx](../src/views/WechatCallbackPage.tsx)、[src/features/account/PasswordCard.tsx](../src/features/account/PasswordCard.tsx)、[src/store/authStore.ts](../src/store/authStore.ts) |
 | 自动交付 | [scripts/update-architecture.mjs](../scripts/update-architecture.mjs)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs)、[scripts/deploy-api.mjs](../scripts/deploy-api.mjs)、[scripts/check-secrets.mjs](../scripts/check-secrets.mjs)、[scripts/git-hooks](../scripts/git-hooks)、[AGENTS.md](../AGENTS.md) |
 | 开奖缓存 | [src/service/historyService.ts](../src/service/historyService.ts) |
 | IndexedDB 仓储 | [src/storage/historyDb.ts](../src/storage/historyDb.ts) |
@@ -1159,8 +1221,82 @@ flowchart LR
 | 上游归一化 | [apps/crawler/src/normalize.mjs](../apps/crawler/src/normalize.mjs) |
 | 对战数据任务 | [apps/crawler/src/tasks/details.mjs](../apps/crawler/src/tasks/details.mjs)、[apps/crawler/src/tasks/lineups-browser.mjs](../apps/crawler/src/tasks/lineups-browser.mjs) |
 | 对战详情接口 | [apps/api/src/match-detail.mjs](../apps/api/src/match-detail.mjs)、[apps/api/src/handlers/match-detail.mjs](../apps/api/src/handlers/match-detail.mjs) |
-| 对战详情页 | [src/features/matchDetail/MatchDetailContent.tsx](../src/features/matchDetail/MatchDetailContent.tsx)、[MatchDetailDialog.tsx](../src/features/matchDetail/MatchDetailDialog.tsx)、[src/pages/MatchDetailPage.tsx](../src/pages/MatchDetailPage.tsx) |
+| 对战详情页 | [src/features/matchDetail/MatchDetailContent.tsx](../src/features/matchDetail/MatchDetailContent.tsx)、[MatchDetailDialog.tsx](../src/features/matchDetail/MatchDetailDialog.tsx)、[src/views/MatchDetailPage.tsx](../src/views/MatchDetailPage.tsx) |
 | 详情视图映射 | [src/features/matchDetail/matchDetailView.ts](../src/features/matchDetail/matchDetailView.ts) |
 | SEO / 免责 / 确认弹窗 | [src/features/seo/seo.ts](../src/features/seo/seo.ts)、[src/features/disclaimer/EntertainmentDisclaimer.tsx](../src/features/disclaimer/EntertainmentDisclaimer.tsx)、[src/components/ConfirmDialog.tsx](../src/components/ConfirmDialog.tsx) |
 | 体彩 HTTP 客户端 | [apps/crawler/src/http.mjs](../apps/crawler/src/http.mjs) |
 | 样式 | [src/styles/global.scss](../src/styles/global.scss)（另有 6 个按域拆分的 SCSS） |
+
+---
+
+## 13. 2026-10-28 改造：Vite SPA → Next.js 16（按请求 SSR）
+
+迁移已经完成，**第 2 / 4 / 8 节已按新架构改写**；本节保留改造过程、硬约束与欠账，作为决策记录。
+
+### 13.1 为什么换
+
+构建时预渲染是快照，`/match/:id` 不覆盖，且依赖本机 Chrome + 本地 API（缺失时静默退化成空壳）。改用 Next.js 后，公开页按请求渲染，meta / canonical / 404 都在服务端产出。
+
+### 13.2 渲染链路
+
+```
+浏览器 / Googlebot
+   ├─ /_next/static/**            → CDN 静态资源
+   ├─ /api/**                     → next.config.ts rewrite → ticai-service（本地 3001）
+   ├─ src/proxy.ts                → 把 pathname 写进请求头 x-pathname
+   └─ 其它路径                    → src/app/[[...slug]]/page.tsx（Server Component）
+                                      ├─ matchAppRoute() 判存在 → 不存在 notFound()（真 404）
+                                      ├─ generateMetadata() → title/description/canonical/OG/robots
+                                      └─ 根 layout：读 x-pathname → loadInitialData() → <AppShell initialData>
+                                            └─ AppShell（client）：context 下发 + 首帧灌 store → App → 页面
+```
+
+### 13.3 关键结构
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/app/layout.tsx` | 根布局：全局样式、站点级 metadata、图标、JSON-LD，并挂载 `<AppShell />` |
+| `src/app/[[...slug]]/page.tsx` | 唯一路由入口：路径校验、404、页面级 metadata；不渲染页面内容 |
+| `src/app-shell/AppShell.tsx` | 客户端外壳：路径不在清单内返回 null，否则渲染 `<App />` |
+| `src/router/manifest.ts` | 路由清单与匹配（纯函数，服务端/客户端共用） |
+| `src/lib/navigation.ts` | `useNavigate` / `usePathname` 适配层，替代 react-router |
+| `src/lib/nav-state.ts` | 一次性路由传参，替代 `location.state` |
+| `src/views/*` | 页面组件（原 `src/pages/*`，改名避免和 Next Pages Router 冲突） |
+
+### 13.4 两个必须遵守的约束
+
+1. **外壳必须在 layout，不能在 page**：Next 在 `[[...slug]]` 参数变化时会重新挂载 page 组件，外壳挂在 page 上会让 Keep-Alive 缓存和输入状态每次导航都丢。实测把 AppShell 放进 layout 后，`/about` → `/results` 再返回，输入内容保留。
+2. **全站只用一个 catch-all 路由**：按路由拆 `page.tsx` 会让 Next 每次导航换组件，Keep-Alive 直接失效；路由分发在客户端做。
+
+### 13.5 现状与欠账
+
+- **首页与 `/results` 已实现服务端预取**：首页 HTML 里直接有 14 场比赛卡片（约 94 KB、gzip 12.6 KB），
+  赛果页直接有 10 条已开奖赛果（约 32 KB）；hydration 零告警；
+- `/history` 与两个分析页仍是客户端拉取。注意 `/history` 不是「两步」能搞定的：它的首屏
+  `isInitialLoading` 同时依赖开奖列表与分析快照（`useAnalysisSnapshot`），只灌列表仍会显示骨架屏，
+  要先把快照也做成可注入的初始值（`useAnalysisSnapshot` 目前有 4 个页面在用）；
+- `deploy-local.mjs` 已改为「本地 `next build` 自检 → 上传前端源码 → Vercel 远端构建」；`vercel build --prebuilt` 在本机受限环境下会因内部 spawn shell 失败，不走那条路；
+- 2026-10-28 已用预览部署验证远端构建通过（38s，Next 16.4.3），生产切换待执行；
+- 自定义 SSR（`src/entry-server.tsx`、`src/ssr/*`、`scripts/build.mjs`）已随迁移删除，方案文档 `docs/SSR-PLAN.md` 仅作历史留档。
+
+### 13.6 首屏预取链路（首页已落地）
+
+```
+src/proxy.ts            → 请求头写入 x-pathname（Next 16 的 middleware 改名 proxy）
+src/app/layout.tsx      → headers() 读 pathname → loadInitialData(pathname)
+src/server/prefetch.ts  → / → matches（ttg 池）；/results → 当天赛果；均 2.5s 超时，失败返回 null
+src/app-shell/AppShell  → <InitialDataProvider> 下发；首帧调用 seedInitialData() 灌 store
+src/views/HomePage.tsx  → useInitialMatches() 顶上，store 尚未 fetched 时优先用它
+src/views/ResultsPage   → useInitialResults() 作为 useState 初始值，并跳过首次重复请求
+```
+
+两个坑（下次加页面会再遇到）：
+
+1. **zustand 不能当 SSR 数据通道**：`useSyncExternalStore` 在服务端与 hydration 首帧读的是
+   `getInitialState()`，往 store 里 setState 不会出现在 SSR 输出里——所以走 React context；
+2. **seed 只能做一次**：重复灌会把用户刷新的数据覆盖回首屏快照；`src/ssr/seed.ts` 用模块级
+   `seeded` 标志兜住，并且只在浏览器侧执行。
+
+新增页面时按同样三步走：`loadInitialData` 加分支 → `SsrInitialData` 加字段 → 页面用
+`useInitialXxx()` 做首帧初始值、store 作为后续交互的载体。
+

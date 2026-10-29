@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from '../../lib/navigation'
 
 import { type MatchCard, type MatchCardOptionGroup, type MatchPoolType } from '../../service/matchService'
 import { MatchDetailDialog } from '../matchDetail/MatchDetailDialog'

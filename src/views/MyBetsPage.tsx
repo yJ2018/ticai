@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import Link from 'next/link'
+import { useNavigate } from '../lib/navigation'
 
 import {
   deleteBet,
@@ -344,7 +345,7 @@ export function MyBetsPage() {
       <div className="bets-hero">
         <header className="bets-page__header">
           <div className="bets-page__heading">
-            <Link to="/" className="bets-page__back">
+            <Link href="/" className="bets-page__back">
               ← 返回
             </Link>
             <h2>我的投注</h2>
@@ -354,7 +355,7 @@ export function MyBetsPage() {
             <button type="button" className="btn-ghost" onClick={handleSignOut}>
               退出登录
             </button>
-            <Link className="btn-primary bets-page__go" to="/">
+            <Link className="btn-primary bets-page__go" href="/">
               去投注
             </Link>
           </div>
@@ -453,7 +454,7 @@ export function MyBetsPage() {
               清除筛选
             </button>
           ) : (
-            <Link className="btn-primary" to="/">
+            <Link className="btn-primary" href="/">
               去赛事投注
             </Link>
           )}

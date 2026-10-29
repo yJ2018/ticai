@@ -75,11 +75,15 @@ const PAGE_DESCRIPTIONS = {
 }
 
 const shellCards = [
-  { title: 'index.html + main.tsx', subtitle: '入口 · createRoot + BrowserRouter' },
+  { title: 'src/app/layout.tsx', subtitle: '根布局 · 全局样式 · metadata · 挂 AppShell' },
+  { title: 'src/app/[[...slug]]', subtitle: '唯一路由入口 · 404 · generateMetadata' },
+  { title: 'AppShell', subtitle: '客户端外壳 · 未登记路径返回 null' },
   { title: 'App.tsx', subtitle: '顶栏 · 导航 · 路由级 SEO / 免责弹层' },
-  { title: 'AppRouter', subtitle: '路由出口 · KeepAliveRoutes' },
-  { title: 'KeepAliveRoutes', subtitle: 'matchPath 匹配 · display 切换' },
-  { title: 'routes.tsx', subtitle: 'appRoutes（13 条）· navLinks（7 项）' },
+  { title: 'KeepAliveRoutes', subtitle: 'pathname 匹配 · display 切换' },
+  { title: 'router/manifest.ts', subtitle: '路由清单（13 条）· 匹配 · 公开/私有' },
+  { title: 'lib/navigation + nav-state', subtitle: 'useNavigate / usePathname · 一次性传参' },
+  { title: 'proxy.ts + server/prefetch', subtitle: 'x-pathname → 首屏预取 → context 下发' },
+  { title: 'next.config.ts', subtitle: '/api rewrite → API 项目 · allowedDevOrigins' },
 ]
 
 const stateCards = [
@@ -118,7 +122,7 @@ const externalCards = [
   { title: 'DeepSeek API', subtitle: 'chat/completions · SSE' },
   { title: 'Open-Meteo', subtitle: 'Geocoding + Forecast' },
   { title: 'Resend / 微信开放平台', subtitle: '邮箱验证码 · 扫码 / 网页授权' },
-  { title: 'Vercel', subtitle: '前端静态 + API 函数 · push 前自动发布' },
+  { title: 'Vercel', subtitle: '前端 Next SSR + API 函数 · push 前自动发布' },
 ]
 
 const sections = [
@@ -129,10 +133,10 @@ const sections = [
     cards: shellCards,
   },
   {
-    title: '② 页面层 src/pages',
+    title: '② 页面层 src/views',
     color: '#10b981',
-    caption: '页面自管理状态与请求 · 首页承载投注主流程',
-    cards: readSourceCards('src/pages', PAGE_DESCRIPTIONS, '页面模块'),
+    caption: '页面自管理状态与请求 · 由 AppShell 按 pathname 分发',
+    cards: readSourceCards('src/views', PAGE_DESCRIPTIONS, '页面模块'),
   },
   {
     title: '③ 赛事投注 features/betting',
@@ -353,7 +357,7 @@ function buildSvg() {
     `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" fill="#94a3b8"/></marker></defs>`,
     `<rect width="${WIDTH}" height="${height}" fill="#f5f7fa"/>`,
     `<text x="40" y="56" font-size="26" font-weight="700" fill="#0f172a">体彩助手 · ticai 全栈架构图</text>`,
-    `<text x="40" y="80" font-size="12.5" fill="#64748b">React 19 · TypeScript 6 · Vite 8 · Zustand 5　＋　独立 API（apps/api）＋ 本地爬虫（apps/crawler）</text>`,
+    `<text x="40" y="80" font-size="12.5" fill="#64748b">React 19 · Next.js 16 App Router · TypeScript 6 · Zustand 5　＋　独立 API（apps/api）＋ 本地爬虫（apps/crawler）</text>`,
     `<text x="${WIDTH - 40}" y="55" text-anchor="end" font-size="11" fill="#475569">src ${formatNumber(stats.sourceCount)} 文件 / ${formatNumber(stats.sourceLines)} 行</text>`,
     `<text x="${WIDTH - 40}" y="74" text-anchor="end" font-size="11" fill="#475569">SCSS ${stats.scssCount} 文件 / ${formatNumber(stats.scssLines)} 行</text>`,
     `<text x="${WIDTH - 40}" y="93" text-anchor="end" font-size="11" fill="#475569">apps ${stats.serverCount} 文件 / ${formatNumber(stats.serverLines)} 行</text>`,

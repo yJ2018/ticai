@@ -1,5 +1,6 @@
+import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+
 import { EntertainmentDisclaimer } from './features/disclaimer/EntertainmentDisclaimer'
 import {
   ENTERTAINMENT_DISCLAIMER_PATHS,
@@ -7,13 +8,16 @@ import {
   isEntertainmentDisclaimerHidden,
 } from './features/disclaimer/disclaimerPreferences'
 import { applyPageMeta } from './features/seo/seo'
-import { AppRouter } from './router/AppRouter'
-import { navLinks } from './router/routes'
+import { useNavigate, usePathname } from './lib/navigation'
+import { useNavigationState } from './lib/nav-state'
+import { KeepAliveRoutes } from './router/KeepAliveRoutes'
+import { appRoutes, navLinks } from './router/routes'
 import { useAuthStore } from './store/authStore'
 
 export default function App() {
-  const location = useLocation()
+  const pathname = usePathname()
   const navigate = useNavigate()
+  const navState = useNavigationState<{ applyBet?: unknown }>()
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false)
   const [isNavOpen, setIsNavOpen] = useState(false)
   const lastPathRef = useRef<string | null>(null)
@@ -31,46 +35,47 @@ export default function App() {
   // 跳转后自动收起移动端菜单，避免菜单盖住新页面
   useEffect(() => {
     setIsNavOpen(false)
-  }, [location.pathname])
+  }, [pathname])
 
-  // 路由级 SEO：标题、描述、canonical、robots
+  // 路由级 SEO：客户端只在导航时补一次；首屏的 title/canonical 由服务端 generateMetadata 产出
   useEffect(() => {
-    applyPageMeta(normalizePath(location.pathname))
-  }, [location.pathname])
+    applyPageMeta(pathname)
+  }, [pathname])
 
   async function handleSignOut() {
     setIsNavOpen(false)
     await signOut()
-    if (location.pathname.startsWith('/my-bets')) {
+    if (pathname.startsWith('/my-bets')) {
       navigate('/', { replace: true })
     }
   }
 
   useEffect(() => {
-    const path = normalizePath(location.pathname)
-    if (lastPathRef.current === path) {
+    if (lastPathRef.current === pathname) {
       return
     }
-    lastPathRef.current = path
+    lastPathRef.current = pathname
 
     // 从「我的投注」带方案跳回投注页时，不再弹娱乐提示，
     // 否则它会盖在自动打开的方案弹层上面，多一次点击。
-    const navState = location.state as { applyBet?: unknown } | null
     if (navState?.applyBet) {
       disclaimerPathRef.current = null
       setIsDisclaimerOpen(false)
       return
     }
 
-    if (!ENTERTAINMENT_DISCLAIMER_PATHS.includes(path) || isEntertainmentDisclaimerHidden(path)) {
+    if (
+      !ENTERTAINMENT_DISCLAIMER_PATHS.includes(pathname) ||
+      isEntertainmentDisclaimerHidden(pathname)
+    ) {
       disclaimerPathRef.current = null
       setIsDisclaimerOpen(false)
       return
     }
 
-    disclaimerPathRef.current = path
+    disclaimerPathRef.current = pathname
     setIsDisclaimerOpen(true)
-  }, [location.pathname, location.state])
+  }, [pathname, navState])
 
   const handleDisclaimerDismiss = useCallback((hideForever: boolean) => {
     if (hideForever && disclaimerPathRef.current) {
@@ -79,7 +84,7 @@ export default function App() {
     setIsDisclaimerOpen(false)
   }, [])
 
-  const isFullscreen = isFullscreenRoute(location.pathname)
+  const isFullscreen = isFullscreenRoute(pathname)
 
   return (
     <div className={`app-shell${isFullscreen ? ' app-shell--fullscreen' : ''}`}>
@@ -96,13 +101,14 @@ export default function App() {
             aria-label="主导航"
           >
             {navLinks.map((item) => (
-              <NavLink
+              <Link
                 key={item.to}
-                to={item.to}
-                className={({ isActive }) => `app-topbar__link${isActive ? ' is-active' : ''}`}
+                href={item.to}
+                prefetch={false}
+                className={`app-topbar__link${isActivePath(pathname, item.to) ? ' is-active' : ''}`}
               >
                 {item.label}
-              </NavLink>
+              </Link>
             ))}
             {token && (
               <button
@@ -117,9 +123,14 @@ export default function App() {
           <div className="app-topbar__user">
             {token && user ? (
               <>
-                <NavLink to="/account" className="app-topbar__user-email" title="账号与登录方式">
+                <Link
+                  href="/account"
+                  prefetch={false}
+                  className="app-topbar__user-email"
+                  title="账号与登录方式"
+                >
                   {user.displayName || user.email || '我的账号'}
-                </NavLink>
+                </Link>
                 <button
                   type="button"
                   className="app-topbar__signout app-topbar__signout--desktop"
@@ -129,9 +140,9 @@ export default function App() {
                 </button>
               </>
             ) : (
-              <NavLink to="/login" className="app-topbar__login">
+              <Link href="/login" prefetch={false} className="app-topbar__login">
                 登录
-              </NavLink>
+              </Link>
             )}
             <button
               type="button"
@@ -149,7 +160,7 @@ export default function App() {
         </header>
       )}
       <main className="app-main">
-        <AppRouter />
+        <KeepAliveRoutes routes={appRoutes} pathname={pathname} />
       </main>
       <EntertainmentDisclaimer open={isDisclaimerOpen} onDismiss={handleDisclaimerDismiss} />
     </div>
@@ -161,6 +172,6 @@ function isFullscreenRoute(pathname: string) {
   return pathname.startsWith('/match/')
 }
 
-function normalizePath(pathname: string) {
-  return pathname.replace(/\/+$/, '') || '/'
+function isActivePath(pathname: string, href: string) {
+  return href === '/' ? pathname === '/' : pathname === href
 }

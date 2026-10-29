@@ -12,7 +12,9 @@ import { HttpError } from './lib.mjs'
  */
 
 const SESSION_SQL = `
-  select u.id, u.email, u.display_name, u.avatar_url, u.created_at, s.id as session_id, s.expires_at
+  select u.id, u.email, u.display_name, u.avatar_url, u.created_at,
+         u.password_hash is not null as has_password,
+         s.id as session_id, s.expires_at, s.verified_by
   from user_session s
   join app_user u on u.id = s.user_id
   where s.token_hash = $1
@@ -21,25 +23,42 @@ const SESSION_SQL = `
   limit 1
 `
 
+/**
+ * 对外用户资料。
+ *
+ * `hasPassword` 决定账号页显示「设置密码」还是「修改密码」：微信建的账号、
+ * 以及「验证码登录即注册」建出来的账号都没有密码。
+ */
 export function toPublicUser(row) {
+  const hasPassword =
+    row.has_password === undefined || row.has_password === null
+      ? Boolean(row.password_hash)
+      : Boolean(row.has_password)
+
   return {
     id: String(row.id),
     // 微信首次登录的账号可以没有邮箱
     email: row.email ?? null,
     displayName: row.display_name ?? null,
     avatarUrl: row.avatar_url ?? null,
+    hasPassword,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
   }
 }
 
-export async function createSession(config, userId, { userAgent = '', req } = {}) {
+/**
+ * @param {'password'|'code'|'wechat'} verifiedBy 会话是怎么建立的。
+ *   验证码登录（verifiedBy='code'）的会话可以直接覆盖密码——这就是「忘记密码」的自助路径；
+ *   密码 / 微信登录的会话改密码时必须再验一次当前密码。
+ */
+export async function createSession(config, userId, { userAgent = '', verifiedBy = 'password' } = {}) {
   const token = createSessionToken()
   const days = config.auth.sessionDays
 
   await query(config, `
-    insert into user_session (user_id, token_hash, user_agent, expires_at)
-    values ($1, $2, $3, now() + ($4::int * interval '1 day'))
-  `, [userId, hashToken(token), String(userAgent || '').slice(0, 200) || null, days])
+    insert into user_session (user_id, token_hash, user_agent, verified_by, expires_at)
+    values ($1, $2, $3, $4, now() + ($5::int * interval '1 day'))
+  `, [userId, hashToken(token), String(userAgent || '').slice(0, 200) || null, verifiedBy, days])
 
   // 顺手清理该用户已过期的会话，避免表无限增长
   await query(config, 'delete from user_session where user_id = $1 and expires_at <= now()', [userId]).catch(() => {})
@@ -67,7 +86,7 @@ export async function resolveSession(config, req) {
     [row.session_id],
   ).catch(() => {})
 
-  return { user: toPublicUser(row), sessionId: row.session_id }
+  return { user: toPublicUser(row), sessionId: row.session_id, verifiedBy: row.verified_by }
 }
 
 /** 必须登录的接口用这个：拿不到会话直接 401。 */
@@ -86,6 +105,21 @@ export async function destroySession(config, req) {
   }
   const { rowCount } = await query(config, 'delete from user_session where token_hash = $1', [hashToken(token)])
   return (rowCount ?? 0) > 0
+}
+
+/**
+ * 改密码后把该账号其他设备的会话全部吊销。
+ *
+ * 保留当前这枚（用户刚用它完成操作，踢掉会立刻掉线）；
+ * 密码被盗后改密是最常见的止损动作，不吊销其他会话等于没止损。
+ */
+export async function destroyOtherSessions(config, userId, keepSessionId) {
+  const { rowCount } = await query(
+    config,
+    'delete from user_session where user_id = $1 and id <> $2',
+    [userId, keepSessionId],
+  )
+  return rowCount ?? 0
 }
 
 /**

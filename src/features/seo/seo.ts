@@ -1,14 +1,22 @@
-﻿export const SITE_URL = 'https://yujun426.online'
+export const SITE_URL = 'https://yujun426.online'
 export const SITE_NAME = '体彩助手'
 
 export const DEFAULT_DESCRIPTION =
   '体彩助手提供竞彩足球每日赛程、胜平负 / 让球 / 总进球 / 比分 / 半全场实时赔率、开奖结果与历史数据分析，支持保存投注方案并自动结算中奖。'
 
-type PageMeta = {
+export type PageMeta = {
   title: string
   description: string
   /** 登录后 / 私有页面不收录 */
   noindex?: boolean
+}
+
+/** meta 的「纯数据」版本：服务端直接拼 HTML，客户端再写进 DOM */
+export type ResolvedPageMeta = {
+  title: string
+  description: string
+  canonical: string
+  robots: string
 }
 
 const PAGE_META: Record<string, PageMeta> = {
@@ -65,14 +73,10 @@ function upsertLink(rel: string, href: string) {
 }
 
 /**
- * 单页应用的路由级 meta：标题、描述、canonical、OG、robots。
- * 在 App 里按 pathname 调用，页面有更具体的信息（如比赛详情）时再用 override 覆盖。
+ * 路由级 meta 的纯函数版本：服务端（src/ssr/html.ts）和客户端共用同一份规则，
+ * 保证 SSR 出来的 <head> 与客户端接管后的完全一致。
  */
-export function applyPageMeta(pathname: string, override?: Partial<PageMeta>) {
-  if (typeof document === 'undefined') {
-    return
-  }
-
+export function resolvePageMeta(pathname: string, override?: Partial<PageMeta>): ResolvedPageMeta {
   const meta: PageMeta = {
     ...(PAGE_META[pathname] ?? { title: '竞彩足球赛程与赔率', description: DEFAULT_DESCRIPTION }),
     ...override,
@@ -81,9 +85,28 @@ export function applyPageMeta(pathname: string, override?: Partial<PageMeta>) {
   const description = meta.description || DEFAULT_DESCRIPTION
   const canonical = `${SITE_URL}${pathname === '/' ? '/' : pathname}`
 
+  return {
+    title,
+    description,
+    canonical,
+    robots: meta.noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large',
+  }
+}
+
+/**
+ * 单页应用的路由级 meta：标题、描述、canonical、OG、robots。
+ * 在 App 里按 pathname 调用，页面有更具体的信息（如比赛详情）时再用 override 覆盖。
+ */
+export function applyPageMeta(pathname: string, override?: Partial<PageMeta>) {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const { title, description, canonical, robots } = resolvePageMeta(pathname, override)
+
   document.title = title
   upsertMeta('name', 'description', description)
-  upsertMeta('name', 'robots', meta.noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large')
+  upsertMeta('name', 'robots', robots)
   upsertMeta('property', 'og:title', title)
   upsertMeta('property', 'og:description', description)
   upsertMeta('property', 'og:url', canonical)

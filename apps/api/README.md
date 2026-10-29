@@ -1,6 +1,6 @@
 # @ticai/api
 
-独立服务端：零框架、零构建，只有 `pg` 一个运行时依赖。提供 27 个接口路径（29 个处理方法），
+独立服务端：零框架、零构建，只有 `pg` 一个运行时依赖。提供 31 个接口路径（33 个处理方法），
 其中赛事 / 开奖 / 赛果 / 详情 / 天气从数据库与上游读取，账号与投注读写数据库，AI 分析走 SSE。
 
 ```
@@ -16,7 +16,7 @@ npm install                      # 首次，装 pg
 # 需要数据库的接口要配 DATABASE_URL（根 .env 或 apps/api/.env）
 node apps/api/src/index.mjs      # 或 npm run api:dev
 
-node --test apps/api/test        # 或 npm run api:test（52 个用例）
+node --test apps/api/test        # 或 npm run api:test（69 个用例）
 ```
 
 启动后会打印数据库、DeepSeek、聚合数据、邮件与微信各自的就绪状态。
@@ -29,8 +29,10 @@ node --test apps/api/test        # 或 npm run api:test（52 个用例）
 | `GET /api/history` | **数据库** | 开奖分页，输出体彩 `{list,pageNo,pageSize,pages,total}` |
 | `GET /api/match-detail?matchId=` | **数据库** | 对战详情：交锋/伤停/近况/未来/特征/积分/射手 7 个板块，缺失返回 null |
 | `GET /api/results?date=&days=` | **数据库** | 赛果开奖：比分 + `had/hhad/ttg/crs/hafu`，按真实开赛时间倒序 |
-| `POST /api/auth/code` | **数据库 + Resend** | 发邮箱验证码（注册 / 免密登录），带冷却与频次限制 |
-| `POST /api/auth/register` `login` `logout`、`GET /api/auth/me` | **数据库** | 邮箱 + 密码 / 验证码登录，Bearer 不透明 token |
+| `POST /api/auth/code` | **数据库 + Resend** | 发邮箱验证码（注册 / 免密登录 / 绑定邮箱），带冷却与频次限制 |
+| `POST /api/auth/register` `login` `logout`、`GET /api/auth/me` | **数据库** | 邮箱 + 密码 / 验证码登录（未注册邮箱自动建无密码账号）；Bearer 不透明 token |
+| `POST /api/auth/password` | **数据库** | 设置 / 修改密码；没有密码或验证码登录的会话免当前密码，改完吊销其他会话 |
+| `POST /api/auth/email` | **数据库 + Resend** | 给还没有邮箱的账号绑定邮箱（微信建的账号用它拿到密码登录能力） |
 | `GET/DELETE /api/auth/identities`、`/api/auth/identities/:provider` | **数据库** | 登录方式列表与解绑（至少保留一种） |
 | `GET /api/auth/wechat/*` | **数据库 + 微信开放平台** | 扫码 / 公众号网页授权；回调只发一次性票据，前端换正式会话 |
 | `GET/POST /api/bets`、`GET /api/bets/stats`、`GET/DELETE /api/bets/:id` | **数据库** | 保存投注快照、按玩法筛选、按赛果自动结算 |
@@ -98,7 +100,7 @@ src/
   ai/                单场与串关提示词、比赛上下文装配
   repos/             读库 SQL（matches / lottery / results / bets）
   handlers/          按域拆的接口实现（sporttery / results / match-detail / ai / parlay / auth / wechat / bets / upstream / health）
-test/                7 个测试文件、52 个用例（node --test）
+test/                9 个测试文件、69 个用例（node --test）
 ```
 
 ## 远端库延迟
@@ -112,7 +114,7 @@ test/                7 个测试文件、52 个用例（node --test）
 
 ## 前端接入与部署
 
-1. 默认**同源**：前端 `VITE_API_BASE` 留空，本地由 Vite proxy 转发，生产由前端项目的 `vercel.json` 把 `/api/(.*)` rewrite 到 `ticai-service`；
-2. 需要直连时再设置 `VITE_API_BASE=https://<API 域名>`（只能放域名，不能放密钥）；
+1. 默认**同源**：前端不设 `NEXT_PUBLIC_API_BASE`，本地由 `next.config.ts` 的 rewrite 转到 `127.0.0.1:3001`，生产转到 `ticai-service`；
+2. 需要直连时再设置 `NEXT_PUBLIC_API_BASE=https://<API 域名>`（只能放域名，不能放密钥）；
 3. 部署走仓库根 `npm run deploy:api`（上传 `apps/api` 源码，Vercel 侧构建），或 VPS 上 `node apps/api/src/index.mjs` + systemd + Caddy（SSE 记得关 buffering）；
 4. 发布后探一次 `/healthz` 与 `/api/matches`，确认 `x-data-as-of` 在推进。

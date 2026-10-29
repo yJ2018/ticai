@@ -18,6 +18,8 @@ type AuthState = {
   /** 是否已经从持久化恢复并校验过 token（首屏判断用） */
   ready: boolean
   setSession: (token: string, user: AuthUser) => void
+  /** 账号页改完密码 / 绑定邮箱后回写最新资料（token 不变） */
+  applyUser: (user: AuthUser) => void
   signOut: () => Promise<void>
   /** 启动时校验本地 token 是否还有效；失效就清掉 */
   validate: () => Promise<void>
@@ -31,6 +33,8 @@ export const useAuthStore = create<AuthState>()(
       ready: false,
 
       setSession: (token, user) => set({ token, user, ready: true }),
+
+      applyUser: (user) => set({ user }),
 
       signOut: async () => {
         const token = get().token

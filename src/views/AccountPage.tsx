@@ -1,24 +1,30 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { useNavigate } from '../lib/navigation'
 
 import {
   fetchIdentities,
   getWechatConfig,
   startWechat,
   unbindIdentity,
+  type AuthUser,
   type Identity,
   type WechatConfig,
 } from '../api/authApi'
 import { ApiError } from '../api/httpClient'
 import { useConfirm } from '../components/ConfirmDialog'
+import { PasswordCard } from '../features/account/PasswordCard'
 import { WechatSetupDialog } from '../features/account/WechatSetupDialog'
 import { useAuthStore } from '../store/authStore'
 
 /**
- * 账号页：展示当前账号与登录方式，并处理微信绑定/解绑。
+ * 账号页：展示当前账号与登录方式，并处理邮箱 / 密码、微信绑定。
  *
  * 绑定走的是「带登录态的 OAuth」：start?mode=bind 把用户 id 签进 state，
  * 微信回调时按 state 把身份挂到当前账号，而不是新建账号。
+ *
+ * 「邮箱与密码」卡片也在这里：验证码登录进来的账号没有密码，设置完就能用密码登录。
  */
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -50,11 +56,12 @@ function formatDate(value: string | null) {
 
 export function AccountPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const searchParams = useSearchParams()
 
   const token = useAuthStore((state) => state.token)
   const user = useAuthStore((state) => state.user)
   const ready = useAuthStore((state) => state.ready)
+  const applyUser = useAuthStore((state) => state.applyUser)
   const signOut = useAuthStore((state) => state.signOut)
   const confirm = useConfirm()
 
@@ -150,6 +157,15 @@ export function AccountPage() {
     })
   }
 
+  // 密码 / 邮箱变了的刷新：绑定邮箱会新增一条登录方式，身份列表要重新拉
+  function handleUserUpdated(next: AuthUser) {
+    const emailChanged = next.email !== user?.email
+    applyUser(next)
+    if (emailChanged) {
+      void load()
+    }
+  }
+
   if (!ready || (loading && !config)) {
     return (
       <section className="account-page">
@@ -166,6 +182,15 @@ export function AccountPage() {
     )
   }
 
+  // token 有、资料还没回来：validate() 正在校验，先占位
+  if (!user) {
+    return (
+      <section className="account-page">
+        <p className="account-status">正在读取账号信息…</p>
+      </section>
+    )
+  }
+
   return (
     <section className="account-page">
       <header className="account-hero">
@@ -177,7 +202,7 @@ export function AccountPage() {
           <p>{user?.email ?? '还没有绑定邮箱'}</p>
         </div>
         <div className="account-hero__actions">
-          <Link className="btn-primary" to="/my-bets">
+          <Link className="btn-primary" href="/my-bets">
             我的投注
           </Link>
           <button type="button" className="btn-ghost" onClick={() => void signOut().then(() => navigate('/'))}>
@@ -190,6 +215,13 @@ export function AccountPage() {
       {error && <p className="account-alert">{error}</p>}
 
       <div className="account-grid">
+        <PasswordCard
+          token={token}
+          user={user}
+          highlight={searchParams.get('setup') === 'password'}
+          onUser={handleUserUpdated}
+        />
+
         <section className="account-card">
           <header className="account-card__head">
             <h3>微信</h3>
@@ -250,7 +282,7 @@ export function AccountPage() {
 
           {!emailIdentity && (
             <p className="account-card__note">
-              这个账号还没有邮箱密码，目前只能通过微信登录。邮箱绑定会在后续版本补上。
+              这个账号还没有邮箱，绑定后可以用验证码或密码登录（在上面的「邮箱与密码」里设置）。
             </p>
           )}
         </section>

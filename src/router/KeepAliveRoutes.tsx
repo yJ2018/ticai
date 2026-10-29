@@ -1,18 +1,25 @@
 import { useEffect, useRef } from 'react'
-import { Navigate, matchPath, useLocation } from 'react-router-dom'
+
+import { matchRoutePath } from './match'
 import { type KeepAliveRouteItem } from './types'
 
 type KeepAliveRoutesProps = {
   routes: KeepAliveRouteItem[]
-  fallbackPath?: string
+  pathname: string
 }
 
-export function KeepAliveRoutes({ routes, fallbackPath = '/' }: KeepAliveRoutesProps) {
-  const location = useLocation()
+/**
+ * 路由级 Keep-Alive：切走的页面保持挂载（`display` 切换），滚动位置与输入状态不丢。
+ *
+ * 与 react-router 版本相比只改两点：
+ *   - 当前路径从 props 来（Next 的 `usePathname()`），不再依赖路由上下文；
+ *   - 未匹配返回 null——路径是否存在由服务端页面判定（不存在直接 `notFound()`）。
+ *
+ * 首帧只渲染命中的那一屏，所以 SSR 出来的 HTML 里不会混入其它页面。
+ */
+export function KeepAliveRoutes({ routes, pathname }: KeepAliveRoutesProps) {
   const cachedPathsRef = useRef<string[]>([])
-  const pathname = location.pathname
-
-  const matchedRoute = routes.find((route) => isRouteMatched(route.path, pathname))
+  const matchedRoute = routes.find((route) => matchRoutePath(route.path, pathname))
 
   useEffect(() => {
     if (matchedRoute?.cache && !cachedPathsRef.current.includes(matchedRoute.path)) {
@@ -21,17 +28,16 @@ export function KeepAliveRoutes({ routes, fallbackPath = '/' }: KeepAliveRoutesP
   }, [matchedRoute])
 
   if (!matchedRoute) {
-    return <Navigate to={fallbackPath} replace />
+    return null
   }
 
   return (
     <>
       {routes.map((route) => {
-        const matched = isRouteMatched(route.path, pathname)
+        const matched = Boolean(matchRoutePath(route.path, pathname))
         const isCached = route.cache && cachedPathsRef.current.includes(route.path)
-        const shouldRender = matched || isCached
 
-        if (!shouldRender) {
+        if (!matched && !isCached) {
           return null
         }
 
@@ -47,8 +53,4 @@ export function KeepAliveRoutes({ routes, fallbackPath = '/' }: KeepAliveRoutesP
       })}
     </>
   )
-}
-
-function isRouteMatched(routePath: string, pathname: string) {
-  return Boolean(matchPath({ path: routePath, end: true }, pathname))
 }

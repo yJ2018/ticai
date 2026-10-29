@@ -104,6 +104,9 @@ export function createApp(config) {
     ['/api/auth/login', ['POST'], auth.login],
     ['/api/auth/logout', ['POST'], auth.logout],
     ['/api/auth/me', ['GET'], auth.me],
+    // 登录后设置 / 修改密码；给没有邮箱的账号（微信建的）绑定邮箱
+    ['/api/auth/password', ['POST'], auth.setPassword],
+    ['/api/auth/email', ['POST'], auth.bindEmail],
     // 第三方身份（当前只接微信；以后加渠道只加 adapter）
     ['/api/auth/identities', ['GET'], wechat.identities],
     ['/api/auth/identities/:provider', ['DELETE'], wechat.unbind],

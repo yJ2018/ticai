@@ -4,10 +4,10 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const viteBin = resolve(root, 'node_modules/vite/bin/vite.js')
+const nextBin = resolve(root, 'node_modules/next/dist/bin/next')
 
-if (!existsSync(viteBin)) {
-  console.error('[dev] 找不到 vite，请先执行 npm install')
+if (!existsSync(nextBin)) {
+  console.error('[dev] 找不到 next，请先执行 npm install')
   process.exit(1)
 }
 
@@ -53,6 +53,7 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'))
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 
-console.log('[dev] 启动 API（apps/api）与 Vite 开发服务器...')
+// Next 的 dev server 自带 /api 代理（next.config.ts 的 rewrites 指向 3001）
+console.log('[dev] 启动 API（apps/api:3001）与 Next 开发服务器（:3000）...')
 start('api', ['apps/api/src/index.mjs'])
-start('web', [viteBin, '--host'])
+start('web', [nextBin, 'dev'])

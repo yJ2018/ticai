@@ -5,10 +5,12 @@ import { request } from './httpClient'
 
 export type AuthUser = {
   id: string
-  /** 微信首次登录的账号没有邮箱 */
+  /** 微信首次登录的账号没有邮箱；「验证码登录即注册」的账号有邮箱但没密码 */
   email: string | null
   displayName: string | null
   avatarUrl: string | null
+  /** 是否已设置密码。false = 只能用验证码登录，账号页会给「设置密码」入口 */
+  hasPassword: boolean
   createdAt: string
 }
 
@@ -27,10 +29,10 @@ type Envelope<T> = {
 
 const JSON_HEADERS = { 'content-type': 'application/json' }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, token?: string): Promise<T> {
   const response = await request<Envelope<T>>(apiUrl(path), {
     method: 'POST',
-    headers: JSON_HEADERS,
+    headers: token ? { ...JSON_HEADERS, authorization: `Bearer ${token}` } : JSON_HEADERS,
     body: JSON.stringify(body),
   })
   return response.data
@@ -44,8 +46,11 @@ export type CodeResponse = {
   expiresInSeconds: number
 }
 
-export function requestEmailCode(email: string, purpose: 'register' | 'login') {
-  return post<CodeResponse>('/api/auth/code', { email, purpose })
+/** register = 注册；login = 验证码登录（未注册邮箱会顺手建号）；bind = 给当前账号绑定邮箱（要带 token） */
+export type CodePurpose = 'register' | 'login' | 'bind'
+
+export function requestEmailCode(email: string, purpose: CodePurpose, token?: string) {
+  return post<CodeResponse>('/api/auth/code', { email, purpose }, token)
 }
 
 export function registerAccount(input: { email: string; password: string; code: string }) {
@@ -58,6 +63,37 @@ export function loginWithPassword(email: string, password: string) {
 
 export function loginWithCode(email: string, code: string) {
   return post<AuthSession>('/api/auth/login', { email, code })
+}
+
+// ---------------------------------------------------------------------------
+// 账号安全：设置密码 / 绑定邮箱（都要登录）
+// ---------------------------------------------------------------------------
+
+export type PasswordResult = {
+  ok: boolean
+  /** 改密码时被吊销的其他设备会话数 */
+  revokedSessions: number
+  user: AuthUser
+}
+
+/**
+ * 设置 / 修改密码（需要登录）。
+ *
+ * - 还没有密码的账号（验证码登录自动建的、微信建的）：只传 password；
+ * - 已有密码：传 currentPassword；「验证码登录」的会话也可以不传，直接覆盖；
+ * - 忘记当前密码又不是验证码登录的会话：先 `requestEmailCode(email, 'login')`，再传 code。
+ */
+export function setPassword(
+  token: string,
+  input: { password: string; currentPassword?: string; code?: string },
+) {
+  return post<PasswordResult>('/api/auth/password', input, token)
+}
+
+/** 给还没有邮箱的账号绑定邮箱（需要登录 + 发到新邮箱的验证码）。 */
+export async function bindEmail(token: string, input: { email: string; code: string }): Promise<AuthUser> {
+  const result = await post<{ ok: boolean; user: AuthUser }>('/api/auth/email', input, token)
+  return result.user
 }
 
 export async function fetchMe(token: string): Promise<AuthUser> {

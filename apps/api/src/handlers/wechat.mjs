@@ -16,7 +16,8 @@ import { WECHAT_CHANNELS, createWechatService } from '../wechat.mjs'
  * 为什么回调不直接发 token：URL 会进浏览器历史、Referer 与反代日志。
  */
 
-const USER_COLUMNS = 'id, email, display_name, avatar_url, created_at'
+const USER_COLUMNS =
+  'id, email, password_hash is not null as has_password, display_name, avatar_url, created_at'
 
 export function createWechatHandlers(config) {
   const wechat = createWechatService(config)
@@ -262,6 +263,8 @@ export function createWechatHandlers(config) {
 
     const session = await createSession(config, user.id, {
       userAgent: ctx.req.headers?.['user-agent'] ?? '',
+      // 微信登录能证明微信账号归属，但证明不了邮箱/密码：改密码时仍要验当前密码
+      verifiedBy: 'wechat',
     })
 
     sendData(ctx.res, {

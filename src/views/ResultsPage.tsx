@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 
 import { ApiError } from '../api/httpClient'
 import { getMatchResults, type MatchResultItem } from '../api/resultsApi'
+import { shanghaiToday } from '../lib/date'
+import { useInitialResults } from '../ssr/initial-context'
 
 /**
  * 赛果开奖（读 `match_result`）。
@@ -33,10 +35,6 @@ const HAFU_LABELS: Record<string, string> = {
   aa: '负负',
 }
 
-function shanghaiToday() {
-  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
-}
-
 function addDays(date: string, offset: number) {
   const stamp = Date.parse(`${date}T00:00:00Z`)
   if (!Number.isFinite(stamp)) {
@@ -53,7 +51,12 @@ function formatClock(value: string | null) {
   if (Number.isNaN(date.getTime())) {
     return ''
   }
-  return date.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 function ttgLabel(value: number | null) {
   if (value === null) {
@@ -145,10 +148,12 @@ function ResultCard({ item }: { item: MatchResultItem }) {
 }
 
 export function ResultsPage() {
-  const [date, setDate] = useState(shanghaiToday)
-  const [items, setItems] = useState<MatchResultItem[]>([])
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  // 服务端预取过当天的赛果：首帧直接用，不再等一次请求
+  const initial = useInitialResults()
+  const [date, setDate] = useState(() => initial?.date ?? shanghaiToday())
+  const [items, setItems] = useState<MatchResultItem[]>(() => initial?.items ?? [])
+  const [updatedAt, setUpdatedAt] = useState<string | null>(() => initial?.updatedAt ?? null)
+  const [loading, setLoading] = useState(() => !initial)
   const [error, setError] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
@@ -167,7 +172,13 @@ export function ResultsPage() {
     }
   }, [])
 
+  // 首帧已经有服务端数据时跳过这一次重复请求；换日期仍然照常拉
+  const skipInitialLoadRef = useRef(Boolean(initial))
   useEffect(() => {
+    if (skipInitialLoadRef.current) {
+      skipInitialLoadRef.current = false
+      return
+    }
     void load(date)
   }, [date, load])
 
@@ -196,7 +207,7 @@ export function ResultsPage() {
             {updatedAt && <span className="results-page__updated"> · 更新于 {formatClock(updatedAt)}</span>}
           </p>
         </div>
-        <Link className="btn-ghost results-page__link" to="/">
+        <Link className="btn-ghost results-page__link" href="/">
           去投注
         </Link>
       </header>

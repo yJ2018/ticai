@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { useNavigate } from '../lib/navigation'
+import { takeNavigationState } from '../lib/nav-state'
 
 import {
   getWechatConfig,
@@ -21,6 +24,9 @@ import { useAuthStore } from '../store/authStore'
  * 两种模式共用一张表单，由 `?mode=register` 决定：
  *   - 登录：密码登录 / 验证码登录两个 tab；
  *   - 注册：邮箱 + 密码 + 验证码，注册成功直接建立会话。
+ *
+ * 验证码登录不要求邮箱已注册：验证码通过就证明邮箱归属，未注册的直接建号（无密码），
+ * 登录后跳到账号页设置密码，下次就能用密码登录。
  *
  * 验证码有 60 秒冷却，冷却按「用途 + 邮箱」记账：改了邮箱或切换登录方式可以立刻重发，
  * 由服务端再拦一层（同邮箱 60 秒、每小时 6 次）。
@@ -68,9 +74,8 @@ function safeRedirectPath(value: unknown) {
 }
 
 export function AuthPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const searchParams = useSearchParams()
   const navigate = useNavigate()
-  const location = useLocation()
 
   const token = useAuthStore((state) => state.token)
   const ready = useAuthStore((state) => state.ready)
@@ -138,7 +143,7 @@ export function AuthPage() {
     setCode('')
     setPassword('')
     setCodeHint(null)
-    setSearchParams(next === 'register' ? { mode: 'register' } : {}, { replace: true })
+    navigate(next === 'register' ? '/login?mode=register' : '/login', { replace: true })
   }
 
   function switchLoginMethod(next: LoginMethod) {
@@ -242,8 +247,13 @@ export function AuthPage() {
 
       justAuthenticatedRef.current = true
       setSession(session.token, session.user)
-      const from = (location.state as { from?: unknown } | null)?.from
-      navigate(safeRedirectPath(from), { replace: true })
+      const from = takeNavigationState<{ from?: unknown }>()?.from
+      if (from) {
+        navigate(safeRedirectPath(from), { replace: true })
+        return
+      }
+      // 验证码登录建出来的账号还没有密码：直接送到账号页设置，下次就能用密码登录
+      navigate(session.user.hasPassword === false ? '/account?setup=password' : '/', { replace: true })
     } catch (submitError) {
       setError(describeError(submitError))
     } finally {
@@ -308,6 +318,9 @@ export function AuthPage() {
                   setCodeHint(null)
                 }}
               />
+              {!isRegister && loginMethod === 'code' && (
+                <p className="auth-field__hint">没有注册过的邮箱会自动创建账号，登录后可以设置密码。</p>
+              )}
             </div>
 
             {showPasswordField && (
@@ -327,7 +340,9 @@ export function AuthPage() {
                   <p className="auth-field__hint">8–72 位字符，建议字母与数字组合。</p>
                 )}
                 {!isRegister && loginMethod === 'password' && (
-                  <p className="auth-field__hint">忘记密码暂不支持自助重置，可以改用验证码登录。</p>
+                  <p className="auth-field__hint">
+                    忘记密码？改用验证码登录，进账号页就能直接重设密码。
+                  </p>
                 )}
               </div>
             )}
@@ -448,7 +463,7 @@ export function AuthPage() {
           </footer>
         </div>
 
-        <Link to="/" className="auth-back">
+        <Link href="/" className="auth-back">
           ← 返回首页
         </Link>
       </div>

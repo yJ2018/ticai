@@ -178,6 +178,40 @@
   align-self: flex-start;
 }
 
+/* ── 邮箱与密码卡片 ────────────────────────────────────────────────────────── */
+
+/* 从验证码登录跳过来时，把这张卡片圈一下：它才是接下来要做的事 */
+.account-password.is-highlight {
+  box-shadow:
+    0 0 0 2px rgba(37, 99, 235, 0.35),
+    0 0.4rem 1.4rem rgba(15, 23, 42, 0.08);
+}
+
+.account-badge.is-warn {
+  background: #fff7ed;
+  color: #b45309;
+}
+
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+/* 注意：本文件被 global.scss 用 @use 引入，规则排在全局样式之前。
+   要覆盖 .btn-primary 的默认高度/内边距，必须用更高的选择器权重。 */
+.account-form .account-submit {
+  width: 100%;
+  height: 2.5rem;
+  font-size: 0.86rem;
+}
+
+.account-form .account-submit:disabled {
+  opacity: 0.65;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 .account-identity {
   display: flex;
   align-items: center;
@@ -197,6 +231,7 @@
   strong {
     color: #0f172a;
     font-size: 0.88rem;
+    word-break: break-all;
   }
 
   span {

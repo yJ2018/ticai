@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 import html2canvas from 'html2canvas'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from '../lib/navigation'
+import { clearNavigationState, useNavigationState } from '../lib/nav-state'
+import { useInitialMatches } from '../ssr/initial-context'
 import { useMatchStore } from '../store/matchStore'
 import { createBet, type Bet } from '../api/betApi'
 import { buildBetPayload } from '../features/betting/betPayload'
@@ -51,6 +53,7 @@ function formatDataAsOf(value: string | null) {
     return `${Math.round(diff / 3_600_000)} 小时前`
   }
   return new Date(stamp).toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -78,7 +81,7 @@ export function HomePage() {
   const [saveBetHint, setSaveBetHint] = useState('')
 
   const navigate = useNavigate()
-  const location = useLocation()
+  const navState = useNavigationState<{ applyBet?: Bet }>()
   const authToken = useAuthStore((state) => state.token)
 
   const activePool = useMatchStore((state) => state.activePool)
@@ -86,8 +89,24 @@ export function HomePage() {
   const extraCardsByPool = useMatchStore((state) => state.extraCardsByPool)
   const setActivePool = useMatchStore((state) => state.setActivePool)
   const loadMatches = useMatchStore((state) => state.loadMatches)
+  const initialMatches = useInitialMatches()
 
-  const activeCache = poolCache[activePool]
+  // 服务端预取的这一池数据先顶上：SSR 与 hydration 首帧都读 store 的 initial state，
+  // 只有 context 里的数据能进服务端 HTML；客户端挂载后 seed 会把同一份数据写进 store。
+  const activeCache = useMemo(() => {
+    const cached = poolCache[activePool]
+    if (!initialMatches || initialMatches.pool !== activePool || cached.fetched) {
+      return cached
+    }
+    return {
+      loading: false,
+      error: '',
+      cards: initialMatches.cards,
+      fetched: true,
+      dataAsOf: initialMatches.dataAsOf,
+    }
+  }, [poolCache, activePool, initialMatches])
+
   const items = useMemo(
     () => [...extraCardsByPool[activePool], ...activeCache.cards],
     [extraCardsByPool, activePool, activeCache.cards],
@@ -109,16 +128,15 @@ export function HomePage() {
 
   // 从「我的投注」点「去投注」过来：切到对应玩法 → 回填选项 → 自动打开方案弹层
   useEffect(() => {
-    const state = location.state as { applyBet?: Bet } | null
-    if (!state?.applyBet) {
+    if (!navState?.applyBet) {
       return
     }
-    const bet = state.applyBet
-    // 立刻清掉 state，避免刷新或前进后退时重复回填
-    navigate(location.pathname, { replace: true, state: null })
+    const bet = navState.applyBet
+    // 立刻清掉，避免下一次渲染重复回填
+    clearNavigationState()
     void applySavedBet(bet)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state])
+  }, [navState])
 
   // 盘口每 30 分钟更新一轮，页面开着也要能看到新数据：
   // 每 5 分钟静默刷新一次当前玩法（只在标签页可见时），切回标签页时若数据过期也补一次。
@@ -683,7 +701,9 @@ export function HomePage() {
       </header>
 
       <div className={`home-page__data-bar${isDataStale ? ' is-stale' : ''}`}>
-        <span className="home-page__data-text">
+        {/* 相对时间在服务端与客户端会差几秒（「5 分钟前」/「6 分钟前」），
+            不是真的渲染错误，别让 React 为此重画整棵树 */}
+        <span className="home-page__data-text" suppressHydrationWarning>
           {activeCache.loading && !activeCache.fetched
             ? '正在同步最新盘口…'
             : `数据更新于 ${formatDataAsOf(activeCache.dataAsOf)}`}
