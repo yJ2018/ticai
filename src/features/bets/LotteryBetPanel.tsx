@@ -12,13 +12,23 @@ type GameMeta = {
   positional: boolean
   mainCount: number
   mainMax: number
+  /** 位次型：每位最大号码（七星彩末位 0–14，其余 0–9） */
+  positionMax?: number[]
   extraCount: number
   extraMax: number
 }
 
 const GAMES: Record<LotteryGameKey, GameMeta> = {
   pl5: { name: '排列5', positional: true, mainCount: 5, mainMax: 9, extraCount: 0, extraMax: 0 },
-  qxc: { name: '七星彩', positional: true, mainCount: 7, mainMax: 9, extraCount: 0, extraMax: 0 },
+  qxc: {
+    name: '七星彩',
+    positional: true,
+    mainCount: 7,
+    mainMax: 14,
+    positionMax: [9, 9, 9, 9, 9, 9, 14],
+    extraCount: 0,
+    extraMax: 0,
+  },
   dlt: { name: '超级大乐透', positional: false, mainCount: 5, mainMax: 35, extraCount: 2, extraMax: 12 },
 }
 
@@ -222,24 +232,33 @@ export function LotteryBetPanel({ game, onClose }: { game: LotteryGameKey; onClo
           <>
             {meta.positional ? (
               <div className="lottery-pick__rows">
-                {positions.map((label, index) => (
-                  <div className="lottery-pick__row" key={label}>
-                    <span className="lottery-pick__pos">{label}</span>
-                    <div className="lottery-pick__digits">
-                      {Array.from({ length: meta.mainMax + 1 }, (_, digit) => (
-                        <button
-                          key={digit}
-                          type="button"
-                          className={`lottery-pick__digit${groups[index]?.includes(digit) ? ' is-active' : ''}`}
-                          onClick={() => toggleDigit(index, digit)}
-                          aria-pressed={groups[index]?.includes(digit) ?? false}
-                        >
-                          {digit}
-                        </button>
-                      ))}
+                {positions.map((label, index) => {
+                  const max = meta.positionMax?.[index] ?? meta.mainMax
+                  return (
+                    <div className="lottery-pick__row" key={label}>
+                      <span className="lottery-pick__pos">
+                        {label}
+                        {max > 9 ? ` · 0–${max}` : ''}
+                      </span>
+                      <div
+                        className="lottery-pick__digits"
+                        style={{ gridTemplateColumns: `repeat(${max + 1}, minmax(0, 1fr))` }}
+                      >
+                        {Array.from({ length: max + 1 }, (_, digit) => (
+                          <button
+                            key={digit}
+                            type="button"
+                            className={`lottery-pick__digit${groups[index]?.includes(digit) ? ' is-active' : ''}`}
+                            onClick={() => toggleDigit(index, digit)}
+                            aria-pressed={groups[index]?.includes(digit) ?? false}
+                          >
+                            {digit}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <>

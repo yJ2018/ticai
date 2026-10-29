@@ -36,7 +36,9 @@ export const LOTTERY_GAMES = {
     name: '七星彩',
     positional: true,
     mainCount: 7,
-    mainMax: 9,
+    mainMax: 14,
+    /** 前六位 0–9，第七位 0–14（体彩官方：末位 15 个号码） */
+    positionMax: [9, 9, 9, 9, 9, 9, 14],
     extraCount: 0,
     extraMax: 0,
   },
@@ -96,11 +98,12 @@ function normalizePositional(game, raw) {
 
   const main = groups.map((group, index) => {
     const digits = toIntegerArray(group)
+    const max = game.positionMax?.[index] ?? game.mainMax
     if (!digits || digits.length === 0) {
       throw new HttpError(400, `第 ${index + 1} 位至少要选 1 个数字`)
     }
-    if (!isIntegerInRange(digits, 0, 9)) {
-      throw new HttpError(400, `${game.name}号码必须是 0–9 的整数`)
+    if (!isIntegerInRange(digits, 0, max)) {
+      throw new HttpError(400, `第 ${index + 1} 位号码必须是 0–${max} 的整数`)
     }
     return Array.from(new Set(digits)).sort((left, right) => left - right)
   })

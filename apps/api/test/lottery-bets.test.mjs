@@ -54,11 +54,17 @@ test('排列五：按位选号，单式 1 注、复式按位乘积', () => {
   assert.throws(() => normalizeLotteryNumbers('pl5', { main: [[1], [], [4], [4], [8]] }), /第 2 位至少要选/)
 })
 
-test('七星彩：7 位数字，按位判定', () => {
+test('七星彩：前六位 0–9、第七位 0–14，按位判定', () => {
   const numbers = normalizeLotteryNumbers('qxc', {
     main: [[1], [2], [3], [4], [5], [6], [7]],
   })
   assert.equal(numbers.units, 1)
+
+  // 第七位 10–14 是合法号码（官方末位 15 选 1）
+  const withHighLast = normalizeLotteryNumbers('qxc', {
+    main: [[1], [2], [3], [4], [5], [6], [14]],
+  })
+  assert.equal(withHighLast.numbers.main[6][0], 14)
 
   const won = judgeLotteryBet('qxc', numbers.numbers, {
     issue: '26100',
@@ -69,14 +75,26 @@ test('七星彩：7 位数字，按位判定', () => {
   assert.equal(won.status, 'won')
   assert.equal(won.winningUnits, 1)
 
-  const lost = judgeLotteryBet('qxc', numbers.numbers, {
+  const wonHigh = judgeLotteryBet('qxc', withHighLast.numbers, {
     issue: '26101',
     draw_date: '2026-10-30',
+    main_numbers: [1, 2, 3, 4, 5, 6, 12],
+    extra_numbers: [],
+  })
+  assert.equal(wonHigh.status, 'lost')
+  assert.equal(wonHigh.hits.main, 6)
+
+  const lost = judgeLotteryBet('qxc', numbers.numbers, {
+    issue: '26102',
+    draw_date: '2026-10-31',
     main_numbers: [1, 2, 3, 4, 5, 6, 9],
     extra_numbers: [],
   })
   assert.equal(lost.status, 'lost')
   assert.equal(lost.hits.main, 6)
+
+  assert.throws(() => normalizeLotteryNumbers('qxc', { main: [[10], [2], [3], [4], [5], [6], [7]] }), /第 1 位号码必须是 0–9/)
+  assert.throws(() => normalizeLotteryNumbers('qxc', { main: [[1], [2], [3], [4], [5], [6], [15]] }), /第 7 位号码必须是 0–14/)
 })
 
 test('大乐透：单式 1 注、复式 C(n,5)×C(k,2)、九个奖级', () => {

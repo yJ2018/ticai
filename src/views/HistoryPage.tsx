@@ -25,6 +25,8 @@ const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [
 const TREND_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 const POSITION_LABELS = ['第一位', '第二位', '第三位', '第四位', '第五位', '第六位', '第七位']
 const DIGIT_AXIS = TREND_DIGITS
+/** 七星彩末位是 0–14（15 个号码），其余位次仍是 0–9 */
+const LAST_AXIS = Array.from({ length: 15 }, (_, index) => index)
 const FRONT_AXIS = Array.from({ length: 35 }, (_, index) => index + 1)
 const BACK_AXIS = Array.from({ length: 12 }, (_, index) => index + 1)
 /** 大乐透前区 5 条线、后区 2 条线，各自一种颜色 */
@@ -353,7 +355,7 @@ export function HistoryPage() {
                       <TrendPanel
                         key={`${activeGame}-${label}`}
                         label={label}
-                        axis={DIGIT_AXIS}
+                        axis={special ? LAST_AXIS : DIGIT_AXIS}
                         rows={state.items}
                         series={[
                           {
@@ -364,9 +366,9 @@ export function HistoryPage() {
                             values: trendRows.map((row) => row.digits[position]),
                           },
                         ]}
-                        badge={special ? '后一位' : undefined}
-                        caption={formatPositionCaption(prediction.positions[position])}
-                        forecast={formatPredictionText(trendPredictions[position])}
+                        badge={special ? '末位 0–14' : undefined}
+                        caption={special ? '末位 0–14，共 15 个号码' : formatPositionCaption(prediction.positions[position])}
+                        forecast={special ? undefined : formatPredictionText(trendPredictions[position])}
                       />
                     )
                   })
@@ -548,7 +550,7 @@ type TrendSeries = {
 
 type TrendPanelProps = {
   label: string
-  /** 横轴取值范围：排列五/七星彩是 0–9，大乐透前区 1–35、后区 1–12 */
+  /** 横轴取值范围：排列五 0–9；七星彩前六位 0–9、末位 0–14；大乐透前区 1–35、后区 1–12 */
   axis: number[]
   rows: LotteryHistoryEntry[]
   series: TrendSeries[]
