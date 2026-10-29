@@ -3,10 +3,11 @@
 > 竞彩足球赔率投注 + 中国体彩开奖历史（排列5 / 七星彩 / 超级大乐透）+ 两种号码预测分析，
 > 附带星座运势 / 天气，以及可选的账号、投注记录与中奖结算。
 >
-> **架构形态**：Next.js 16 App Router（公开页按请求 SSR + 客户端 Keep-Alive） + 独立 Node API（`apps/api`，只读库） + 本地爬虫（`apps/crawler`，写库）。
+> **架构形态**：Next.js 16 App Router（公开页按请求 SSR + 客户端 Keep-Alive） + 独立 Node API（`apps/api`，只读库，分析接口反向代理） + Python 分析服务（`apps/analysis`，FastAPI，算全部分析） + 本地爬虫（`apps/crawler`，写库）。
 > 浏览器只与自有 API 通信（生产走同源 `/api` rewrite）；第三方密钥、提示词、上游访问全部留在服务端。
 >
-> 2026-10-23 起 `server/` 与 `api/` 两个旧 BFF 目录已删除，`apps/api` 是唯一服务端实现；
+> 2026-10-23 起 `server/` 与 `api/` 两个旧 BFF 目录已删除，`apps/api` 是唯一 Node 服务端实现；
+> 2026-10-29 起分析层（推荐 / 开奖 / 走势 / 大乐透 / 天气 / AI）全部由 `apps/analysis` 计算。
 > 接口契约以 [docs/api.md](api.md) 为准。
 
 ![架构图](./architecture.png)
@@ -23,14 +24,14 @@
 | 项目 | 内容 |
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
-| 形态 | Next.js（Vercel `ticai` 项目，静态 + Serverless 函数）+ 独立 API（Vercel `ticai-service`）；生产用同源 `/api` rewrite 代理 |
+| 形态 | Next.js（Vercel `ticai` 项目，静态 + Serverless 函数）+ Node API（Vercel `ticai-service`）+ Python 分析服务（Vercel `ticai-analysis`）；生产用同源 `/api` rewrite 代理 |
 | 前端规模 | 13 个页面（`src/views`）；`src` 下 97 个 TS/TSX 文件；`global.scss` + 6 个按域拆分样式 |
-| 服务端规模 | `apps/api`：12 个 handler 模块、28 个接口路径（30 个处理方法）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
-| 数据层 | PostgreSQL 24 张表 + 3 个视图：API 只读，爬虫只写（`db/README.md`） |
+| 服务端规模 | `apps/api`：12 个 handler 模块、28 个接口路径（30 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
+| 数据层 | PostgreSQL 24 张表 + 3 个视图：API 与分析服务只读（分析服务额外写 `lottery_analysis_snapshot`），爬虫只写（`db/README.md`） |
 | 构建产物 | `.next`：客户端 JS ≈ 670 KB + 143 KB CSS（gzip 后约 185 + 24 KB）+ 一个 SSR Serverless 函数 |
-| 运行时 | 浏览器（ES2022+）+ Node ≥ 20（Next 服务端 / API 函数，内置 `fetch` / `AbortSignal.timeout`） |
-| 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；服务端仅 `pg`；爬虫可选 `playwright`（阵容） |
-| 工程设施 | Git hooks（架构图、算法生成物、密钥扫描、自动部署）+ `node:test` 单测 107 个（API 64 + 爬虫 43） |
+| 运行时 | 浏览器（ES2022+）+ Node ≥ 20（Next 服务端 / API 函数）+ Python 3.12（Vercel Python 运行时） |
+| 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；Node 服务端仅 `pg`；Python：FastAPI + uvicorn + psycopg；爬虫可选 `playwright`（阵容） |
+| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 131 个（API 88 + 爬虫 43）+ Python unittest 38 个（含与 Node 的对拍） |
 | tsconfig | `strict` **未开启**；开启 `noUnusedLocals`、`noUnusedParameters`、`erasableSyntaxOnly`、`verbatimModuleSyntax` |
 
 ### 功能地图
@@ -64,6 +65,7 @@
 | 状态 | Zustand 5（`matchStore` / `authStore`）+ 自定义 hook（`useBetSlip`） |
 | 样式 | `src/styles/global.scss`（BEM，5 552 行）+ `authBets / results / account / confirmDialog`、`features/matchDetail`、`features/betting/autoParlay` 按域拆分 |
 | 计算 | 全部在 Python 分析服务（`apps/analysis`）：开奖分析 / 走势 / 大乐透推演 / 投注推荐 / 场馆天气 / AI；前端只渲染快照，权重滑块也走服务端（`w=` 参数） |
+| 分析服务 | Python 3.12 + FastAPI 0.115 + uvicorn + psycopg（连接池）；`api/index.py` 暴露 ASGI，Vercel Python 运行时 |
 | 持久化 | IndexedDB（开奖历史）；localStorage（登录 token、AI 结果缓存、免责弹层偏好） |
 | 传输 | 浏览器 `fetch('/api/*')`（默认同源，Vercel rewrite 转发到 API 项目）；API 只读库，不直连上游 |
 | 截图 | html2canvas → `canvas.toDataURL('image/png')` |
@@ -77,6 +79,8 @@ cp .env.example .env        # DATABASE_URL + 聚合数据 / DeepSeek 密钥
 npm run dev                 # API :3001 + Next :3000（/api 走 rewrite 代理）
 npm run dev:api             # 只起 API
 npm run dev:web             # 只起 Next
+npm run analysis:dev        # Python 分析服务 :3012（改分析逻辑时才需要）
+npm run analysis:test       # Python 单测 + 与 Node 的对拍
 npm run crawl:daemon        # 本地爬虫（抓上游、写云端库）
 
 npm run build               # next build → .next（静态 + SSR 函数）
@@ -109,6 +113,7 @@ npm run web:start           # 本地跑生产产物（:3000）
 | `WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_REDIRECT_URI` | — | 微信开放平台扫码登录；缺失时前端展示接入步骤 |
 | `APP_WEB_BASE` | `http://127.0.0.1:5199` | 微信回调结束后跳回的前端地址 |
 | `ANALYSIS_API_BASE` | — | Python 分析服务地址；配置后分析接口走反向代理，留空 = Node 内联实现 |
+| `ANALYSIS_TIMEOUT_MS` | `20000` | Node 代理等待 Python 的超时；超时/连不上回退内联实现 |
 | `SPORTTERY_BASE` / `JUHE_*_BASE` | 官方地址 | 指向 mock 服务即可离线联调 |
 
 ### 分层与依赖规则
@@ -169,18 +174,27 @@ flowchart TB
     D4["storage/historyDb（IndexedDB）"]
   end
 
-  subgraph L7["⑦ 独立 API apps/api（只读库）"]
+  subgraph L7["⑦ 独立 Node API apps/api（只读库 + 反向代理）"]
     direction LR
     B1["app.mjs 28 个路由 · CORS · 错误信封"]
     B2["handlers：sporttery / results / match-detail / ai / parlay"]
     B3["handlers：auth / wechat / bets / upstream / health"]
     B4["handlers：lottery-analysis（分析快照只读）"]
     B5["repos + reshape / settlement / session"]
-    B6["ai/prompt + parlay-prompt / llm / venue"]
-    B7["analysis：开奖后预算的快照（缺失时兜底现算）"]
+    B6["proxy：ANALYSIS_API_BASE → Python；失败回退"]
+    B7["ai/prompt / llm / venue + analysis（冻结的 Node 回退实现）"]
   end
 
-  subgraph L8["⑧ 本地爬虫 apps/crawler + PostgreSQL"]
+  subgraph L7B["⑧ Python 分析服务 apps/analysis（只读库 + 写分析快照）"]
+    direction LR
+    Q1["api/index.py · RewritePathMiddleware（Vercel 路径还原）"]
+    Q2["routes：recommend / lottery / weather / ai"]
+    Q3["recommend：幂法去水 + 泊松/DC + 有界修正 + 串关风控 + 回测"]
+    Q4["analysis：prediction / dlt / compute（读库 → 算 → 写快照）"]
+    Q5["llm（DeepSeek 非流式 + SSE）/ venue / ratelimit"]
+  end
+
+  subgraph L8["⑨ 本地爬虫 apps/crawler + PostgreSQL"]
     direction LR
     C1["tasks：matches / results / history"]
     C2["tasks：details / lineups / expire / official"]
@@ -190,7 +204,7 @@ flowchart TB
     DB[("PostgreSQL 24 表 + 3 视图")]
   end
 
-  subgraph L9["⑨ 外部数据源"]
+  subgraph L9["⑩ 外部数据源"]
     direction LR
     E1["webapi.sporttery.cn"]
     E2["500.com（阵容）"]
@@ -207,7 +221,9 @@ flowchart TB
   L4 --> L6
   L5 --> L6
   L5 -->|HTTP / SSE| L7
+  L7 -->|ANALYSIS_API_BASE 反向代理| L7B
   L7 --> DB
+  L7B --> DB
   C4 --> C1
   C4 --> C2
   C1 --> C3
@@ -220,16 +236,19 @@ flowchart TB
   L7 --> E3
   L7 --> E4
   L7 --> E5
+  L7B --> E4
+  L7B --> E5
 ```
 
 **依赖规则（实际执行情况）**
 
 - `views → features/*`：投注页拆得最细（`betting`），登录/账号、投注记录、对战详情、SEO、免责弹层各自成模块；两个分析页仍自包含。
 - `views → service → api/httpClient → /api/*`：统一传输层，**前端不出现任何上游域名或密钥**（`NEXT_PUBLIC_API_BASE` 只允许放 API 域名）。
-- `views → domain`：分析页直接调用纯函数算法（通过 Worker）；`domain` 不依赖 React/DOM，可被 Worker 直接复用。
+- `views → domain`：分析页只引用 `domain/analysisTypes.ts`（类型与空态）和 `domain/dltIndicators.ts`（走势图右栏的展示计算），**没有任何预测/推演算法**；算法唯一实现在 `apps/analysis`。
 - `app/* → app-shell/AppShell → views`：页面组件只能经由外壳渲染，外壳按 `router/manifest.ts` 的 pathname 分发；`page.tsx` 不渲染页面内容（见 §4）。
+- `apps/analysis` 只读库，唯一写入是 `lottery_analysis_snapshot`（它自己的缓存表）；不依赖前端代码，也不 import Node 端逻辑。
 - `apps/api` 只读库，`apps/crawler` 只写库；两者不依赖前端代码，只通过 HTTP 契约与数据库耦合。
-- 外部上游只被「API（聚合数据 / DeepSeek / Open-Meteo / Resend / 微信）」或「本地爬虫（体彩 / 500.com）」访问，浏览器不直连。
+- 外部上游只被「Node API（聚合数据 / 微信 / Resend）」「Python 分析服务（DeepSeek / Open-Meteo）」或「本地爬虫（体彩 / 500.com）」访问，浏览器不直连。
 
 ---
 
@@ -244,19 +263,31 @@ D:\ticai
 ├─ .env / .env.example         # 数据库、AI、聚合数据、Resend、微信（.env 已被 gitignore）
 ├─ public/                     # favicon / apple-touch / PWA 图标、robots.txt、sitemap.xml、og-cover.png
 ├─ apps/
-│  ├─ api/                     # ★ 独立服务端：只读库，27 个接口路径
+│  ├─ api/                     # ★ 独立 Node 服务端：只读库，28 个接口路径
 │  │  ├─ api/index.js          # Vercel 函数入口（全路径 rewrite 到这里）
 │  │  ├─ src/app.mjs           # 路由表、CORS、错误信封、/healthz
 │  │  ├─ src/index.mjs         # 本地 / VPS node:http 入口
 │  │  ├─ src/config.mjs        # 环境变量 → 配置对象（.env 查找顺序）
 │  │  ├─ src/db.mjs            # pg 连接池（懒加载 / 保活）
-│  │  ├─ src/handlers/         # sporttery | results | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis
+│  │  ├─ src/proxy.mjs         # ★ 分析接口 → Python（ANALYSIS_API_BASE；失败回退）
+│  │  ├─ src/handlers/         # sporttery | results | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis | recommendations
 │  │  ├─ src/repos/            # matches | lottery | results | bets 读库 SQL
-│  │  ├─ src/analysis/         # ★ 开奖分析快照：configs（参数指纹/预设）+ compute（读库/算/落库）+ tsc 生成的算法
+│  │  ├─ src/recommend/        # 推荐引擎的 Node 版（对拍基准 + 回退）
+│  │  ├─ src/analysis/         # 开奖分析：configs（参数指纹/预设）+ compute + 冻结的算法（回退）
 │  │  ├─ src/ai/               # prompt / parlay-prompt / context / parlay-context
 │  │  ├─ src/auth.mjs / session.mjs / mail.mjs / wechat.mjs
 │  │  ├─ src/settlement.mjs    # 逐腿判定、复式注数、单注限额、奖金连乘
 │  │  └─ src/llm.mjs / venue.mjs / reshape.mjs
+│  ├─ analysis/                # ★ Python 分析服务：算全部分析（部署在 ticai-analysis）
+│  │  ├─ api/index.py          # Vercel 函数入口（暴露 ASGI app）
+│  │  ├─ vercel.json           # rewrite 带 ?__path=/$1（Vercel 会丢原始路径）
+│  │  ├─ app/main.py           # FastAPI + RewritePathMiddleware + /healthz
+│  │  ├─ app/recommend/        # 幂法去水 / 泊松 / Dixon-Coles / 有界修正 / 风控 / 回测
+│  │  ├─ app/analysis/         # prediction / dlt / configs / compute（读库 → 算 → 写快照）
+│  │  ├─ app/ai/               # 单场与串关提示词 + 上下文装配（逐字节对齐 Node）
+│  │  ├─ app/llm.py / venue.py # DeepSeek（非流式 + SSE）/ 比赛地天气
+│  │  ├─ app/routes/           # recommend / lottery / weather / ai
+│  │  └─ tests/                # 38 个用例：数学、风控、对拍、提示词、路径还原
 │  └─ crawler/                 # ★ 本地爬虫：只写库
 │     ├─ src/tasks/matches.mjs # 赛程 + 赔率快照 + 自动下架
 │     ├─ src/tasks/results.mjs # 赛果开奖：比分 + 五个玩法结果
@@ -269,7 +300,7 @@ D:\ticai
 │     ├─ src/bet-window.mjs    # 竞彩销售时段闸门
 │     └─ src/daemon.mjs        # 常驻调度器：串行队列 + 开盘补跑
 ├─ db/
-│  ├─ migrations/              # 0001_init → 0007_analysis_snapshot
+│  ├─ migrations/              # 0001_init → 0008_code_signup_password
 │  ├─ seed/                    # 四彩种字典
 │  └─ maintenance.sql          # 阵容/赔率/抓取记录保留策略
 ├─ scripts/
@@ -521,7 +552,7 @@ flowchart TD
 | 旧数据迁移 | 首次读不到 IDB 时导入 `ticai:history-cache:v1`，成功后删除该 key |
 | 降级 | 隐私模式等 IDB 不可用 → 纯内存运行（不持久化），页面仍可用 |
 
-### 5.3 分析计算：服务端快照为主，Worker 只留给调参
+### 5.3 分析计算：Python 服务端快照，前端零算法
 
 ```mermaid
 sequenceDiagram
@@ -645,7 +676,8 @@ sequenceDiagram
   participant AI as useMatchAiAnalysis
   participant VW as venueWeatherApi
   participant CH as analysisApi
-  participant API as apps/api
+  participant API as apps/api（Node 代理）
+  participant PY as apps/analysis（Python）
   participant DS as DeepSeek
   participant OM as Open-Meteo
 
@@ -653,32 +685,38 @@ sequenceDiagram
   HP->>AI: open(match, anchor)
   AI->>VW: GET /api/venue-weather
   VW->>API: homeTeam / league / kickoff
-  API->>DS: JSON 解析主队城市（缓存 7 天）
-  DS-->>API: city / country / stadium
-  API->>OM: Geocoding + Forecast
-  OM-->>API: 当前 + 开赛时段天气（缓存 20min）
-  API-->>VW: available + 天气
+  API->>PY: 反向代理（ANALYSIS_API_BASE）
+  PY->>DS: JSON 解析主队城市（缓存 7 天）
+  DS-->>PY: city / country / stadium
+  PY->>OM: Geocoding + Forecast
+  OM-->>PY: 当前 + 开赛时段天气（缓存 20min）
+  PY-->>API: available + 天气
+  API-->>VW: 原样返回（x-analysis-via: python）
   Note over AI,VW: 天气最多等 15s；失败则跳过
   AI->>CH: POST /api/ai-analysis { matchId, pool, stream: true }
   CH->>API: SSE（text/event-stream）
-  API->>DS: chat/completions (stream)
-  DS-->>API: reasoning / content 增量
-  API-->>CH: meta / reasoning / content / done
+  API->>PY: 反向代理（请求体原样转发）
+  PY->>DS: chat/completions (stream)
+  DS-->>PY: reasoning / content 增量
+  PY-->>API: meta / reasoning / content / done
+  API-->>CH: 流式透传
   CH-->>AI: 回调累积
   AI-->>HP: 浮层流式渲染
   U->>HP: 关闭浮层
   HP->>AI: close()
   AI->>CH: AbortController.abort()
   CH->>API: 连接关闭
-  API->>DS: abort 上游请求
+  API->>PY: 关闭上游连接
+  PY->>DS: abort 上游请求
 ```
 
 要点：
 
-1. 前端只发 `matchId + pool`：比赛信息、最新赔率、伤停、交锋、近况、阵容、天气与系统提示词全部由 `apps/api` 装配。
+1. 前端只发 `matchId + pool`：比赛信息、最新赔率、伤停、交锋、近况、阵容、天气与系统提示词全部由 `apps/analysis`（Python）装配，
+   Node 侧 `apps/api/src/ai/` 是逐字节对齐的回退实现；两边都不把提示词下发到浏览器。
 2. 城市解析依赖 DeepSeek，天气来自 Open-Meteo；两者都有缓存，失败时不阻塞分析，只在提示词里标注「天气缺失」。
 3. `analysisApi` 解析 SSE 的 `meta` / `reasoning` / `content` / `done` / `error`，前端只拼接文本；流式请求有 120s 总超时。
-4. 关闭浮层会 abort 客户端请求，API 监听 `res` 的 `close` 事件后同步 abort DeepSeek，避免继续生成。
+4. 关闭浮层会 abort 客户端请求，Node 关闭代理连接，Python 随之中断 DeepSeek 上游，避免继续生成。
 
 ### 5.5 方案级 AI 串关分析（SSE）
 
@@ -689,7 +727,8 @@ sequenceDiagram
   participant HP as HomePage
   participant PA as useParlayAiAnalysis
   participant CH as parlayApi
-  participant API as apps/api
+  participant API as apps/api（Node 代理）
+  participant PY as apps/analysis（Python）
   participant DS as DeepSeek
 
   U->>HP: 方案弹层点击「AI分析」
@@ -697,9 +736,11 @@ sequenceDiagram
   PA->>PA: 组装已选场次 / 选项 / 当前赔率
   PA->>CH: POST /api/ai-parlay { stream: true, maxTokens: 2400 }
   CH->>API: SSE（text/event-stream）
-  API->>DS: chat/completions (stream)
-  DS-->>API: content 增量
-  API-->>CH: meta / content / done
+  API->>PY: 反向代理
+  PY->>DS: chat/completions (stream)
+  DS-->>PY: content 增量
+  PY-->>API: meta / content / done
+  API-->>CH: 流式透传
   CH-->>PA: 回调累积
   PA-->>HP: 逐场判断 / 串关风险流式渲染
   U->>HP: 关闭浮层
@@ -850,7 +891,7 @@ flowchart LR
 
 #### 5.9.1 分析服务（Python）与反向代理
 
-推荐引擎先迁到了 `apps/analysis`（Python + FastAPI），后续所有分析接口都往这里搬：
+推荐引擎与全部分析接口都已迁到 `apps/analysis`（Python + FastAPI）：
 
 ```
 浏览器 ──同源 /api/**──▶ Next rewrite ──▶ apps/api (Node)
@@ -883,27 +924,31 @@ flowchart LR
 
 ---
 
-## 6. 接口契约（`apps/api`）
+## 6. 接口契约（`apps/api` / `apps/analysis`）
 
 > 2026-10-23 起接口实现位于 `apps/api`，`server/` 与 `api/` 已删除。
 > **完整契约（参数、响应示例、SSE 协议、错误码、字段双写）以 [docs/api.md](api.md) 为准**。
 > 本章只做分组速查。
+>
+> 2026-10-29 起「分析类」接口（推荐 / 开奖分析 / 天气 / AI 单场与串关）的实现在 `apps/analysis`（Python），
+> `apps/api` 只做反向代理（`ANALYSIS_API_BASE`）；代理成功时响应头带 `x-analysis-via: python`，
+> 连不上或超时则回退 Node 内联实现（不带该头）。
 
 | 分组 | 路径 | 数据来源 | 缓存 |
 | --- | --- | --- | --- |
 | 赛事 | `GET /api/matches` | 数据库（爬虫写） | 15 s |
 | 开奖 | `GET /api/history` | 数据库 | 60 s |
-| 开奖分析 | `GET /api/analysis/lottery`、`GET /api/analysis/lottery/snapshots` | 数据库（爬虫开奖后预算的快照） | 同一期不变：`s-maxage=900`；落后开奖时 60 s |
+| 开奖分析 | `GET /api/analysis/lottery`、`GET /api/analysis/lottery/snapshots`（Python） | 数据库（爬虫开奖后预算的快照） | 同一期不变：`s-maxage=900`；落后开奖时 60 s |
 | 赛果 | `GET /api/results` | 数据库 | 30 s |
 | 对战详情 | `GET /api/match-detail` | 数据库 | 无（按场次） |
-| AI | `POST /api/ai-analysis`、`POST /api/ai-parlay`、`POST /api/ai-chat` | 数据库 + DeepSeek | 无（SSE） |
+| AI | `POST /api/ai-analysis`、`POST /api/ai-parlay`（Python）、`POST /api/ai-chat`（Node 遗留） | 数据库 + DeepSeek | 无（SSE） |
 | 认证 | `POST /api/auth/code` `/register` `/login` `/logout`、`GET /api/auth/me` | 数据库 + Resend | 无 |
 | 账号安全 | `POST /api/auth/password`（设置 / 修改密码）、`POST /api/auth/email`（绑定邮箱） | 数据库 + Resend | 无 |
-| 投注推荐 | `GET /api/recommendations`（`pool=had\|hhad\|ttg\|mixed`、`scope=today\|all`） | 数据库（赔率 + 伤停 + 历史战绩） | 60 s（回测 10 min） |
+| 投注推荐 | `GET /api/recommendations`（`pool=had\|hhad\|ttg\|mixed`、`scope=today\|all`，Python） | 数据库（赔率 + 伤停 + 历史战绩） | 60 s（回测 10 min） |
 | 身份 | `GET /api/auth/identities`、`DELETE /api/auth/identities/:provider` | 数据库 | 无 |
 | 微信 | `GET /api/auth/wechat/config` `/start` `/callback`、`POST /api/auth/wechat/session` | 微信开放平台 | 无 |
 | 投注 | `GET/POST /api/bets`、`GET /api/bets/stats`、`GET/DELETE /api/bets/:id` | 数据库 | 无（实时结算） |
-| 代理 | `GET /api/horoscope` `/api/weather` `/api/ip` `/api/venue-weather` | 聚合数据 / DeepSeek + Open-Meteo | 10 min / 10 min / 30 min / 城市 7 天 · 天气 20 min |
+| 代理 | `GET /api/horoscope` `/api/weather` `/api/ip`（Node）、`/api/venue-weather`（Python） | 聚合数据 / DeepSeek + Open-Meteo | 10 min / 10 min / 30 min / 城市 7 天 · 天气 20 min |
 | 运维 | `GET /api/health`、`GET /healthz` | 数据库 / — | 无 |
 
 > `/api/history` 的库在远端 Prisma Postgres。`apps/api` 已把开奖与奖级合并为一次查询、彩种元数据做进程内缓存，连接池空闲保留 30 分钟（`DATABASE_IDLE_TIMEOUT_MS` 可调），本地/VPS 入口启动时预热并每 4 分钟 `select 1` 保活（`DATABASE_KEEPALIVE_MS` 可调，0 = 关闭）。响应头 `Server-Timing` 会给出 `db / resolve / reshape / app` 分段耗时。实测 SQL 执行仅 8–11ms，请求慢主要在跨境建连（5–7s）与每次 DB 往返（0.4–1s）；本地/自建服务可靠连接复用规避，Vercel 冷启动仍建议换池化或就近的数据库入口。
@@ -999,8 +1044,8 @@ flowchart LR
 | `/api/auth/code` `/register` `/login` `/logout` `/me` | 数据库 + Resend | 邮箱验证码 / 密码登录，Bearer 不透明 token，服务端只存 sha256 |
 | `/api/auth/identities`、`/api/auth/wechat/*` | 数据库 + 微信开放平台 | 微信扫码/网页授权；回调只发一次性 ticket，前端换会话；未配置时前端展示接入步骤 |
 | `/api/bets`、`/api/bets/stats`、`/api/bets/:id` | 数据库 | 保存投注快照、按玩法筛选、实时结算（读 `match_result`） |
-| `/api/ai-analysis` | 数据库 + DeepSeek | **只收 `matchId` + `pool`**：服务端装配提示词（`apps/api/src/ai/prompt.mjs`）、官方数据、天气，SSE 先发 `meta` 再流式输出 |
-| `/api/ai-parlay` | 数据库 + DeepSeek | 只收选中的场次与选项，服务端补赔率/伤停并复用单场缓存 |
+| `/api/ai-analysis` | 数据库 + DeepSeek | **只收 `matchId` + `pool`**：服务端装配提示词、官方数据、天气，SSE 先发 `meta` 再流式输出（Python 实现，Node 保留同口径回退） |
+| `/api/ai-parlay` | 数据库 + DeepSeek | 只收选中的场次与选项，服务端补赔率/伤停并复用单场缓存（Python 实现） |
 | `/api/horoscope` `/api/weather` `/api/ip` | 聚合数据 | 代理 + TTL 缓存 |
 | `/api/venue-weather` | DeepSeek + Open-Meteo | 城市解析 + 天气 |
 | `/api/ai-chat` | DeepSeek | `stream:true` → SSE |
@@ -1008,7 +1053,27 @@ flowchart LR
 
 关键约定：**响应形状保持与旧实现一致**，前端 `matchService` / `historyService` 无需感知库结构；生产环境前端走同源 `/api`，由 `next.config.ts` 的 rewrite 转到 `ticai-service`，需要直连时才设置 `NEXT_PUBLIC_API_BASE`。
 
-前端 AI 分析在打开面板时由服务端并行装配 `/api/match-detail` 的伤停、历史交锋、近期战绩、联赛排名与射手（[apps/api/src/ai/context.mjs](../apps/api/src/ai/context.mjs)），接口不可用时静默降级，**不改变原有行为**；数据缺失时提示词明确写「缺失，不要编造」，而不是交给模型猜。
+前端 AI 分析在打开面板时由服务端并行装配 `/api/match-detail` 的伤停、历史交锋、近期战绩、联赛排名与射手（提示词与上下文在 `apps/analysis/app/ai/`，Node 侧 `apps/api/src/ai/` 为同口径回退），接口不可用时静默降级，**不改变原有行为**；数据缺失时提示词明确写「缺失，不要编造」，而不是交给模型猜。
+
+### 7.2.1 Python 分析服务（`apps/analysis`）
+
+分析接口的唯一实现（Node 侧保留同口径回退），部署在 Vercel 项目 `ticai-analysis`。
+
+| 接口 | 说明 |
+| --- | --- |
+| `GET /api/recommendations` | 推荐引擎：幂法去水 → 泊松 / Dixon-Coles → 有界 λ 修正 → 单关 / 2串1 / 3串1 风控 + 同口径回测 |
+| `GET /api/analysis/lottery` | 开奖分析快照（`kind=prediction\|math_trend\|dlt`，支持 `order=` 与 `w=` 自定义权重） |
+| `GET /api/analysis/lottery/snapshots` | 快照巡检：各彩种最新快照、样本期数与 `stale` |
+| `GET /api/venue-weather` | DeepSeek 解析主队城市 + Open-Meteo 天气（按 IP 限流 20 次/分） |
+| `POST /api/ai-analysis`、`POST /api/ai-parlay` | 单场 / 串关 AI 分析，SSE：`meta → reasoning/content → done / error` |
+| `GET /healthz` | 健康检查（`service` / `uptimeSeconds` / `envLoaded` / `databaseConfigured`） |
+
+- 入口 `api/index.py` 只暴露 ASGI；`app/main.py` 挂 `RewritePathMiddleware` 还原 Vercel rewrite 丢掉的原始路径。
+- 部署：`npm run deploy:analysis`（`apps/analysis/vercel.json`：函数 1024 MB / 60s，rewrite `?__path=/$1`）；
+  环境变量 `DATABASE_URL` / `DATABASE_SSL` / `DEEPSEEK_API_KEY`，**必须关闭 Deployment Protection**，否则 Node 代理 401。
+- 对拍与测试：`npm run analysis:fixtures` 导出夹具，`npm run analysis:test` 跑 38 个用例
+  （开奖分析全量逐字段 0 差异、推荐最大概率差 5e-4、AI 提示词逐字节一致）。
+- 回滚：删掉 Node 项目的 `ANALYSIS_API_BASE` 并重新发布 API，即回 Node 内联实现。
 
 ### 7.3 独立爬虫（`apps/crawler`）
 
@@ -1084,7 +1149,7 @@ flowchart LR
 | 7 | 类型宽松 | 领域类型含 `[key: string]: unknown`；`strict` 未开 | 接口字段漂移无法在编译期发现 |
 | 8 | 截图以 base64 常驻 state | `HomePage.tsx` | 多次截图累积数 MB 内存 |
 | 9 | 缓存无 TTL 过期 | `historyService.ts` | 老数据长期保留（裁剪只按数量） |
-| 10 | 无 ESLint / Prettier / CI | 全仓 | 已有 `node:test` 单测 92 个，但没有 lint 与流水线 |
+| 10 | 无 ESLint / Prettier / CI | 全仓 | `node:test` 131 个 + Python unittest 38 个，但没有 lint 与流水线 |
 | 11 | 只预取了两页 | `src/server/prefetch.ts` | `/` 与 `/results` 已 SSR；`/history` 与两个分析页仍靠客户端拉取，禁用 JS 看不到数据 |
 | 12 | 同源 rewrite 依赖 `ticai-service` | `next.config.ts` | API 项目改名或迁移时前端要同步改 rewrite（不需重新打包） |
 
@@ -1103,8 +1168,8 @@ flowchart LR
 ## 10. 演进建议
 
 1. **API 加固**：给只读接口加 IP 维度限流或简单 token 鉴权，`/api/health` 接入编排；必要时换 Fastify 以获得成熟中间件。
-2. **测试基线**：给 `betSlipMath.ts`、`historyPrediction.ts`、`historyDb.ts` 加 Vitest（纯函数/仓储，收益最高）；把 CDP 冒烟固化成 `scripts/smoke.mjs`。
-3. **继续拆页面**：`HistoryAnalysisPage` 按「参数面板 / 每位明细 / 统计卡」拆分，复用 `useAnalysisWorker`。
+2. **测试基线**：给 `betSlipMath.ts`、`historyDb.ts` 加 Vitest（纯函数/仓储，收益最高）；把 CDP 冒烟固化成 `scripts/smoke.mjs`。
+3. **继续拆页面**：`HistoryAnalysisPage` 按「参数面板 / 每位明细 / 统计卡」拆分，快照读取统一走 `useAnalysisSnapshot`。
 4. **分包与懒加载**：`views` 按路由动态 import（Keep-Alive 的常驻挂载与懒加载天然冲突，需要先决定优先级）。
 5. **样式模块化**：把剩余页面级样式继续拆成 `*.module.scss`，`global.scss` 只留 reset 与设计 token。
 6. **缓存治理**：给 IndexedDB 加 TTL 与"最近访问"策略；超范围分页明确返回空态提示。
@@ -1112,7 +1177,7 @@ flowchart LR
    按同一模式补 `/results`、`/history` 与两个分析页（见 §13.6）。
 8. **分析快照再压缩**：`payload` 目前每期 × 每参数存一条（约 11 KB），一年约 80 MB；
    如果以后参数变多，可以只存「最近 3 期」的完整 payload + 更早的摘要，或把 payload 挪到对象存储。
-9. **推荐快照化**：一键推荐已经搬到服务端（`apps/api/src/recommend/`，见 §5.9），下一步可以让爬虫开奖/停售后
+9. **推荐快照化**：一键推荐已经搬到服务端（`apps/analysis/app/recommend/`，见 §5.9），下一步可以让爬虫开奖/停售后
    定时算一份「当日推荐」写进表里，前端只读，顺便支持分享与历史回看。
 
 ---

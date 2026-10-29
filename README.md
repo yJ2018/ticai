@@ -2,8 +2,10 @@
 
 > 竞彩足球赔率投注 + 体彩开奖分析（排列5 / 七星彩 / 超级大乐透）+ 可选账号与投注记录。
 >
-> 前端 **Next.js 16**（App Router，公开页按请求 SSR），服务端拆成两个独立项目：
-> **`apps/api`** 只读数据库、对外 REST + SSE；**`apps/crawler`** 在本机抓体彩（和 500.com 的阵容）写入数据库。
+> 前端 **Next.js 16**（App Router，公开页按请求 SSR），服务端拆成三个独立项目：
+> **`apps/api`**（Node）只读数据库、对外 REST + SSE，并把分析类接口反向代理到 Python；
+> **`apps/analysis`**（Python / FastAPI）计算全部分析（推荐 / 开奖 / 走势 / 大乐透 / 天气 / AI）；
+> **`apps/crawler`** 在本机抓体彩（和 500.com 的阵容）写入数据库。
 > 浏览器只与自有 API 通信（同源 `/api` rewrite），第三方密钥、提示词与上游访问全部留在服务端。
 
 🔗 在线预览 <https://yujun426.online> ｜ 接口健康检查 <https://ticai-service.vercel.app/healthz>
@@ -12,6 +14,8 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-%E2%89%A520-5fa04e?logo=nodedotjs&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776ab?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-24%20%E5%BC%A0%E8%A1%A8%20%2B%203%20%E8%A7%86%E5%9B%BE-4169e1?logo=postgresql&logoColor=white)
 
 ![架构图](docs/architecture.png)
@@ -39,15 +43,16 @@
 
 - **Keep-Alive 路由**：页面切走后保持挂载（`display` 切换），输入与滚动位置不丢。
 - **SSR + 首屏预取**：首页比赛列表与赛果开奖在服务端取好再渲染，爬虫不执行 JS 也能读到内容。
-- **本地优先**：开奖历史落 IndexedDB，离线仍能翻；分析结果走服务端快照（2 KB gzip），只有调参时才回本地重算。
+- **本地优先**：开奖历史落 IndexedDB，离线仍能翻；分析结果走服务端快照（2 KB gzip），拖权重时把权重作为 `w=` 参数交给 Python 现算（400ms 防抖），前端不保留任何算法副本。
 - **登录可选**：不登录也能看全部只读功能，登录只解锁保存投注与结算。
 
 ## 技术栈
 
 | 层 | 选型 |
 | --- | --- |
-| 前端 | React 19、Next.js 16 App Router、Zustand 5、Sass、html2canvas、Web Worker |
+| 前端 | React 19、Next.js 16 App Router、Zustand 5、Sass、html2canvas |
 | 服务端 | Node ≥ 20 原生 ESM，唯一运行时依赖 `pg`；REST + SSE |
+| 分析服务 | Python 3.12 + FastAPI（Vercel Python 运行时），psycopg 连接池；与 Node 版逐字段对拍（概率差 < 5e-3） |
 | 爬虫 | Node 原生 ESM；体彩走 `fetch`，阵容走 Playwright（复用系统 Chrome） |
 | 数据 | PostgreSQL（生产 Prisma Postgres），24 张表 + 3 个视图 |
 
@@ -59,6 +64,10 @@ cp .env.example .env      # Windows: copy .env.example .env
 npm run db:migrate        # 建表 + 种子
 
 npm run dev               # API :3001 + Next :3000（/api 走 rewrite 代理）
+
+# 要改分析逻辑时再起 Python 服务（默认 :3012），并让 Node 把分析接口转过去
+npm run analysis:dev
+ANALYSIS_API_BASE=http://127.0.0.1:3012 npm run api:dev
 ```
 
 打开 <http://localhost:3000>。本地要看赛事数据，先让爬虫跑一轮（或连生产库）：
@@ -78,9 +87,12 @@ npm run crawl:history     # 抓四个彩种最新一页
 | `npm run dev` | 并行启动 API 与 Next dev server |
 | `npm run build` / `npm run web:start` | 生产构建 / 本地跑生产产物 |
 | `npm run api:test` / `npm run crawl:test` | 服务端与爬虫单测（`node:test`） |
+| `npm run analysis:dev` / `analysis:test` | 本地起 Python 分析服务（:3012）/ 跑 Python 单测与对拍 |
+| `npm run analysis:fixtures` | 重新导出对拍夹具（推荐 / 开奖 / AI 提示词） |
 | `npm run db:migrate` / `db:status` / `db:verify` | 迁移、状态、结构与约束自检 |
 | `npm run crawl` / `crawl:daemon` | 爬虫入口 / 常驻调度（受销售时段闸门约束） |
 | `npm run deploy` | 前端 + API 一起发（`deploy:local` / `deploy:api` 可单发） |
+| `npm run deploy:analysis` | 发布 Python 分析服务（Vercel 项目 `ticai-analysis`） |
 | `npm run check:secrets` | 扫描暂存区密钥 |
 | `npm run architecture:update` | 重新生成架构图 |
 
@@ -88,22 +100,25 @@ npm run crawl:history     # 抓四个彩种最新一页
 
 ## 部署
 
-两个 Vercel 项目：
+三个 Vercel 项目：
 
 | 项目 | 内容 | 入口 |
 | --- | --- | --- |
 | `ticai` | 前端（Next.js SSR） | `next build` 产物；`/api/**` 由 `next.config.ts` rewrite 到 `ticai-service` |
-| `ticai-service` | API（Serverless Function） | `apps/api/api/index.js` + 全路径 rewrite |
+| `ticai-service` | API（Serverless Function） | `apps/api/api/index.js` + 全路径 rewrite；分析接口反向代理到 `ticai-analysis` |
+| `ticai-analysis` | Python 分析服务（FastAPI） | `apps/analysis/api/index.py`；`vercel.json` 用 `?__path=/$1` 携带原路径，入口中间件还原 |
 
 ```bash
-npm run deploy          # 前端 + API
-npm run deploy:local    # 只发前端（本地 next build 自检 → 上传源码 → Vercel 远端构建）
-npm run deploy:api      # 只发 API
+npm run deploy           # 前端 + API
+npm run deploy:local     # 只发前端（本地 next build 自检 → 上传源码 → Vercel 远端构建）
+npm run deploy:api       # 只发 API
+npm run deploy:analysis  # 只发 Python 分析服务（首次需先 link 项目，见 apps/analysis/README.md）
 ```
 
 - 前端不上传 `.env*`、`apps/`、`db/`、`scripts/`，环境变量由 Vercel 注入；
+- 分析服务需要 `DATABASE_URL` / `DATABASE_SSL` / `DEEPSEEK_API_KEY`，并且**必须关闭 Deployment Protection**；
 - `DEPLOY_DRY_RUN=1` 只自检与暂存、不发布；
-- `git push` 到 `main` 会自动发布两端，`SKIP_DEPLOY=1 git push` 跳过。
+- `git push` 到 `main` 会自动发布前端与 API，`SKIP_DEPLOY=1 git push` 跳过。
 
 ## 文档
 
@@ -113,6 +128,7 @@ npm run deploy:api      # 只发 API
 | [docs/api.md](docs/api.md) | 28 个接口的契约、SSE 协议、错误码 |
 | [docs/SEO.md](docs/SEO.md) | 收录现状、meta / robots / sitemap、上线清单 |
 | [apps/api/README.md](apps/api/README.md) | 服务端结构、配置、部署 |
+| [apps/analysis/README.md](apps/analysis/README.md) | Python 分析服务：目录、对拍、部署与路径还原 |
 | [apps/crawler/README.md](apps/crawler/README.md) | 爬虫链路、调度规则、上游实测结论 |
 | [db/README.md](db/README.md) | 表结构、写入契约、保留策略 |
 | [.env.example](.env.example) | 全部环境变量占位 |
@@ -122,7 +138,7 @@ npm run deploy:api      # 只发 API
 - 爬虫是**本机常驻进程**，机器关机就没有新数据；可用系统计划任务在 09:00 跑 `npm run crawl -- official` 兜底。
 - 阵容来自 500.com（非官方），页面结构变化会抓取失败；官方名单出现后覆盖。
 - 只读接口无鉴权；登录接口有频次限制、AI 接口有 IP 限流，公网暴露前建议加网关。
-- 除首页外，页面数据仍是客户端拉取；`node:test` 有 107 个用例，但没有 ESLint / CI。
+- 除首页外，页面数据仍是客户端拉取；`node:test` 88 个 + Python 38 个用例，但没有 ESLint / CI。
 
 ## 声明
 

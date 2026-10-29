@@ -60,7 +60,7 @@ const BETTING_DESCRIPTIONS = {
 
 const PAGE_DESCRIPTIONS = {
   'HomePage.tsx': '赛事投注 · 骨架屏 · 方案快照',
-  'HistoryPage.tsx': '开奖历史 · 首屏骨架 · Worker 预测',
+  'HistoryPage.tsx': '开奖历史 · 首屏骨架 · 服务端快照',
   'HistoryAnalysisPage.tsx': '频次 · 遗漏 · 马尔可夫 · 回测',
   'MathTrendAnalysisPage.tsx': '回归 · 波动率 · 大样本回测',
   'ResultsPage.tsx': '赛果开奖 · 按比赛日翻页',
@@ -91,7 +91,7 @@ const stateCards = [
   { title: 'src/service', subtitle: '赛事 · 开奖 · 天气 · 星座服务层' },
   { title: 'src/components', subtitle: '通用骨架屏 · 指标 / 推荐 · 确认弹窗' },
   { title: 'src/api', subtitle: 'httpClient + 同源 /api · SSE 解析' },
-  { title: 'domain + workers', subtitle: '预测纯函数 · 计算下沉 Web Worker' },
+  { title: 'domain / analysisTypes', subtitle: '分析类型与指标展示 · 前端无预测算法' },
   { title: 'storage', subtitle: 'IndexedDB 增量缓存 · 2 万条裁剪' },
 ]
 
@@ -105,14 +105,27 @@ const featureCards = [
 
 const bffCards = [
   { title: 'apps/api/src/index.mjs', subtitle: '本地 / VPS 入口 · node:http' },
-  { title: 'apps/api/src/app.mjs', subtitle: '27 个路由 · CORS · 错误信封' },
+  { title: 'apps/api/src/app.mjs', subtitle: '28 个路由 · CORS · 错误信封' },
+  { title: 'apps/api/src/proxy.mjs', subtitle: '分析接口 → Python · 失败回退内联' },
   { title: 'apps/api/src/handlers', subtitle: '赛事 / 赛果 / 详情 / AI / 串关' },
   { title: 'apps/api/src/handlers', subtitle: '认证 / 微信 / 投注 / 代理 / 健康检查' },
   { title: 'apps/api/src/repos', subtitle: 'matches · lottery · results · bets' },
-  { title: 'apps/api/src/ai', subtitle: '单场 / 串关提示词 · 上下文装配' },
+  { title: 'apps/api/src/recommend', subtitle: '推荐引擎 Node 版 · 对拍基准 + 回退' },
+  { title: 'apps/api/src/ai', subtitle: 'Node 回退：提示词 / 上下文装配' },
   { title: 'apps/crawler/src/daemon.mjs', subtitle: '串行队列 · 销售时段闸门 · 开盘补跑 · 每日 09:00' },
   { title: 'apps/crawler/src/tasks', subtitle: 'matches · results · history · details · lineups · expire · official' },
-  { title: 'db/migrations', subtitle: '23 张表 + 2 个视图 · 0001 → 0006' },
+  { title: 'db/migrations', subtitle: '24 张表 + 3 个视图 · 0001 → 0008' },
+]
+
+const analysisCards = [
+  { title: 'apps/analysis/api/index.py', subtitle: 'Vercel 入口 · 暴露 ASGI app' },
+  { title: 'app/main.py', subtitle: 'FastAPI · 路径还原 · /healthz' },
+  { title: 'app/routes', subtitle: 'recommend / lottery / weather / ai' },
+  { title: 'app/recommend', subtitle: '去水 · 泊松/DC · 有界修正 · 风控 · 回测' },
+  { title: 'app/analysis', subtitle: 'prediction · dlt · compute（读写快照）' },
+  { title: 'app/ai', subtitle: '单场 / 串关提示词 · 上下文装配' },
+  { title: 'app/llm.py / venue.py', subtitle: 'DeepSeek（流式）· Open-Meteo 天气' },
+  { title: 'tests/ 38 用例', subtitle: '数学 · 风控 · 对拍 · 提示词 · 路径还原' },
 ]
 
 const externalCards = [
@@ -122,7 +135,7 @@ const externalCards = [
   { title: 'DeepSeek API', subtitle: 'chat/completions · SSE' },
   { title: 'Open-Meteo', subtitle: 'Geocoding + Forecast' },
   { title: 'Resend / 微信开放平台', subtitle: '邮箱验证码 · 扫码 / 网页授权' },
-  { title: 'Vercel', subtitle: '前端 Next SSR + API 函数 · push 前自动发布' },
+  { title: 'Vercel', subtitle: 'ticai 前端 · API · Python 分析' },
 ]
 
 const sections = [
@@ -162,13 +175,19 @@ const sections = [
     cards: stateCards,
   },
   {
-    title: '⑥ 服务端 apps/api + apps/crawler + 数据库',
+    title: '⑥ Python 分析服务 apps/analysis',
+    color: '#14b8a6',
+    caption: '推荐 / 开奖 / 走势 / 大乐透 / 天气 / AI · 唯一算法实现',
+    cards: analysisCards,
+  },
+  {
+    title: '⑦ 服务端 apps/api + apps/crawler + 数据库',
     color: '#0ea5e9',
-    caption: '独立 API 读库 · 爬虫写库 · 密钥与提示词不出服务端',
+    caption: 'Node API 读库并代理分析 · 爬虫写库 · 密钥与提示词不出服务端',
     cards: bffCards,
   },
   {
-    title: '⑦ 外部数据源与部署',
+    title: '⑧ 外部数据源与部署',
     color: '#ef4444',
     caption: '前端只连自有 API；爬虫在本机抓上游；push 前更新架构图',
     cards: externalCards,
@@ -225,11 +244,14 @@ function collectStats() {
   const scssFiles = srcFiles.filter((file) => extname(file) === '.scss')
   const serverFiles = [
     ...walkFiles(resolve(root, 'apps/api')),
+    ...walkFiles(resolve(root, 'apps/analysis')),
     ...walkFiles(resolve(root, 'apps/crawler')),
   ].filter(
     (file) =>
-      ['.mjs', '.js'].includes(extname(file)) &&
+      ['.mjs', '.js', '.py'].includes(extname(file)) &&
       !file.includes('node_modules') &&
+      !file.includes('.venv') &&
+      !file.includes('__pycache__') &&
       !/[\\/]tests?[\\/]/.test(file),
   )
 
@@ -357,7 +379,7 @@ function buildSvg() {
     `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" fill="#94a3b8"/></marker></defs>`,
     `<rect width="${WIDTH}" height="${height}" fill="#f5f7fa"/>`,
     `<text x="40" y="56" font-size="26" font-weight="700" fill="#0f172a">体彩助手 · ticai 全栈架构图</text>`,
-    `<text x="40" y="80" font-size="12.5" fill="#64748b">React 19 · Next.js 16 App Router · TypeScript 6 · Zustand 5　＋　独立 API（apps/api）＋ 本地爬虫（apps/crawler）</text>`,
+    `<text x="40" y="80" font-size="12.5" fill="#64748b">React 19 · Next.js 16 App Router · TypeScript 6 · Zustand 5　＋　Node API（apps/api）＋ Python 分析（apps/analysis）＋ 本地爬虫（apps/crawler）</text>`,
     `<text x="${WIDTH - 40}" y="55" text-anchor="end" font-size="11" fill="#475569">src ${formatNumber(stats.sourceCount)} 文件 / ${formatNumber(stats.sourceLines)} 行</text>`,
     `<text x="${WIDTH - 40}" y="74" text-anchor="end" font-size="11" fill="#475569">SCSS ${stats.scssCount} 文件 / ${formatNumber(stats.scssLines)} 行</text>`,
     `<text x="${WIDTH - 40}" y="93" text-anchor="end" font-size="11" fill="#475569">apps ${stats.serverCount} 文件 / ${formatNumber(stats.serverLines)} 行</text>`,
@@ -366,7 +388,7 @@ function buildSvg() {
   ].join('\n')
 
   const footer = [
-    `<text x="40" y="${footerY}" font-size="10.5" fill="#94a3b8">数据来源：按当前 src、apps/api、apps/crawler 文件清单生成；新增模块会自动出现在图中。</text>`,
+    `<text x="40" y="${footerY}" font-size="10.5" fill="#94a3b8">数据来源：按当前 src、apps/api、apps/analysis、apps/crawler 文件清单生成；新增模块会自动出现在图中。</text>`,
     `<text x="${WIDTH - 40}" y="${footerY}" text-anchor="end" font-size="10.5" fill="#94a3b8">提交前 hook 同步 SVG / PNG</text>`,
   ].join('\n')
 

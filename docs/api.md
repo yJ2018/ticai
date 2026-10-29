@@ -1,12 +1,15 @@
 # ticai API 接口文档
 
-> 版本：2026-10-27 · 服务端代码在 `apps/api/`，实现细节见 [apps/api/README.md](../apps/api/README.md)
+> 版本：2026-10-29 · Node 服务端在 `apps/api/`；分析类接口（推荐 / 开奖分析 / 天气 / AI）由
+> `apps/analysis/`（Python + FastAPI）实现，Node 反向代理并保留同口径回退。
+> 实现细节见 [apps/api/README.md](../apps/api/README.md) 与 [apps/analysis/README.md](../apps/analysis/README.md)。
 
 ## 1. 基础信息
 
 | 项 | 说明 |
 | --- | --- |
 | Base URL | 本地 `http://127.0.0.1:3001`；生产通过前端同源 `/api` 代理（`next.config.ts` rewrite → `ticai-service`），也可用 `NEXT_PUBLIC_API_BASE` 直连 |
+| 分析类接口 | 由 `ticai-analysis`（Python）计算，经 Node 代理；响应头 `x-analysis-via: python` 表示这一跳走了 Python，`x-analysis-source` 仍是快照来源 |
 | 认证 | 只读接口（赛事/开奖/赛果/详情/天气）**无需登录**；`/api/bets*`、`/api/auth/identities*`、`/api/auth/me`、`/api/auth/password`、`/api/auth/email` 需要 `Authorization: Bearer <token>`；AI 接口依赖服务端密钥与 IP 限流 |
 | 跨域 | `CORS_ORIGINS` 白名单；留空表示只允许同源。允许的方法 `GET,POST,DELETE,OPTIONS`，允许 `authorization` 头 |
 | 编码 | 请求与响应均为 `application/json; charset=utf-8`（SSE 除外） |
@@ -254,7 +257,8 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 }
 ```
 
-`analysis` 与前端 `domain/historyPrediction.ts` 的返回值同构，可直接渲染。
+`analysis` 与前端 `domain/analysisTypes.ts` 中的类型同构，可直接渲染；算法唯一实现在
+`apps/analysis/app/analysis/`（Python），Node 侧 `apps/api/src/analysis/` 为同口径回退。
 
 **溯源语义**
 
@@ -507,7 +511,8 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 }
 ```
 
-门槛与风控（写死在 [engine.mjs](../apps/api/src/recommend/engine.mjs)，改这里要同步）：
+门槛与风控（写死在 Python 实现 [apps/analysis/app/recommend/engine.py](../apps/analysis/app/recommend/engine.py)，
+Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，改这里要同步）：
 
 | 方案 | 场次 | 单腿赔率 | 单腿融合概率 | 总赔率上限 | 命中率下限 |
 | --- | --- | --- | --- | --- | --- |
