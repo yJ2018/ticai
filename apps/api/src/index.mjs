@@ -47,9 +47,15 @@ server.listen(config.port, config.host, () => {
   console.log('  接口                : /api/matches /api/results /api/history /api/horoscope /api/weather')
   console.log('                        /api/ip /api/venue-weather /api/ai-chat /api/health')
   console.log('                        /api/analysis/lottery（开奖分析快照，开奖后由爬虫预算）')
+  console.log('  推荐与投注          : /api/recommendations（服务端推荐）· /api/bets')
   console.log('  账号与投注          : /api/auth/code /register /login /password /email /logout /me · /api/bets')
   console.log(
     `  微信登录            : ${config.wechat.appId ? '已配置' : '未配置（前端展示接入步骤）'}`,
+  )
+  console.log(
+    `  分析服务            : ${
+      config.analysis.baseUrl ? `Python（${config.analysis.baseUrl}）` : '未配置（Node 内联推荐引擎）'
+    }`,
   )
   console.log('─'.repeat(64))
 

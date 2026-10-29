@@ -1,15 +1,10 @@
-import { memo, useMemo } from 'react'
-import {
-  analyzeDltRecommendation,
-  type DltRecommendation,
-  type DltRecommendationEntry,
-} from '../domain/dltRecommendation'
+import { memo } from 'react'
+import { type DltRecommendation } from '../domain/analysisTypes'
 import { formatDltBigSmall, formatDltOddEven, formatDltZones } from '../domain/dltIndicators'
 
 type DltRecommendationPanelProps = {
-  /** 传了就直接渲染（服务端快照）；没传才用本地开奖记录现算 */
+  /** 服务端算好的推演快照；为空时展示空态 */
   recommendation?: DltRecommendation | null
-  entries?: DltRecommendationEntry[]
 }
 
 /**
@@ -18,16 +13,12 @@ type DltRecommendationPanelProps = {
  * 桌面端放在走势图上方，左栏是号码与结构指标，右栏是逐条理由；
  * 移动端与桌面共用同一份 DOM，窄屏自动上下堆叠。
  *
- * 数据来源：优先用服务端算好的快照（`recommendation`），
- * 这样展示的一定是最近 300 期全量样本，与本地缓存是否同步完无关。
+ * 数据来源只有服务端快照（`recommendation`）：推演算法在 Python 分析服务里，
+ * 前端不再保留任何本地实现，展示的一定是最近 300 期全量样本。
  */
 export const DltRecommendationPanel = memo(function DltRecommendationPanel({
-  recommendation: provided,
-  entries = [],
+  recommendation,
 }: DltRecommendationPanelProps) {
-  const computed = useMemo(() => analyzeDltRecommendation(entries), [entries])
-  const recommendation = provided ?? computed
-
   if (!recommendation) {
     return (
       <section className="dlt-recommend dlt-recommend--empty" aria-label="大乐透号码参考">

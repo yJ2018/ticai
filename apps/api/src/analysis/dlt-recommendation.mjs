@@ -1,6 +1,6 @@
-// ⚠️ 自动生成，不要直接改这个文件。
-// 源文件：src/domain/dltRecommendation.ts（算法改动请改 TS，然后 npm run analysis:sync）
-// 生成器：scripts/sync-analysis.mjs · 源指纹 133b593c984e
+// 冻结的实现：算法已迁到 Python 分析服务，这里只保留 Node 内联回退（ANALYSIS_API_BASE 未配置 / 不可达时使用）。
+// 大乐透 5+2 推演（Node 回退实现，Python 版在 apps/analysis/app/analysis/dlt.py）
+// 不要再从 src/domain 生成（生成器已删除）；改算法去改 Python 版。
 
 import { DLT_BACK_MAX, DLT_BACK_MIN, DLT_FRONT_MAX, DLT_FRONT_MIN, computeDltBackIndicators, computeDltFrontIndicators, formatDltBigSmall, formatDltOddEven, formatDltZones, getDltFrontZoneIndex, parseDltBackNumbers, parseDltFrontNumbers, } from './dlt-indicators.mjs';
 const FRONT_PICK_COUNT = 5;

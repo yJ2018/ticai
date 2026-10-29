@@ -11,7 +11,7 @@ import { closePool, query } from '../apps/api/src/db.mjs'
  * 正常路径不用它：crawl:history 抓到新开奖后会自动重算。
  * 这里用于三种情况：
  *   - 新库 / 第一次上线，把历史全量算一遍；
- *   - 算法或参数变了（改完 TS 跑 npm run analysis:sync 后强制重算）；
+ *   - 算法或参数变了（改完 Python 版后强制重算）；
  *   - 只看状态：--status 打印每个彩种每种分析的最新快照与是否落后开奖。
  *
  *   node scripts/analyze-snapshot.mjs                    # 缺什么补什么

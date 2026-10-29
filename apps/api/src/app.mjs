@@ -9,10 +9,12 @@ import { createHealthHandlers } from './handlers/health.mjs'
 import { createLotteryAnalysisHandlers } from './handlers/lottery-analysis.mjs'
 import { createMatchDetailHandler } from './handlers/match-detail.mjs'
 import { createParlayHandler } from './handlers/parlay.mjs'
+import { createRecommendationHandlers } from './handlers/recommendations.mjs'
 import { createResultsHandlers } from './handlers/results.mjs'
 import { createSportteryHandlers } from './handlers/sporttery.mjs'
 import { createUpstreamHandlers } from './handlers/upstream.mjs'
 import { createWechatHandlers } from './handlers/wechat.mjs'
+import { isAnalysisPath, proxyAnalysis } from './proxy.mjs'
 
 /**
  * 应用装配：返回一个与框架无关的 `(req, res)` 处理器。
@@ -39,7 +41,7 @@ function buildCorsHeaders(req, config) {
         'x-data-as-of,x-match-count,x-draw-count,server-timing,' +
         'x-analysis-through-issue,x-analysis-through-date,x-analysis-draw-count,' +
         'x-analysis-computed-at,x-analysis-stale,x-analysis-source,' +
-        'x-analysis-game,x-analysis-kind,x-analysis-config',
+        'x-analysis-game,x-analysis-kind,x-analysis-config,x-analysis-via',
       'access-control-max-age': '86400',
       vary: 'Origin',
     }
@@ -73,6 +75,7 @@ export function createApp(config) {
   const matchDetail = createMatchDetailHandler(config)
   const analysis = createAnalysisHandler(config)
   const parlay = createParlayHandler(config)
+  const recommendations = createRecommendationHandlers(config)
   const results = createResultsHandlers(config)
   const auth = createAuthHandlers(config)
   const bets = createBetHandlers(config)
@@ -92,6 +95,8 @@ export function createApp(config) {
     ['/api/ai-analysis', ['POST'], analysis],
     // 串关 AI 分析：只收选中的场次与选项
     ['/api/ai-parlay', ['POST'], parlay],
+    // 投注推荐：服务端读库算概率与方案（赔率去水 + 伤停/近况有界修正 + 串关风控）
+    ['/api/recommendations', ['GET'], recommendations.recommend],
     ['/api/horoscope', ['GET'], upstream.horoscope],
     ['/api/weather', ['GET'], upstream.weather],
     ['/api/ip', ['GET'], upstream.ip],
@@ -191,6 +196,11 @@ export function createApp(config) {
     const ctx = { req, res, url, params, requestId, corsHeaders: () => corsHeaders }
 
     try {
+      // 分析类接口：配置了 ANALYSIS_API_BASE 就转发给 Python 分析服务，
+      // 不可达时回退到本进程的内联实现（迁移期两个实现并存，接口形状一致）
+      if (isAnalysisPath(pathname) && (await proxyAnalysis(ctx, config))) {
+        return
+      }
       await route.handler(ctx)
     } catch (error) {
       if (res.headersSent) {

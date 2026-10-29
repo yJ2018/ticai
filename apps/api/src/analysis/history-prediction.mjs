@@ -1,6 +1,6 @@
-// ⚠️ 自动生成，不要直接改这个文件。
-// 源文件：src/domain/historyPrediction.ts（算法改动请改 TS，然后 npm run analysis:sync）
-// 生成器：scripts/sync-analysis.mjs · 源指纹 133b593c984e
+// 冻结的实现：算法已迁到 Python 分析服务，这里只保留 Node 内联回退（ANALYSIS_API_BASE 未配置 / 不可达时使用）。
+// 位置型预测 / 数学走势（Node 回退实现，Python 版在 apps/analysis/app/analysis/prediction.py）
+// 不要再从 src/domain 生成（生成器已删除）；改算法去改 Python 版。
 
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 const POSITION_COUNT = 5;

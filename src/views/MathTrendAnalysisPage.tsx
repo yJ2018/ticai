@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import {
-  analyzeMathTrendPrediction,
+  EMPTY_MATH_TREND_ANALYSIS,
   type MathTrendPositionAnalysis,
   type MathTrendPredictionAnalysis,
-} from '../domain/historyPrediction'
+} from '../domain/analysisTypes'
 import { useAnalysisSnapshot } from '../features/analysis/useAnalysisSnapshot'
 import { AnalysisPageSkeleton, AnalysisSummarySkeleton } from '../components/AnalysisPageSkeleton'
 
@@ -15,7 +15,7 @@ import { AnalysisPageSkeleton, AnalysisSummarySkeleton } from '../components/Ana
  * 顺带能显示「基于哪一期 / 哪一天 / 多少期样本」。
  */
 
-const EMPTY_ANALYSIS: MathTrendPredictionAnalysis = analyzeMathTrendPrediction([])
+const EMPTY_ANALYSIS: MathTrendPredictionAnalysis = EMPTY_MATH_TREND_ANALYSIS
 
 export function MathTrendAnalysisPage() {
   const [activePosition, setActivePosition] = useState(0)

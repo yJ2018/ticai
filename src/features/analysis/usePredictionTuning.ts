@@ -1,19 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
+import { getLotteryAnalysis } from '../../api'
 import {
-  analyzeHistoryPrediction,
+  predictionWeightsToPercent,
   type HistoryPredictionAnalysis,
-  type PredictionHistoryEntry,
   type PredictionScoreWeights,
-} from '../../domain/historyPrediction'
-import { historyService } from '../../service/historyService'
+} from '../../domain/analysisTypes'
 
 /**
- * 「自定义权重」时的本地重算通道。
+ * 「自定义权重」时的服务端重算通道。
  *
- * 服务端只预算固定参数（马尔可夫阶数 1–5）；权重是 0–100% 的连续值，
- * 组合无穷，只能下载全量号码（紧凑接口，约 45 KB gzip）在 Worker 里算。
- * 这是唯一还需要前端的计算路径，且只在用户真的拖了滑块时才走。
+ * 以前是下载全量开奖（约 45 KB gzip）在 Worker 里算，前端必须同时维护一份 TS 算法，
+ * 和服务端必然慢慢漂移。现在权重作为参数发给服务端：`?w=34-20-22-14-10`，
+ * 每个参数组合各存一条快照（同一组合重复请求直接命中），前端不再持有任何算法。
+ *
+ * 滑块是连续值，这里做 400ms 防抖 + AbortController：拖动过程中只发最后一次。
  */
 
 type TuningState = {
@@ -36,83 +37,49 @@ export function usePredictionTuning({
   game?: 'pl5' | 'qxc'
 }) {
   const [state, setState] = useState<TuningState>(INITIAL)
-  const entriesRef = useRef<PredictionHistoryEntry[] | null>(null)
-  const workerRef = useRef<Worker | null>(null)
-  const requestIdRef = useRef(0)
-
-  useEffect(() => {
-    const worker = new Worker(new URL('../../workers/historyAnalysisWorker.ts', import.meta.url), {
-      type: 'module',
-    })
-    workerRef.current = worker
-
-    worker.onmessage = (
-      event: MessageEvent<{ requestId: number; analysis: HistoryPredictionAnalysis }>,
-    ) => {
-      if (event.data.requestId !== requestIdRef.current) {
-        return
-      }
-      setState({ analysis: event.data.analysis, loading: false, error: '' })
-    }
-
-    worker.onerror = () => {
-      setState((prev) => ({ ...prev, loading: false, error: '本地重算失败，请重试' }))
-    }
-
-    return () => {
-      worker.terminate()
-      workerRef.current = null
-    }
-  }, [])
+  const weightKey = predictionWeightsToPercent(weights).join('-')
 
   useEffect(() => {
     if (!enabled) {
+      setState(INITIAL)
       return
     }
 
-    let alive = true
-    const requestId = requestIdRef.current + 1
-    requestIdRef.current = requestId
-    setState((prev) => ({ ...prev, loading: true, error: '' }))
-
-    void (async () => {
-      try {
-        if (!entriesRef.current) {
-          entriesRef.current = await historyService.getBulkAnalysisEntries(game)
-        }
-        const entries = entriesRef.current
-        if (!alive || !entries) {
-          return
-        }
-
-        const worker = workerRef.current
-        if (!worker) {
-          const analysis = analyzeHistoryPrediction(entries, {
-            markovOrder: order,
-            scoreWeights: weights,
-          })
-          if (alive && requestId === requestIdRef.current) {
-            setState({ analysis, loading: false, error: '' })
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      setState((prev) => ({ ...prev, loading: true, error: '' }))
+      void getLotteryAnalysis(
+        {
+          game,
+          kind: 'prediction',
+          order,
+          weights: weightKey.split('-').map(Number),
+        },
+        { signal: controller.signal },
+      )
+        .then((snapshot) => {
+          if (controller.signal.aborted) {
+            return
           }
-          return
-        }
-
-        worker.postMessage({ requestId, entries, options: { markovOrder: order, scoreWeights: weights } })
-      } catch (error) {
-        if (alive) {
-          setState((prev) => ({
-            ...prev,
+          setState({ analysis: snapshot.analysis, loading: false, error: '' })
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) {
+            return
+          }
+          setState({
+            analysis: null,
             loading: false,
-            error: error instanceof Error ? error.message : '全量开奖加载失败，无法本地调参',
-          }))
-        }
-      }
-    })()
+            error: error instanceof Error ? error.message : '自定义权重重算失败，请稍后重试',
+          })
+        })
+    }, 400)
 
     return () => {
-      alive = false
+      window.clearTimeout(timer)
+      controller.abort()
     }
-  }, [enabled, game, order, weights])
+  }, [enabled, game, order, weightKey])
 
   return state
 }

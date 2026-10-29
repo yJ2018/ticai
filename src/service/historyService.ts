@@ -1,11 +1,10 @@
-import { getLotteryHistoryBulk, getLotteryHistoryPage } from '../api'
+import { getLotteryHistoryPage } from '../api'
 import {
   type LotteryHistoryCache,
   type LotteryHistoryEntry,
   type LotteryHistoryGameType,
   type LotteryHistoryPageResult,
 } from '../domain/lotteryHistory'
-import { type PredictionHistoryEntry } from '../domain/historyPrediction'
 import { pruneHistoryCache, readHistoryCache, writeHistoryCache } from '../storage/historyDb'
 import { type LotteryHistoryItem, type LotteryPrizeLevelItem } from '../domain/sporttery'
 
@@ -80,21 +79,6 @@ export const historyService = {
     }
 
     return buildPageResult(cache, pageNo, pageSize)
-  },
-
-  /**
-   * 全量开奖的紧凑版：一次请求拿回所有期号与号码，不写 IndexedDB、不动分页缓存。
-   *
-   * 只有「本地调参」用得上：分析页拖权重滑块时参数是连续值，服务端预算不了，
-   * 只能把全量号码取到本地，在 Worker 里按当前权重重算。正常浏览走分析快照接口。
-   */
-  async getBulkAnalysisEntries(gameType: LotteryHistoryGameType): Promise<PredictionHistoryEntry[]> {
-    const config = HISTORY_GAME_CONFIG[gameType]
-    const data = await getLotteryHistoryBulk(config.gameNo)
-    return data.draws.map(([issue, numbersText]) => ({
-      issue,
-      numbers: splitDrawNumbers(numbersText),
-    }))
   },
 }
 

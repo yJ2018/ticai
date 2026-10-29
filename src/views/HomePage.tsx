@@ -21,7 +21,7 @@ import { useParlayAiAnalysis } from '../features/betting/useParlayAiAnalysis'
 import { useBetSlip } from '../features/betting/useBetSlip'
 import { useAutoParlay } from '../features/betting/useAutoParlay'
 import { AutoParlayPanel } from '../features/betting/AutoParlayPanel'
-import { type ParlayLeg } from '../features/betting/parlayModel'
+import { type ParlayLeg } from '../features/betting/recommendation'
 import { PLAN_MODAL_ANIMATION_MS, formatMoney, getSportteryTaxInfo } from '../features/betting/betSlipMath'
 
 const poolTabs: Array<{ key: MatchPoolType; label: string }> = [
@@ -517,7 +517,7 @@ export function HomePage() {
     betSlip.applyAutoPicks(
       legs.map((leg) => ({ matchId: leg.matchId, optionKey: leg.pick.key })),
     )
-    setToastText(`已应用 ${legs.length} 场 · ${legs.length}串1`)
+    setToastText(legs.length === 1 ? '已应用 1 场 · 单关' : `已应用 ${legs.length} 场 · ${legs.length}串1`)
     autoParlay.close()
   }
 

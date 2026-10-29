@@ -24,10 +24,20 @@
 - 部署脚本使用临时目录 + `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`，不依赖仓库根 `.vercel`；需要本机已执行 `npx vercel login`。
 - 前端发布：`deploy-local.mjs` 本地 `next build` 自检 → 上传前端源码 → Vercel 远端构建（不走 `vercel build --prebuilt`：它在本机会再 spawn 一层 shell，受限环境直接失败）；`/api/**` 由 `next.config.ts` rewrite 到 `ticai-service`。
 - API 发布：`deploy-api.mjs` 上传 `apps/api` 源码，发布后尽力探 `/healthz` 与 `/api/matches`（本机 DNS 被污染时只告警）。
+- 分析服务发布：`deploy-analysis.mjs` 上传 `apps/analysis`（Python / FastAPI）到 Vercel 项目 `ticai-analysis`；
+  首次需先建项目（`cd apps/analysis && npx vercel link --yes --project ticai-analysis`，或设 `ANALYSIS_PROJECT_ID`），
+  并配好 `DATABASE_URL` / `DATABASE_SSL` / `DEEPSEEK_API_KEY`。
+  **项目必须关掉 Deployment Protection（Vercel Authentication）**，否则 Node 代理会被 401 挡住。
+  Vercel rewrite 会丢掉原始路径，`vercel.json` 用 `?__path=/$1` + `app/main.py` 的 `RewritePathMiddleware` 还原，
+  改动这段逻辑必须跑 `npm run analysis:test`（含 4 个中间件用例）。
+  发布后在 `ticai-service` 设置 `ANALYSIS_API_BASE=https://ticai-analysis.vercel.app`，分析接口才会走 Python；
+  未配置时 Node 内联实现照常工作，删掉该变量即可回滚。分析服务测试：`npm run analysis:test`。
 
 ## 仓库结构
 
 - `apps/api`：独立服务端（只读库，REST + SSE），部署在 Vercel 项目 `ticai-service`。
+- `apps/analysis`：Python 分析服务（FastAPI），部署在 Vercel 项目 `ticai-analysis`；入口 `api/index.py`，
+  推荐逻辑在 `app/recommend/`，通过 `npm run analysis:fixtures` 生成的对拍夹具与 Node 版保持一致。
 - `apps/crawler`：本地爬虫（只写库），`npm run crawl:daemon` 常驻；受竞彩销售时段闸门约束。
 - `db/`：迁移与保留策略，`npm run db:migrate` 执行。
 - 前端是 **Next.js 16 App Router**（`src/app`），部署在 Vercel 项目 `ticai`；页面外壳在根 layout（Keep-Alive 依赖它跨路由不卸载），路由清单在 `src/router/manifest.ts`。

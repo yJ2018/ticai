@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { analyzeHistoryPrediction, type HistoryPredictionAnalysis } from '../domain/historyPrediction'
+import { EMPTY_PREDICTION_ANALYSIS, type HistoryPredictionAnalysis } from '../domain/analysisTypes'
 import {
   formatDltBigSmall,
   formatDltOddEven,
@@ -13,7 +13,7 @@ import { DltRecommendationPanel } from '../components/DltRecommendationPanel'
 import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
 
 /** 服务端快照到达前先渲染空分析，避免布局跳动 */
-const EMPTY_PREDICTION: HistoryPredictionAnalysis = analyzeHistoryPrediction([])
+const EMPTY_PREDICTION: HistoryPredictionAnalysis = EMPTY_PREDICTION_ANALYSIS
 
 const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [
   { key: 'pl5', label: '排列五' },

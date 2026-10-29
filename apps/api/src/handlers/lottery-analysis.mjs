@@ -61,8 +61,26 @@ export function createLotteryAnalysisHandlers(config) {
 
     // 目前只有马尔可夫阶数开放成参数：1–5 都在开奖时预算好了
     const order = intParam(ctx.url, 'order', 0, { min: 1, max: 5 })
+    // 权重滑块：`w=34-20-22-14-10`（五项百分比），只在 prediction 生效；
+    // 参数化后 configKey 带上 `;w=...`，按参数各存一条快照。
+    const rawWeights = textParam(ctx.url, 'w', '')
+    let scoreWeights
+    if (kind === 'prediction' && rawWeights) {
+      const values = rawWeights.split('-').map(Number)
+      if (values.length === 5 && values.every((value) => Number.isFinite(value))) {
+        scoreWeights = {
+          recent: values[0] / 100,
+          long: values[1] / 100,
+          omission: values[2] / 100,
+          transition: values[3] / 100,
+          pairTransition: values[4] / 100,
+        }
+      }
+    }
     const configKey =
-      kind === 'prediction' && order > 0 ? predictionConfigKey({ markovOrder: order }) : defaultConfigKey(kind)
+      kind === 'prediction'
+        ? predictionConfigKey({ markovOrder: order || undefined, scoreWeights })
+        : defaultConfigKey(kind)
 
     // 只读一次库：快照 + 库里最后一期开奖在一条 SQL 里取回（跨境库每次往返 0.5–1.5s）
     const readStartedAt = performance.now()

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   DEFAULT_PREDICTION_SCORE_WEIGHTS,
-  analyzeHistoryPrediction,
+  EMPTY_PREDICTION_ANALYSIS,
   type HistoryPredictionAnalysis,
   type PredictionDigitStat,
   type PredictionDistributionBucket,
   type PredictionMarkovPositionAnalysis,
   type PredictionPositionAnalysis,
   type PredictionScoreWeights,
-} from '../domain/historyPrediction'
+} from '../domain/analysisTypes'
 import { useAnalysisSnapshot } from '../features/analysis/useAnalysisSnapshot'
 import { usePredictionTuning } from '../features/analysis/usePredictionTuning'
 import { MarkovOrderSelect } from '../components/MarkovOrderSelect'
@@ -17,15 +17,12 @@ import { AnalysisPageSkeleton, AnalysisSummarySkeleton } from '../components/Ana
 /**
  * 分析页：默认直接渲染服务端快照（同一期只算一次，含溯源）。
  *
- * 权重滑块是连续值，服务端预算不了，所以只有「用户真的拖了权重」时才切到本地：
- * 一次取回全量号码（紧凑接口，约 45 KB gzip），在 Worker 里按当前权重重算。
- * 一旦把权重拖回默认值，就自动退回服务端快照。
+ * 权重滑块是连续值：拖动后把 5 项百分比作为 `w=` 参数发给服务端，
+ * 由 Python 分析服务按参数现算一条快照并落库（同一组合重复请求直接命中）。
+ * 前端不再下载全量号码、也没有本地算法副本。
  */
 
-const EMPTY_ANALYSIS: HistoryPredictionAnalysis = analyzeHistoryPrediction([], {
-  scoreWeights: DEFAULT_PREDICTION_SCORE_WEIGHTS,
-  markovOrder: 2,
-})
+const EMPTY_ANALYSIS: HistoryPredictionAnalysis = EMPTY_PREDICTION_ANALYSIS
 
 const MARKOV_ORDER_OPTIONS = [1, 2, 3, 4, 5] as const
 
@@ -99,7 +96,7 @@ export function HistoryAnalysisPage() {
               <span>平均 Top1 {formatRate(analysis.averageTop1Rate)}</span>
               <span>平均 Top3 {formatRate(analysis.averageTop3Rate)}</span>
               {sample && <span>基准 {sample.throughIssue} · {sample.throughDrawDate}</span>}
-              {isCustomWeights && <span>自定义权重 · 本地重算</span>}
+              {isCustomWeights && <span>自定义权重 · 服务端重算</span>}
               {!isCustomWeights && snapshot?.stale && (
                 <span className="history-analysis-page__pending">有新开奖，待重算</span>
               )}

@@ -136,6 +136,11 @@ export function createConfig() {
       mpAppSecret: process.env.WECHAT_MP_APP_SECRET ?? '',
       mpRedirectUri: process.env.WECHAT_MP_REDIRECT_URI ?? '',
     },
+    // Python 分析服务（apps/analysis）。配置后分析类接口转发过去；不配就走 Node 内联实现。
+    analysis: {
+      baseUrl: stripTrailingSlash(process.env.ANALYSIS_API_BASE ?? ''),
+      timeoutMs: envInt('ANALYSIS_TIMEOUT_MS', 20_000),
+    },
     llm: createLlmConfig(),
   }
 }

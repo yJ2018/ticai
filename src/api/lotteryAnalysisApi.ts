@@ -1,10 +1,10 @@
 import { apiUrl } from './base'
 import { request } from './httpClient'
-import { type DltRecommendation } from '../domain/dltRecommendation'
 import {
+  type DltRecommendation,
   type HistoryPredictionAnalysis,
   type MathTrendPredictionAnalysis,
-} from '../domain/historyPrediction'
+} from '../domain/analysisTypes'
 
 /**
  * 开奖分析快照（服务端预算）。
@@ -75,6 +75,8 @@ export type AnalysisRequestParams = {
   kind?: LotteryAnalysisKind
   /** 马尔可夫阶数 1–5（只有 prediction 生效，服务端已预算好 5 档） */
   order?: number
+  /** 自定义权重百分比（5 项，如 [34,20,22,14,10]）：滑块调参时按参数现算一条快照 */
+  weights?: number[]
 }
 
 export async function getLotteryAnalysis<K extends LotteryAnalysisKind>(
@@ -84,6 +86,9 @@ export async function getLotteryAnalysis<K extends LotteryAnalysisKind>(
   const query = new URLSearchParams({ game: params.game, kind: params.kind })
   if (params.order) {
     query.set('order', String(params.order))
+  }
+  if (params.weights && params.weights.length === 5) {
+    query.set('w', params.weights.map((value) => Number(value.toFixed(2))).join('-'))
   }
 
   const body = await request<ApiEnvelope<LotteryAnalysisSnapshot<AnalysisSnapshotKindMap[K]>>>(

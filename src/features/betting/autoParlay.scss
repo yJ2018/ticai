@@ -491,6 +491,264 @@
   }
 }
 
+/* ── 服务端推荐：方案卡 + 数据理由 + 回测 ─────────────────────────────────── */
+
+.auto-parlay__plan {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #e8edf5;
+  border-radius: 0.75rem;
+  background: #fff;
+
+  &.is-single {
+    border-color: #bfdbfe;
+    background: #f8fbff;
+  }
+
+  &.is-aggressive {
+    border-style: dashed;
+  }
+}
+
+.auto-parlay__plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.auto-parlay__plan-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+
+  strong {
+    color: #0f172a;
+    font-size: 0.95rem;
+  }
+}
+
+.auto-parlay__plan-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  color: #64748b;
+  font-size: 0.74rem;
+
+  b {
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .is-good {
+    color: #047857;
+  }
+
+  .is-bad {
+    color: #dc2626;
+  }
+}
+
+.auto-parlay__plan-legs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  /* 只作用于腿本身，不要串到下面的理由列表 */
+  > li {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #eef2f7;
+    border-radius: 0.6rem;
+    background: #fbfdff;
+  }
+}
+
+.auto-parlay__reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.35rem 0 0;
+  padding-left: 0.9rem;
+  list-style: disc;
+
+  li {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #64748b;
+    font-size: 0.71rem;
+    line-height: 1.5;
+  }
+}
+
+.auto-parlay__leg-conf {
+  color: #94a3b8;
+}
+
+.auto-parlay__plan-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  span {
+    color: #94a3b8;
+    font-size: 0.72rem;
+  }
+
+  button {
+    padding: 0.35rem 0.85rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 0.2rem 0.6rem rgba(37, 99, 235, 0.24);
+  }
+}
+
+.auto-parlay__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+  padding-left: 1rem;
+  color: #64748b;
+  font-size: 0.73rem;
+  line-height: 1.6;
+}
+
+.auto-parlay__cands {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e8edf5;
+  border-radius: 0.7rem;
+  background: #f8fafc;
+
+  summary {
+    color: #334155;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0.45rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.45rem;
+    color: #64748b;
+    font-size: 0.73rem;
+  }
+
+  .is-on {
+    color: #047857;
+    font-style: normal;
+  }
+
+  .is-off {
+    color: #b45309;
+    font-style: normal;
+  }
+}
+
+.auto-parlay__cand-match {
+  color: #475569;
+
+  strong {
+    margin-right: 0.2rem;
+    color: #0f172a;
+  }
+}
+
+.auto-parlay__cand-pick {
+  color: #334155;
+}
+
+.auto-parlay__backtest {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e8edf5;
+  border-radius: 0.7rem;
+  background: #fbfdff;
+
+  h3 {
+    margin: 0 0 0.45rem;
+    color: #0f172a;
+    font-size: 0.8rem;
+  }
+}
+
+.auto-parlay__backtest-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+
+  > div {
+    padding: 0.4rem 0.5rem;
+    border-radius: 0.5rem;
+    background: #f8fafc;
+  }
+
+  span {
+    display: block;
+    color: #64748b;
+    font-size: 0.7rem;
+  }
+
+  b {
+    display: block;
+    color: #0f172a;
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  em {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.68rem;
+    font-style: normal;
+  }
+}
+
+.auto-parlay__bands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin: 0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.7rem;
+
+  span {
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: #eef2f7;
+  }
+}
+
+.auto-parlay__disclaimer {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
 @media (max-width: 47.99rem) {
   .auto-parlay {
     align-items: flex-end;
@@ -522,6 +780,14 @@
 
   .auto-parlay__legs {
     display: flex;
+  }
+
+  .auto-parlay__plan-stats {
+    gap: 0.45rem;
+  }
+
+  .auto-parlay__backtest-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

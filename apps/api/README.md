@@ -1,7 +1,8 @@
 # @ticai/api
 
-独立服务端：零框架、零构建，只有 `pg` 一个运行时依赖。提供 31 个接口路径（33 个处理方法），
-其中赛事 / 开奖 / 赛果 / 详情 / 天气从数据库与上游读取，账号与投注读写数据库，AI 分析走 SSE。
+独立服务端：零框架、零构建，只有 `pg` 一个运行时依赖。提供 32 个接口路径（34 个处理方法），
+其中赛事 / 开奖 / 赛果 / 详情 / 天气从数据库与上游读取，账号与投注读写数据库，AI 分析走 SSE，
+投注推荐在服务端算概率与方案。
 
 ```
 爬虫 ──写──▶ PostgreSQL ──读──▶ 本服务 ──HTTP──▶ 前端（Vercel）
@@ -16,7 +17,7 @@ npm install                      # 首次，装 pg
 # 需要数据库的接口要配 DATABASE_URL（根 .env 或 apps/api/.env）
 node apps/api/src/index.mjs      # 或 npm run api:dev
 
-node --test apps/api/test        # 或 npm run api:test（69 个用例）
+node --test apps/api/test        # 或 npm run api:test（88 个用例）
 ```
 
 启动后会打印数据库、DeepSeek、聚合数据、邮件与微信各自的就绪状态。
@@ -37,7 +38,15 @@ node --test apps/api/test        # 或 npm run api:test（69 个用例）
 | `GET /api/auth/wechat/*` | **数据库 + 微信开放平台** | 扫码 / 公众号网页授权；回调只发一次性票据，前端换正式会话 |
 | `GET/POST /api/bets`、`GET /api/bets/stats`、`GET/DELETE /api/bets/:id` | **数据库** | 保存投注快照、按玩法筛选、按赛果自动结算 |
 | `POST /api/ai-analysis` | **数据库 + DeepSeek** | 只收 `matchId` + `pool`；提示词/官方数据/天气全部服务端装配，SSE 返回 |
+| `GET /api/recommendations?pool=&scope=` | **数据库** | 推荐：幂法去水 → 伤停/近况有界修正 → 单关/2串1/3串1 风控 → 同口径回测（前端不再算概率） |
 | `POST /api/ai-parlay` | **数据库 + DeepSeek** | 只收选中的场次与选项，服务端补赔率/伤停并复用单场缓存 |
+
+> **分析服务代理**：配置 `ANALYSIS_API_BASE` 后，`/api/recommendations`、
+> `/api/analysis/lottery`（prediction / math_trend / dlt）、`/api/venue-weather`、
+> `/api/ai-analysis` 与 `/api/ai-parlay`（含 SSE 流式）会转发给 Python 分析服务
+> （[apps/analysis](../analysis/README.md)），响应头带 `x-analysis-via: python`；
+> 分析服务不可达时自动回退本目录的内联实现（`x-analysis-via` 不出现）。两套实现接口形状完全一致，
+> 删除该环境变量即可回滚。`x-analysis-source` 仍保留原含义（快照来源：crawler / api / computed-on-read）。
 | `GET /api/horoscope` | 聚合数据 | 代理 + 10 min 缓存 |
 | `GET /api/weather` | 聚合数据 | 代理 + 10 min 缓存 |
 | `GET /api/ip` | 聚合数据 | 按连接 IP 查询 + 30 min 缓存 |
@@ -71,6 +80,8 @@ node --test apps/api/test        # 或 npm run api:test（69 个用例）
 | `AUTH_ALLOW_INSECURE` | 0 | 认证接口默认只接受 HTTPS |
 | `WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_REDIRECT_URI` | — | 微信开放平台；缺省时 `enabled:false` |
 | `APP_WEB_BASE` | `http://127.0.0.1:5199` | 微信回调结束后跳回的前端地址 |
+| `ANALYSIS_API_BASE` | — | Python 分析服务地址（如 `https://ticai-analysis.vercel.app`）；留空 = 走本进程内联实现 |
+| `ANALYSIS_TIMEOUT_MS` | 20000 | 代理到分析服务的超时 |
 
 ## 部署
 
@@ -95,12 +106,14 @@ src/
   session.mjs        Bearer 解析与 requireSession
   mail.mjs           Resend 发信
   wechat.mjs         微信 OAuth（state 签名、code 换 openid、ticket）
+  proxy.mjs          分析接口反向代理（ANALYSIS_API_BASE → Python 分析服务，失败回退内联）
+  recommend/         投注推荐：math（泊松 / Dixon-Coles / 去水）、odds、data、engine（风控）、backtest
   settlement.mjs     逐腿判定、复式注数、单注限额、奖金连乘
   llm.mjs / venue.mjs
   ai/                单场与串关提示词、比赛上下文装配
   repos/             读库 SQL（matches / lottery / results / bets）
   handlers/          按域拆的接口实现（sporttery / results / match-detail / ai / parlay / auth / wechat / bets / upstream / health）
-test/                9 个测试文件、69 个用例（node --test）
+test/                12 个测试文件、88 个用例（node --test）
 ```
 
 ## 远端库延迟

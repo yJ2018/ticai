@@ -25,6 +25,11 @@ out
 # 临时目录（本地 Postgres 数据目录、npm 缓存、夹具脚本）
 .tmp/
 
+# Python 分析服务（apps/analysis）的本地环境与缓存
+apps/analysis/.venv/
+__pycache__/
+*.pyc
+
 # 本地私人物料
 resume/
 

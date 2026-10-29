@@ -176,8 +176,8 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 全量开奖的**紧凑格式**，一次请求拿回所有期号与号码。
 
-只服务「本地调参」：分析页拖权重滑块时参数是连续值，服务端预算不了，只能把全量号码取到本地重算。
-正常浏览走 `GET /api/analysis/lottery` 的快照，不需要这个接口。
+2026-10-29 起前端已不再需要它：分析页的自定义权重改为 `GET /api/analysis/lottery?...&w=34-20-22-14-10`
+由服务端重算并落快照。接口保留给脚本与调试。
 
 **查询参数**
 
@@ -208,6 +208,10 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 ### 2.2.1 `GET /api/analysis/lottery`
 
+> 实现位置：`kind=prediction` / `kind=math_trend` 由 Python 分析服务计算并代理返回（响应头
+> `x-analysis-via: python`）；`kind=dlt` 与未配置 `ANALYSIS_API_BASE` 时仍由 Node 计算。
+> 两种情况的 payload 与 `x-analysis-*` 响应头完全一致（对拍见 `npm run analysis:test`）。
+
 开奖分析快照（频次/遗漏/马尔可夫/滚动回测、数学走势、大乐透 5+2 推演）。
 分析用**全量**开奖（排列五 7760 期），在爬虫抓到新开奖后就地算一次并落库
 （`lottery_analysis_snapshot`），本接口只读最新一条快照。
@@ -219,6 +223,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 | `game` | string | `pl5` | `pl5` / `pl3` / `qxc` / `dlt`，或体彩 `gameNo`（`350133` / `35` / `04` / `85`） |
 | `kind` | string | 位置型 `prediction`、大乐透 `dlt` | `prediction` / `math_trend` / `dlt` |
 | `order` | int | 由 `config_key` 默认 | 仅 `prediction` 生效：马尔可夫阶数 1–5（开奖时已预算好 5 档） |
+| `w` | string | 空 | 仅 `prediction` 生效：自定义权重百分比，5 项用 `-` 连接，如 `34-20-22-14-10`（近期频次/长期频次/遗漏/单步转移/双步转移）。参数会进 `config_key`（`markov=3;w=34-20-22-14-10`），同一组合重复请求直接命中快照 |
 
 **响应**
 
@@ -422,6 +427,98 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 - `crs`：比分玩法的选项 key，与前端 `optionKey` 完全一致（`s02s01`、`s1sh` 等）。
 - `hafu`：半全场，`hh` `hd` … `aa`。
 - `settled=false` 时比分与全部结果字段都是 `null`，表示还没开奖。
+
+---
+
+### 2.5 `GET /api/recommendations`
+
+> 实现位置：Node 配置了 `ANALYSIS_API_BASE` 时由 Python 分析服务（`apps/analysis`）计算并代理返回（响应头
+> `x-analysis-source: python`）；未配置或分析服务不可达时回退 Node 内联实现。两种情况的响应完全一致。
+
+投注推荐，**全部在服务端算**：赔率幂法去水 → 伤停 / 近况有界修正 → 串关风控 → 同口径回测摘要。
+前端不算任何概率（旧实现是浏览器里用同一份赔率反推 λ 再和市场比大小，等于自己跟自己打，
+必然挑出 22.00 这类冷门并串成 8 串 1）。
+
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| `pool` | `mixed` | `had`（含让球 `hhad`）/ `hhad` / `ttg` / `mixed`；`crs`、`hafu` 返回空方案 + 说明 |
+| `scope` | `today` | `today` 只算今天这个销售日；`all` 放开跨天 |
+
+```json
+{
+  "success": true,
+  "data": {
+    "generatedAt": "2026-10-29T06:17:07.522Z",
+    "scope": "today",
+    "pool": "had",
+    "poolLabel": "胜平负 + 让球",
+    "coverage": {
+      "onSale": 19, "inScope": 7, "withOdds": 7, "withInjury": 7, "withHistory": 3,
+      "historyMatches": 111, "today": "2026-10-29"
+    },
+    "filtered": { "noOdds": 0, "noMarket": 0, "noCandidate": 0, "probTooLow": 0, "oddsOutOfBand": 0, "invalidPool": false },
+    "plans": [
+      {
+        "id": "safe",
+        "label": "稳健 2串1",
+        "risk": "低",
+        "legs": [
+          {
+            "matchId": 2042320,
+            "matchNo": "周四004",
+            "league": "瑞典超级联赛",
+            "teams": "哈马比 vs 天狼星",
+            "pool": "had",
+            "poolLabel": "胜平负",
+            "optionKey": "h",
+            "optionLabel": "胜",
+            "odd": 1.37,
+            "marketP": 0.6903,
+            "modelP": 0.6732,
+            "blendP": 0.6896,
+            "edge": -0.0552,
+            "weight": 0.04,
+            "confidence": "high",
+            "reasons": [
+              "本库没有这队的近期战绩，概率只按市场与伤停估",
+              "主队伤停 1 人（A. Boudri），λ 下调 3%",
+              "市场 69.0% → 模型 67.3% → 融合 69.0%（-5.5 个百分点）"
+            ],
+            "sample": { "homeMatches": 0, "awayMatches": 0, "injuriesHome": 1, "injuriesAway": 0 }
+          }
+        ],
+        "totalOdd": 1.92,
+        "hitProb": 0.4645,
+        "expectedReturn": 0.891,
+        "note": "2 场串关，融合命中率 46.5%。融合概率下的期望回报 0.89×（庄家抽水仍在），只作概率参考。"
+      }
+    ],
+    "candidates": [],
+    "notes": [],
+    "backtest": {
+      "window": { "from": "2026-10-22", "to": "2026-10-28", "matches": 109 },
+      "singles": { "n": 85, "hits": 41, "hitRate": 0.4824, "roi": -0.2306, "avgOdd": 1.634 },
+      "doubles": { "n": 42, "hits": 9, "hitRate": 0.2143, "roi": -0.4547, "avgOdd": 2.694 },
+      "longshot": { "n": 62, "hits": 13, "hitRate": 0.2097, "roi": 0.0644, "avgOdd": 6.092 },
+      "bands": [{ "label": "1.25–1.60", "n": 41, "hits": 23, "hitRate": 0.561, "roi": -0.2407, "avgOdd": 1.393 }],
+      "note": "回测只用开赛前最后一次赔率快照，按「市场概率最高 + 赔率 1.25–2.15」选场；不含任何赛后信息。样本只有几天，波动很大…"
+    }
+  }
+}
+```
+
+门槛与风控（写死在 [engine.mjs](../apps/api/src/recommend/engine.mjs)，改这里要同步）：
+
+| 方案 | 场次 | 单腿赔率 | 单腿融合概率 | 总赔率上限 | 命中率下限 |
+| --- | --- | --- | --- | --- | --- |
+| 单关首选 | 1 | 1.20–2.15 | ≥50% | — | — |
+| 单关（低概率玩法，如总进球） | 1 | 1.20–4.50 | ≥20% | — | — |
+| 稳健 2串1 | 2 | 1.25–2.15 | ≥52% | 4.2 | 26% |
+| 进取 3串1 | 3 | 1.40–3.30 | ≥44% | 8.0 | 15% |
+
+- 达不到门槛时 `plans` 是空数组，`notes` 会说明原因（例如「今天没有达到门槛的方案」）。
+- `candidates` 给出每场被选中的选项与未入选原因，`filtered` 是聚合计数。
+- 结果按 `pool + scope + 北京日期` 缓存 60 秒；回测缓存 10 分钟。
 
 ---
 
@@ -787,6 +884,10 @@ state 由服务端 HMAC 签名，内含 `mode`、渠道、绑定用户 id 与 10
 
 ### 4.1 `POST /api/ai-analysis`（推荐）
 
+> 实现位置：配置 `ANALYSIS_API_BASE` 时由 Python 分析服务处理（含 SSE 流式），响应头
+> `x-analysis-via: python`；提示词两套实现逐字节一致（`npm run analysis:test` 对拍），
+> LLM 输出本身不参与比较。不可达时回退 Node 内联实现。
+
 **只收比赛 ID 和玩法**，其余全部服务端装配：比赛信息、最新赔率、官方数据（伤停/交锋/近况/排名）、比赛地天气、系统提示词。
 
 **请求体**
@@ -855,6 +956,8 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 **限流**：`AI_RATE_LIMIT_PER_MIN`（默认 10 次/分钟/IP），超出返回 `429`。
 
 ### 4.2 `POST /api/ai-parlay`（串关）
+
+> 实现位置：与 `/api/ai-analysis` 相同（`ANALYSIS_API_BASE` → Python，SSE 与 `meta` 事件一致）。
 
 **只收选中的场次与选项**，联赛、开赛时间、赔率、伤停由服务端按 `matchId` 从库里补；系统提示词也在服务端。
 
@@ -943,6 +1046,9 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 ### 5.4 `GET /api/venue-weather`
 
+> 实现位置：配置 `ANALYSIS_API_BASE` 时由 Python 分析服务计算并代理返回（响应头 `x-analysis-via: python`）；
+> 未配置或不可达时回退 Node 内联实现。城市解析与天气字段完全一致。
+
 主队城市由 DeepSeek 解析，天气来自 Open-Meteo。
 
 | 参数 | 必填 | 说明 |
@@ -1005,6 +1111,11 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-29 | `/api/analysis/lottery` 新增 `w=` 自定义权重参数；前端删除 TS 分析实现与 `sync-analysis` 生成链，权重滑块改为 400ms 防抖调服务端 |
+| 2026-10-29 | 单场/串关 AI 分析（`/api/ai-analysis`、`/api/ai-parlay`）迁到 Python 分析服务，SSE 协议与 `meta` 事件不变；提示词逐字节对拍 |
+| 2026-10-29 | 大乐透推演（`kind=dlt`）与 `/api/venue-weather` 迁到 Python 分析服务；三条分析路径全部由 `ANALYSIS_API_BASE` 代理，Node 保留同口径回退实现 |
+| 2026-10-29 | 新增 `GET /api/recommendations`：投注推荐搬到服务端（幂法去水 + 伤停/近况有界修正 + 串关风控 + 同口径回测），前端不再本地算概率 |
+| 2026-10-29 | 推荐引擎迁到 Python 分析服务（`apps/analysis`，Vercel 项目 `ticai-analysis`），Node 通过 `ANALYSIS_API_BASE` 反向代理；两套实现对拍一致，删变量即可回滚 |
 | 2026-10-29 | 验证码登录即注册：未注册邮箱用验证码登录会建「无密码」账号；新增 `POST /api/auth/password`（设置/修改密码，验证码登录的会话可免当前密码重设）与 `POST /api/auth/email`（给微信账号绑定邮箱）；用户对象新增 `hasPassword`，`email_code.purpose` 新增 `bind`，`user_session` 记录 `verified_by` |
 | 2026-10-27 | 新增 `/api/analysis/lottery`（+`/snapshots`）：开奖分析快照，爬虫开奖后算一次并带溯源（基于哪期/哪天/多少期样本） |
 | 2026-10-27 | 前端改走同源 `/api`（`vercel.json` rewrite 到 `ticai-service`），接口地址不再写进 bundle |

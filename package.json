@@ -16,8 +16,6 @@
     "ai:check": "node scripts/ai-smoke.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "architecture:update": "node scripts/update-architecture.mjs",
-    "analysis:sync": "node scripts/sync-analysis.mjs",
-    "analysis:check": "node scripts/sync-analysis.mjs --check",
     "analyze:snapshot": "node scripts/analyze-snapshot.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:seed": "node scripts/db-migrate.mjs seed",
@@ -25,6 +23,9 @@
     "db:verify": "node scripts/db-migrate.mjs verify",
     "api:dev": "node apps/api/src/index.mjs",
     "api:test": "node --test apps/api/test",
+    "analysis:dev": "node scripts/analysis-dev.mjs",
+    "analysis:test": "node scripts/analysis-test.mjs",
+    "analysis:fixtures": "node scripts/export-analysis-fixtures.mjs && node scripts/export-lottery-fixtures.mjs && node scripts/export-ai-fixtures.mjs",
     "crawl": "node apps/crawler/src/index.mjs",
     "crawl:matches": "node apps/crawler/src/index.mjs matches",
     "crawl:history": "node apps/crawler/src/index.mjs history",
@@ -35,7 +36,8 @@
     "hooks:install": "node scripts/install-git-hooks.mjs",
     "deploy": "npm run deploy:local && npm run deploy:api",
     "deploy:local": "node scripts/deploy-local.mjs",
-    "deploy:api": "node scripts/deploy-api.mjs"
+    "deploy:api": "node scripts/deploy-api.mjs",
+    "deploy:analysis": "node scripts/deploy-analysis.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

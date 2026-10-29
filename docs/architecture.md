@@ -40,7 +40,7 @@
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、串关注数/金额/最高奖金（按体彩单注限额封顶）/税、首屏骨架屏、单场与方案级 AI 分析、高清快照、保存投注 | `GET /api/matches`、`POST /api/bets` |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气，PC 弹框与 H5 页面共用正文 | `GET /api/match-detail`、`GET /api/venue-weather` |
 | `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要 | `GET /api/history` + IndexedDB（分析结果已有服务端快照：`GET /api/analysis/lottery`） |
-| `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏；阶数 1–5 直接切快照，拖权重滑块时才转本地重算 | `GET /api/analysis/lottery?kind=prediction&order=N`（自定义权重：`GET /api/history/bulk` + Worker） |
+| `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏；阶数 1–5 直接切快照，拖权重滑块时把权重作为 `w=` 参数发给服务端现算 | `GET /api/analysis/lottery?kind=prediction&order=N&w=34-20-22-14-10` |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | `GET /api/analysis/lottery?kind=math_trend` |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
 | `/results` | 赛果开奖 | 按比赛日翻看比分与五个玩法的开奖结果，未开奖场次明确标注 | `GET /api/results` |
@@ -63,7 +63,7 @@
 | 路由 | Next App Router：`src/app/[[...slug]]/page.tsx` 是唯一入口，页面分发由 `src/router/manifest.ts` + `AppShell` 在客户端完成（Keep-Alive 需要） |
 | 状态 | Zustand 5（`matchStore` / `authStore`）+ 自定义 hook（`useBetSlip`） |
 | 样式 | `src/styles/global.scss`（BEM，5 552 行）+ `authBets / results / account / confirmDialog`、`features/matchDetail`、`features/betting/autoParlay` 按域拆分 |
-| 计算 | 开奖分析 = 服务端「开奖后算一次 → 存快照 → 接口直读」（§5.3.1）；前端 Worker 只保留「自定义权重调参」这一条本地重算路径（另有主线程降级） |
+| 计算 | 全部在 Python 分析服务（`apps/analysis`）：开奖分析 / 走势 / 大乐透推演 / 投注推荐 / 场馆天气 / AI；前端只渲染快照，权重滑块也走服务端（`w=` 参数） |
 | 持久化 | IndexedDB（开奖历史）；localStorage（登录 token、AI 结果缓存、免责弹层偏好） |
 | 传输 | 浏览器 `fetch('/api/*')`（默认同源，Vercel rewrite 转发到 API 项目）；API 只读库，不直连上游 |
 | 截图 | html2canvas → `canvas.toDataURL('image/png')` |
@@ -108,6 +108,7 @@ npm run web:start           # 本地跑生产产物（:3000）
 | `AUTH_ALLOW_INSECURE` | `0` | 认证接口默认只接受 HTTPS；本机/内网自动放行 |
 | `WECHAT_APP_ID` / `WECHAT_APP_SECRET` / `WECHAT_REDIRECT_URI` | — | 微信开放平台扫码登录；缺失时前端展示接入步骤 |
 | `APP_WEB_BASE` | `http://127.0.0.1:5199` | 微信回调结束后跳回的前端地址 |
+| `ANALYSIS_API_BASE` | — | Python 分析服务地址；配置后分析接口走反向代理，留空 = Node 内联实现 |
 | `SPORTTERY_BASE` / `JUHE_*_BASE` | 官方地址 | 指向 mock 服务即可离线联调 |
 
 ### 分层与依赖规则
@@ -148,8 +149,7 @@ flowchart TB
     S1["matchStore / authStore"]
     S2["useBetSlip / useAutoParlay"]
     S3["useMatchAiAnalysis / useParlayAiAnalysis"]
-    S4["historyAnalysisWorker"]
-    S5["mathTrendAnalysisWorker"]
+    S4["useAnalysisSnapshot / usePredictionTuning"]
   end
 
   subgraph L5["⑤ 服务层与传输 src/service + src/api"]
@@ -164,7 +164,7 @@ flowchart TB
   subgraph L6["⑥ 领域模型与本地存储"]
     direction LR
     D1["sporttery / lotteryHistory"]
-    D2["historyPrediction / dltIndicators / dltRecommendation"]
+    D2["analysisTypes / dltIndicators"]
     D3["constellation / weather"]
     D4["storage/historyDb（IndexedDB）"]
   end
@@ -275,8 +275,11 @@ D:\ticai
 ├─ scripts/
 │  ├─ dev.mjs                  # 并行拉起 API + Next dev，任一退出则联动关闭
 │  ├─ db-migrate.mjs           # 迁移执行器（up|seed|status|verify）
-│  ├─ sync-analysis.mjs        # TS 算法 → apps/api/src/analysis/*.mjs（--check 防漂移）
 │  ├─ analyze-snapshot.mjs     # 分析快照回填 / --force 重算 / --status 巡检
+│  ├─ analysis-dev.mjs         # 本地起 Python 分析服务（uvicorn，默认 3012）
+│  ├─ analysis-test.mjs        # 跑 Python 单测 + 与 Node 的对拍（npm run analysis:test）
+│  ├─ export-*-fixtures.mjs    # 三家对拍夹具：推荐 / 开奖分析 / AI 提示词
+│  ├─ deploy-analysis.mjs      # 发布 Python 分析服务（Vercel 项目 ticai-analysis）
 │  ├─ ai-smoke.mjs             # npm run ai:check 密钥连通性自检
 │  ├─ check-secrets.mjs        # 暂存区密钥扫描
 │  ├─ update-architecture.mjs  # 按文件清单生成 architecture.svg/.png
@@ -312,7 +315,7 @@ D:\ticai
    │  │  ├─ ParlayAiAnalysisPanel.tsx / useParlayAiAnalysis.ts # 方案级判断
    │  │  ├─ aiAnalysisCache.ts # AI 结果 localStorage 缓存（3 小时 TTL）
    │  │  ├─ useBetSlip.ts / betSlipMath.ts # 选择态与纯函数投注计算
-   │  │  ├─ parlayModel.ts / useAutoParlay.ts / AutoParlayPanel.tsx # 一键串关
+   │  │  ├─ recommendation.ts / useAutoParlay.ts / AutoParlayPanel.tsx # 一键推荐（概率在服务端算）
    │  │  ├─ MatchPoolList.tsx / BetSlipFooter.tsx / PlanModal.tsx / SnapshotOverlay.tsx
    │  │  └─ betPayload.ts      # 投注单请求体（登录后保存）
    │  ├─ bets                  # 投注详情弹层 + 金额格式
@@ -329,10 +332,9 @@ D:\ticai
    │  └─ counterService.ts     # 死代码（无消费方）
    ├─ store                    # matchStore / authStore（zustand persist）/ counterStore
    ├─ domain
-   │  ├─ historyPrediction.ts  # 1069 行预测算法（纯函数）
+   │  ├─ analysisTypes.ts      # 分析结果的类型与空态占位（算法在 Python，前端不再计算）
    │  ├─ lotteryHistory.ts     # ★ 开奖记录 / 缓存元数据类型
-   │  ├─ dltIndicators.ts      # 大乐透前区/后区逐期指标与解析（纯函数）
-   │  ├─ dltRecommendation.ts  # 大乐透 5+2 号码推演：频次/遗漏评分 + 形态筛选 + 理由
+   │  ├─ dltIndicators.ts      # 大乐透前区/后区逐期指标的展示用计算（走势图右栏）
    │  └─ sporttery.ts / constellation.ts / weather.ts / counter.ts
    ├─ api
    │  ├─ httpClient.ts / base.ts # 超时 + AbortSignal + 统一 ApiError；同源 /api
@@ -341,7 +343,6 @@ D:\ticai
    │  ├─ authApi.ts / betApi.ts
    │  ├─ index.ts              # 统一导出
    │  └─ types.ts              # BffEnvelope<T>
-   ├─ workers                  # 2 个 Worker 协议实现
    ├─ styles                   # global.scss + authBets / results / account / confirmDialog
    ├─ components               # 骨架屏 / 大乐透指标与推荐 / ConfirmDialog
    └─ assets                   # 未被引用的图片（可删）
@@ -526,37 +527,36 @@ flowchart TD
 sequenceDiagram
   autonumber
   participant P as 分析页 / 开奖页
-  participant API as apps/api
+  participant N as apps/api（Node）
+  participant A as apps/analysis（Python）
   participant S as lottery_analysis_snapshot
-  participant W as historyAnalysisWorker
-  participant D as domain/historyPrediction
 
-  P->>API: GET /api/analysis/lottery?game=pl5&kind=prediction&order=2
-  API->>S: 读最新快照（1 次往返）
-  S-->>API: payload + 溯源（期号 / 开奖日 / 样本期数）
-  API-->>P: analysis + sample + stale
+  P->>N: GET /api/analysis/lottery?game=pl5&kind=prediction&order=2
+  N->>A: 反向代理（ANALYSIS_API_BASE）
+  A->>S: 读最新快照（1 次往返）
+  S-->>A: payload + 溯源（期号 / 开奖日 / 样本期数）
+  A-->>N: analysis + sample + stale
+  N-->>P: 原样返回（x-analysis-via: python）
   P->>P: 直接渲染（约 2 KB gzip）
 
-  Note over P,W: 只有「拖权重滑块」才走本地：权重是连续值，服务端预算不了
-  P->>API: GET /api/history/bulk?gameNo=pl5（7761 期，约 45 KB gzip）
-  API-->>P: [期号, 号码] 紧凑二元组
-  P->>W: postMessage({requestId, entries, options})
-  W->>D: analyzeHistoryPrediction(entries, { markovOrder, scoreWeights })
-  D-->>W: 每位候选 / 回测 / 统计
-  W-->>P: postMessage({requestId, analysis})
-  P->>P: requestId 不匹配则丢弃
-  alt Worker 不可用
-    P->>D: 主线程同步计算
+  Note over P,A: 拖权重滑块：权重作为 w= 参数发给服务端现算，同参数命中同一条快照
+  P->>N: GET /api/analysis/lottery?...&w=34-20-22-14-10（400ms 防抖）
+  N->>A: 反向代理
+  A->>S: 查 config_key=markov=2;w=34-20-22-14-10
+  alt 快照不存在
+    A->>A: 全量重算（7762 期约 1.6s）并写回快照
   end
+  A-->>P: analysis（前端按 analysisTypes 渲染）
 ```
 
 算法要点：近期/长期频次 + 遗漏补偿 + 一阶/二阶转移加权打分；滚动回测 top1/top3；马尔可夫模式后继分布；组合推荐与冷热/和值/跨度统计；数学趋势页额外做线性回归斜率、预测中心、标准差波动率（240 期窗口、120 期起验证）。
 
 两个分析页在等待快照时渲染 `AnalysisPageSkeleton`：预测 hero、权重/模型面板、概览和走势卡都有占位块，顶部统计 chips 也换为骨架，避免先闪出一屏 `0 / --` 再跳变。
 
-> ✅ 2026-10-27：三个页面（`/history`、`/history-analysis`、`/math-trend-analysis`）已改为读服务端快照；
-> 前端不再下载全量开奖、也不再在首屏跑全量回测。Worker 只保留「自定义权重 → 本地重算」这一条路径，
-> 且只在用户真的拖了滑块时才触发。
+> ✅ 2026-10-29：三个页面（`/history`、`/history-analysis`、`/math-trend-analysis`）只读服务端快照；
+> 权重滑块也改成 `w=` 参数（400ms 防抖）由 Python 现算并落库。
+> 前端 `domain/historyPrediction.ts`、`domain/dltRecommendation.ts`、`workers/historyAnalysisWorker.ts`
+> 与 `scripts/sync-analysis.mjs` 已删除——前端不再保留任何分析算法副本。
 
 ### 5.3.1 开奖分析快照：开奖后算一次，接口直读
 
@@ -603,8 +603,8 @@ flowchart LR
 | `game_no` / `kind` / `config_key` | 彩种 × 分析种类（prediction / math_trend / dlt）× 参数指纹（如 `markov=2`） |
 | `through_issue` / `through_issue_seq` / `through_draw_date` | **基于哪一期、哪一天**（最新一期开奖） |
 | `from_issue` / `from_draw_date` / `draw_count` | 样本起点与真正吃进去的期数（数学走势 240、大乐透 300） |
-| `payload` | 与前端 `analyze*` 返回值同构，前端可直接渲染 |
-| `meta` | 算法版本 + 源指纹（`npm run analysis:sync` 生成）+ 选项 |
+| `payload` | 与前端渲染同构（类型见 `src/domain/analysisTypes.ts`），前端可直接渲染 |
+| `meta` | 引擎版本 + 指纹（Python 版写 `python <版本>` / `python-port-1`）+ 选项 |
 | `source` / `crawl_run_id` / `duration_ms` / `computed_at` | 谁触发的（crawler / cli / api）、哪一轮抓取、算了多久 |
 
 唯一键 `(game_no, kind, config_key, through_issue)`：同一期重复触发是 upsert，不会堆垃圾；
@@ -618,8 +618,9 @@ flowchart LR
 
 ```text
 GET /api/analysis/lottery?game=pl5&kind=prediction&order=2
+GET /api/analysis/lottery?game=pl5&kind=prediction&order=3&w=34-20-22-14-10   # 自定义权重
 → { game, kind, configKey, sample{throughIssue,throughDrawDate,fromIssue,drawCount},
-    engine{version,digest}, analysis{…与前端同构…}, stale, latestDraw }
+    engine{version,digest,runtime}, analysis{…与前端渲染同构…}, stale, latestDraw }
 响应头：x-analysis-through-issue / -through-date / -draw-count / -computed-at / -stale
 缓存：同一期快照不变 → public, s-maxage=900；落后开奖时降到 60s
 ```
@@ -630,9 +631,9 @@ GET /api/analysis/lottery?game=pl5&kind=prediction&order=2
 **为什么不「请求时现算」**：7760 期全量回测 1.4–1.9s，加上冷启动与远端库往返就是 3–6s，
 而结果只在「多了一期开奖」时才变——现算等于把同一份结果重复算给每个访客。
 
-**算法源只有一份**：`src/domain/*.ts` 仍是唯一真源，`npm run analysis:sync`
-用 tsc 做等价翻译产出 `apps/api/src/analysis/*.mjs`（API 是零构建、上传源码的部署方式，不能 import .ts）；
-`--check` 在 pre-commit 拦截「改了 TS 忘了同步」。
+**算法源只有一份**：Python 分析服务 `apps/analysis/app/analysis/`（`prediction.py` / `dlt.py` / `dlt_indicators.py`）。
+前端只保留 `domain/analysisTypes.ts`（类型与空态）与 `domain/dltIndicators.ts`（走势图右栏的展示计算）；
+`apps/api/src/analysis/*.mjs` 是冻结的 Node 内联回退实现，不再从任何 TS 生成。
 
 ### 5.4 比赛 AI 分析（SSE）
 
@@ -807,6 +808,79 @@ flowchart LR
   以后接小程序/Apple 只是新增 `channel` 与一个 adapter（`apps/api/src/wechat.mjs`）。
 - **未接入时给指引**：没配 `WECHAT_*` 时 `config` 返回 `enabled: false` 与 `missing`，登录页/账号页把按钮变成「接入步骤」弹层，不影响邮箱登录与投注。
 
+### 5.9 投注推荐（服务端，`/api/recommendations`）
+
+推荐算法从浏览器搬到了服务端（`apps/api/src/recommend/`）。旧实现是在浏览器里用同一份赔率反推 λ、
+再拿模型概率去和市场概率比大小，专挑差值最大的选项——等于用同一份赔率跟自己打，必然在拟合噪声处
+「发现优势」，于是把 22.00 这种冷门串进 8 串 1（历史投注单全是未中）。
+
+```mermaid
+flowchart LR
+    DB[(在售赛事 + 最新赔率)] --> M["幂法去水<br/>市场概率"]
+    DB --> I["伤停 feed"]
+    DB --> H["已完成比赛<br/>近况 / λ 有界修正"]
+    M --> L["反推 λ<br/>胜平负 + 总进球"]
+    I --> L
+    H --> L
+    L --> P["Dixon-Coles 比分矩阵<br/>→ 胜平负 / 让球 / 总进球"]
+    M --> B["融合 w ≤ 0.42"]
+    P --> B
+    B --> F["单选过滤<br/>市场概率 / 赔率带"]
+    F --> C["串关风控<br/>≤3 场 · 总赔率 ≤8 · 单腿 ≤3.3"]
+    C --> R[/api/recommendations/]
+    DB2[(match_result + 赛前赔率)] --> T["同口径回测"]
+```
+
+要点：
+
+- **市场是基准**：幂法去水（`p_i = (1/o_i)^k`，二分求 k）而不是比例归一。比例归一会把抽水按比例摊，
+  系统性高估长赔——那正是旧推荐偏爱冷门的原因之一。
+- **数据只做有界修正**：近况最多挪动 λ ±12%，伤停每缺 1 人 −3%（最多 −12%）；
+  融合权重 `w = 0.06×样本数 + 伤停 0.04`，上限 0.42。没有近况的场次 `w≈0.02`，基本按市场走，不凭空造优势。
+- **风控硬约束**：只有单关 / 2串1 / 3串1；单腿赔率 ≤ 3.3（低概率玩法单关档 ≤ 4.5）、
+  2串1 融合命中率 ≥ 26%、3串1 ≥ 15%、总赔率 ≤ 8；同联赛成串会被轻微降权。
+- **宁可空着**：达不到门槛就返回空方案 + 每条被过滤的原因；比分 / 半全场直接不参与（方差太大）。
+- **自曝回测**：`match_result` × 开赛前最后一次赔率快照跑同口径回测（单场首选 / 2串1 模拟 / 长赔 / 赔率区间），
+  把「高赔到底是什么水平」摆给用户看，而不是只给结论。
+- **诚实标注**：方案同时给融合命中率与期望回报（`<1` 是常态，庄家抽水仍在），不宣称稳赚。
+
+数据现状（2026-10 实测）：在售约 19 场都有五个玩法赔率；伤停 feed 覆盖当天 7 场；
+官方近况 / 交锋 / 积分 feed 默认不抓（`crawl:details` 只取伤停，`--full` 才补齐），
+所以「近况」多数时候来自本库已结束比赛（近两周 111 场，样本很薄），引擎按样本数量自动降低权重。
+
+#### 5.9.1 分析服务（Python）与反向代理
+
+推荐引擎先迁到了 `apps/analysis`（Python + FastAPI），后续所有分析接口都往这里搬：
+
+```
+浏览器 ──同源 /api/**──▶ Next rewrite ──▶ apps/api (Node)
+                                           ├── 非分析接口：自己处理（赛事/账号/投注/…）
+                                           └── 分析接口：ANALYSIS_API_BASE ? 反向代理 → apps/analysis（Python）
+                                                                        : 内联实现（迁移期回退）
+```
+
+- **接口形状完全一致**：两边都是 `{success, data}` / `{success:false, errorMessage}`，
+  字段名、选腿、缓存放同一个位置；前端零改动。
+- **回滚靠环境变量**：删掉 `ANALYSIS_API_BASE` 就回到 Node 内联实现，不用回滚代码；
+  Python 侧故障时代理失败，Node 自动回退（响应头 `x-analysis-via: python` 表示这一跳走了 Python；
+  `x-analysis-source` 仍表示快照来源，两者不要混用）。
+- **已迁移的分析路径**：`/api/recommendations`、`/api/analysis/lottery`（`prediction` / `math_trend` / `dlt`）、
+  `/api/venue-weather`、`/api/ai-analysis` 与 `/api/ai-parlay`（SSE 原样流式转发）都走 Python；
+  代理只认路径，后续新增分析接口只需往 `ANALYSIS_PATHS` 里加一条。
+- **对拍**：`npm run analysis:fixtures` 用 Node 引擎导出一批真实盘口的期望结果（提交在仓库里），
+  `npm run analysis:test` 里 Python 必须给出同样的方案与选腿，概率差 < 5e-3（实测最大 5e-4，
+  来自 λ 粗网格的浮点求和顺序）。
+- **部署**：Vercel 项目 `ticai-analysis`（Python 运行时，`api/index.py` 暴露 ASGI app），
+  `npm run deploy:analysis` 发布；Node 项目设 `ANALYSIS_API_BASE` 指向它。
+- **Vercel rewrite 会丢路径**：函数里看到的 `path` 恒为 `/api/index`（`destination` 写 `/api` 也一样）。
+  因此 `vercel.json` 用 `destination: "/api/index?__path=/$1"` 带上原路径，`app/main.py` 的
+  `RewritePathMiddleware` 在 ASGI 层还原并摘掉 `__path`；回归测试在 `tests/test_middleware.py`。
+- **Deployment Protection 必须关**：否则 Node 代理被 Vercel Authentication 挡住（401），只能回退内联。
+- **线上验证**：`x-analysis-via: python` 是「这一跳真的走了 Python」的唯一判据；
+  2026-10-29 实测生产链路（`https://yujun426.online/api/...`）：开奖分析 300ms、推荐 877ms、
+  天气 2.1s（Manchester）、大乐透 377ms、自定义权重 `markov=3;w=60-20-22-14-10`、AI SSE 42 个事件。
+- **测试命令**：`npm run analysis:test`（Python unittest：数学、风控边界、AI 提示词、rewrite 中间件、与 Node 对拍）。
+
 ---
 
 ## 6. 接口契约（`apps/api`）
@@ -825,6 +899,7 @@ flowchart LR
 | AI | `POST /api/ai-analysis`、`POST /api/ai-parlay`、`POST /api/ai-chat` | 数据库 + DeepSeek | 无（SSE） |
 | 认证 | `POST /api/auth/code` `/register` `/login` `/logout`、`GET /api/auth/me` | 数据库 + Resend | 无 |
 | 账号安全 | `POST /api/auth/password`（设置 / 修改密码）、`POST /api/auth/email`（绑定邮箱） | 数据库 + Resend | 无 |
+| 投注推荐 | `GET /api/recommendations`（`pool=had\|hhad\|ttg\|mixed`、`scope=today\|all`） | 数据库（赔率 + 伤停 + 历史战绩） | 60 s（回测 10 min） |
 | 身份 | `GET /api/auth/identities`、`DELETE /api/auth/identities/:provider` | 数据库 | 无 |
 | 微信 | `GET /api/auth/wechat/config` `/start` `/callback`、`POST /api/auth/wechat/session` | 微信开放平台 | 无 |
 | 投注 | `GET/POST /api/bets`、`GET /api/bets/stats`、`GET/DELETE /api/bets/:id` | 数据库 | 无（实时结算） |
@@ -1037,8 +1112,8 @@ flowchart LR
    按同一模式补 `/results`、`/history` 与两个分析页（见 §13.6）。
 8. **分析快照再压缩**：`payload` 目前每期 × 每参数存一条（约 11 KB），一年约 80 MB；
    如果以后参数变多，可以只存「最近 3 期」的完整 payload + 更早的摘要，或把 payload 挪到对象存储。
-9. **串关也快照化**：一键串关现在是浏览器里算（20 场十毫秒级），搬服务端的价值在于「定时每日推荐 / 可分享方案」，
-   需要先补一层服务端选项标签（`apps/api/src/ai/prompt.mjs` 已有 TTL/HAFU/CRS 标签表可复用）。
+9. **推荐快照化**：一键推荐已经搬到服务端（`apps/api/src/recommend/`，见 §5.9），下一步可以让爬虫开奖/停售后
+   定时算一份「当日推荐」写进表里，前端只读，顺便支持分享与历史回看。
 
 ---
 
@@ -1168,6 +1243,89 @@ flowchart LR
 | 登录后路由 | 验证码登录一律回首页 | `user.hasPassword === false` 时跳 `/account?setup=password`，账号页高亮密码卡片 |
 | 数据 | — | 迁移 [`0008_code_signup_password.sql`](../db/migrations/0008_code_signup_password.sql)：`app_user.password_updated_at`、`user_session.verified_by`、`email_code.purpose` 增加 `bind` |
 
+### 2026-10-29 增量：投注推荐搬到服务端（去水 + 有界修正 + 串关风控）
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 算在哪 | 浏览器里用当前赔率反推 λ，再拿模型概率和市场比，挑差值最大 | 服务端 `apps/api/src/recommend/` 统一算；前端只发 `GET /api/recommendations` |
+| 去水 | 比例归一（系统性高估长赔） | 幂法去水（`p_i=(1/o_i)^k` 二分求 k），长赔不被高估 |
+| 数据 | 只用赔率（自己跟自己打，必然「发现优势」） | 市场为基准 + 伤停 / 近况**有界**修正（λ ±12%、伤停每缺 1 人 −3%），样本少自动降权；融合权重 ≤ 0.42 |
+| 串关 | 串到关卡上限（最高 8 串 1），长赔越挑越冷 | 风控硬约束：≤3 场、单腿 ≤3.3、总赔率 ≤8、2串1 命中率 ≥26%；达不到就返回空方案 |
+| 玩法 | 比分 / 半全场也参与 | 只做胜平负 / 让球 / 总进球；比分与半全场不进推荐，总进球只给单关 |
+| 可解释 | 只有「EV」一列 | 每条腿给出：市场概率 → 模型概率 → 融合概率、近况/伤停理由、被过滤原因 |
+| 自证 | 无 | 同口径回测（`match_result` × 赛前赔率）：单场首选 / 2串1 模拟 / 长赔对照 / 赔率区间命中率 |
+
+### 2026-10-29 增量：分析层迁 Python（推荐先行，Node 代理 + 对拍）
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 分析实现 | 全在 Node（`apps/api/src/recommend/*.mjs`） | 新增 `apps/analysis`（Python + FastAPI），推荐引擎完整移植：泊松 / Dixon-Coles / 幂法去水 / λ 反推 / 风控 / 回测 |
+| 前端调用 | 直连 Node `/api/recommendations` | 不变：Node 按 `ANALYSIS_API_BASE` 反向代理到 Python；未配置或不可达时回退内联实现 |
+| 一致性 | 只有一套实现 | 对拍夹具（Node 导出）+ Python unittest：方案/选腿/概率一致，实测最大概率差 5e-4 |
+| 依赖 | Node 只有 `pg` | Python 侧只加 `fastapi` / `uvicorn` / `psycopg`；数学层不用 numpy（CDF + 卷积替代矩阵，单场拟合毫秒级） |
+| 部署 | 前端 + API 两个 Vercel 项目 | 新增 `ticai-analysis`（Python 运行时）+ `npm run deploy:analysis`；首次需建项目 |
+| 回滚 | — | 删掉 `ANALYSIS_API_BASE` 即回到 Node 实现，不用回滚代码 |
+
+后续回合（已全部完成，见本文档 2026-10-29 的三条增量）：开奖分析 / 走势 / 回测、场馆天气、
+AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权重滑块改服务端。
+
+### 2026-10-29 增量：开奖分析（预测 / 走势）迁 Python
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 位置型预测 | `history-prediction.mjs`（由 TS 生成）在 Node 算 | `app/analysis/prediction.py`：频次 / 遗漏 / 一阶与二阶转移 / 马尔可夫 1–5 阶 / 滚动回测 / 组合 + 冷热·和值跨度·奇偶大小统计 |
+| 数学走势 | 同上 | `analyze_math_trend_prediction`：线性趋势、预测中心、波动率、滚动验证 |
+| 对拍 | 只有一套实现 | 320/260/200 期夹具 + **全量 7762 期**逐字段对比：prediction、math_trend 差异 **0** |
+| 性能 | Node 全量 1.68s | 照搬的 O(n²) 要 64s → 改成增量流式（转移计数 / 出现次数 / 遗漏位置都增量维护）后 **1.59s**；数学走势 6.8s（Node 0.56s，快照预计算，不在请求路径上） |
+| 代理分流 | 全走 Node | `prediction` / `math_trend` / `dlt` 全部走 Python，代理只按路径判断 |
+| 响应头 | Node 自己产 | 代理透传全部 `x-analysis-*` 与 `server-timing`，另加 `x-analysis-via: python`；`x-analysis-source`（快照来源）语义不变 |
+
+### 2026-10-29 增量：大乐透推演 + 场馆天气迁 Python
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 大乐透 5+2 | `dlt-recommendation.mjs`（TS 生成）在 Node 算 | `app/analysis/dlt.py` + `dlt_indicators.py`：号码评分池、前区 12 码枚举 792 组合、后区 10 组合，和值/跨度/奇偶/大小/三区软约束，理由文案逐字一致 |
+| 对拍 | 只有一套实现 | 320 期夹具逐字段 **0 差异**（窗口固定 300 期，覆盖完整行为） |
+| 场馆天气 | `venue.mjs` + DeepSeek + Open-Meteo 全在 Node | `app/llm.py`（标准库 urllib 调 OpenAI 兼容接口）+ `app/venue.py`；城市解析 7 天、天气 20 分钟、失败 10 分钟短缓存；本地实跑两次同城同字段 |
+| 限流 | Node 内存限流 | `app/ratelimit.py` 滑动窗口，`/api/venue-weather` 默认 20 次/分/IP |
+| 代理 | 只拦推荐与两种 kind | 三条路径全部转发，AISSE 以后复用同一条通道 |
+| 测试 | 20 个 Python 用例 | 31 个（新增大乐透对拍 + 天气纯函数：北京时间换算、预报对齐、国家名归一、地理编码挑选、TTL 缓存） |
+
+### 2026-10-29 增量：AI 单场/串关 SSE 迁 Python
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 提示词 | `ai/prompt.mjs`、`ai/parlay-prompt.mjs` 在 Node 拼接 | `app/ai/prompt.py`、`parlay_prompt.py` 逐字节移植（5 种玩法 + 天气 + 串关 + 缓存分析复用） |
+| 数据装配 | `ai/context.mjs`、`ai/parlay-context.mjs` | `app/ai/context.py`（比赛/赔率/feed/阵容 + 天气 5s 上限）、`parlay_context.py`（3 条 SQL 取齐） |
+| 流式 | Node `llm.mjs` 手写 SSE 解析 | `app/llm.py` 增加 `open_chat_stream`：先建连（失败回 JSON 错误），再按行解析 `data:`，产出 reasoning/content 增量 |
+| 协议 | `meta → reasoning/content → done / error` | 完全一致；本地实测单场 80 个 content 增量、串关 meta `{legs:2,matched:2,promptChars:380}` 两侧相同 |
+| 对拍 | 无 | 提示词夹具（5 池 + 天气 + 串关）逐字节 0 差异；LLM 正文不参与比较 |
+| 代理 | 只到天气 | `/api/ai-analysis`、`/api/ai-parlay` 也走代理，`pipeline` 直接透传 `text/event-stream` |
+
+### 2026-10-29 增量：删掉前端 TS 分析实现，权重滑块改服务端
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 预测 / 推演算法 | `src/domain/historyPrediction.ts`（1069 行）+ `dltRecommendation.ts`（602 行）在浏览器算 | 全部删除；唯一实现在 `apps/analysis`（Python），前端只留类型 |
+| Worker | `workers/historyAnalysisWorker.ts` + 主线程降级 | 删除；分析页不再持有任何算法 |
+| 生成链 | `scripts/sync-analysis.mjs`（TS → `.mjs`）+ `analysis:sync` / `analysis:check` | 删除；`apps/api/src/analysis/*.mjs` 冻结为 Node 内联回退 |
+| 权重滑块 | 下载全量开奖（约 45 KB gzip）→ Worker 重算 | `w=` 参数（400ms 防抖 + AbortController）→ Python 现算并落快照 |
+| 空态 | 调 `analyzeHistoryPrediction([])` 现算一个空结果 | `domain/analysisTypes.ts` 的 `EMPTY_*` 静态占位 |
+| 大乐透推演 | 面板优先快照、无快照时本地算 | 只读快照，无快照显示空态 |
+
+### 2026-10-29 上线：分析服务部署到 Vercel（ticai-analysis）
+
+| 项 | 内容 |
+| --- | --- |
+| 项目 | `ticai-analysis`（`prj_qFfNGED3ME8AfdYN25kMLbBKdqst`），Python 运行时，别名 `https://ticai-analysis.vercel.app` |
+| 环境变量 | `DATABASE_URL`、`DATABASE_SSL=1`、`DEEPSEEK_API_KEY`（值从本地 `.env` 经 Vercel API 写入，未进仓库） |
+| 首次发布 | `npm run deploy:analysis`（脚本自动读 `apps/analysis/.vercel/project.json`，找不到再回退 `vercel project ls`） |
+| 路径还原 | Vercel rewrite 丢失原始路径（函数只看到 `/api/index`）→ `vercel.json` 带 `?__path=/$1`，`RewritePathMiddleware` 还原 |
+| 安全 | 关闭 Deployment Protection（Vercel Authentication），否则 Node 代理 401 |
+| 接通 | `ticai-service` 设 `ANALYSIS_API_BASE=https://ticai-analysis.vercel.app` 并重新发布 API（环境变量变更需重新部署） |
+| 生产实测 | 开奖分析 300ms / 推荐 877ms / 天气 2082ms（Manchester）/ 大乐透 377ms / 权重 `markov=3;w=60-20-22-14-10` / AI SSE 42 事件，全部 `x-analysis-via: python` |
+| 回滚 | 删掉 `ANALYSIS_API_BASE` 重新发布 API 即回 Node 内联实现 |
+
 ---
 
 ## 12. 关键文件索引
@@ -1188,7 +1346,9 @@ flowchart LR
 | 导航适配 | [src/lib/navigation.ts](../src/lib/navigation.ts)、[src/lib/nav-state.ts](../src/lib/nav-state.ts) |
 | 首屏预取 | [src/proxy.ts](../src/proxy.ts)、[src/server/prefetch.ts](../src/server/prefetch.ts)、[src/ssr/initial-context.tsx](../src/ssr/initial-context.tsx)、[src/ssr/seed.ts](../src/ssr/seed.ts) |
 | 投注页 | [src/views/HomePage.tsx](../src/views/HomePage.tsx) |
-| 投注逻辑 | [src/features/betting/useBetSlip.ts](../src/features/betting/useBetSlip.ts)、[betSlipMath.ts](../src/features/betting/betSlipMath.ts)、[parlayModel.ts](../src/features/betting/parlayModel.ts)、[betPayload.ts](../src/features/betting/betPayload.ts) |
+| 投注逻辑 | [src/features/betting/useBetSlip.ts](../src/features/betting/useBetSlip.ts)、[betSlipMath.ts](../src/features/betting/betSlipMath.ts)、[recommendation.ts](../src/features/betting/recommendation.ts)、[betPayload.ts](../src/features/betting/betPayload.ts) |
+| 投注推荐（服务端） | [apps/api/src/recommend/engine.mjs](../apps/api/src/recommend/engine.mjs)、[math.mjs](../apps/api/src/recommend/math.mjs)、[odds.mjs](../apps/api/src/recommend/odds.mjs)、[data.mjs](../apps/api/src/recommend/data.mjs)、[backtest.mjs](../apps/api/src/recommend/backtest.mjs)、[handlers/recommendations.mjs](../apps/api/src/handlers/recommendations.mjs) |
+| 分析服务（Python） | [apps/analysis/app/main.py](../apps/analysis/app/main.py)、[recommend/engine.py](../apps/analysis/app/recommend/engine.py)、[mathx.py](../apps/analysis/app/recommend/mathx.py)、[tests](../apps/analysis/tests/test_recommend.py)、[apps/api/src/proxy.mjs](../apps/api/src/proxy.mjs)、[scripts/export-analysis-fixtures.mjs](../scripts/export-analysis-fixtures.mjs)、[scripts/deploy-analysis.mjs](../scripts/deploy-analysis.mjs) |
 | 投注组件 | [MatchPoolList.tsx](../src/features/betting/MatchPoolList.tsx)、[MatchListSkeleton.tsx](../src/features/betting/MatchListSkeleton.tsx)、[BetSlipFooter.tsx](../src/features/betting/BetSlipFooter.tsx)、[PlanModal.tsx](../src/features/betting/PlanModal.tsx)、[SnapshotOverlay.tsx](../src/features/betting/SnapshotOverlay.tsx) |
 | 单场 AI | [AiAnalysisPanel.tsx](../src/features/betting/AiAnalysisPanel.tsx)、[useMatchAiAnalysis.ts](../src/features/betting/useMatchAiAnalysis.ts)、[aiAnalysis.ts](../src/features/betting/aiAnalysis.ts) |
 | 方案 AI | [ParlayAiAnalysisPanel.tsx](../src/features/betting/ParlayAiAnalysisPanel.tsx)、[useParlayAiAnalysis.ts](../src/features/betting/useParlayAiAnalysis.ts)、[parlayAiAnalysis.ts](../src/features/betting/parlayAiAnalysis.ts) |
@@ -1198,13 +1358,13 @@ flowchart LR
 | 自动交付 | [scripts/update-architecture.mjs](../scripts/update-architecture.mjs)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs)、[scripts/deploy-api.mjs](../scripts/deploy-api.mjs)、[scripts/check-secrets.mjs](../scripts/check-secrets.mjs)、[scripts/git-hooks](../scripts/git-hooks)、[AGENTS.md](../AGENTS.md) |
 | 开奖缓存 | [src/service/historyService.ts](../src/service/historyService.ts) |
 | IndexedDB 仓储 | [src/storage/historyDb.ts](../src/storage/historyDb.ts) |
-| 预测算法 | [src/domain/historyPrediction.ts](../src/domain/historyPrediction.ts) |
-| 分析快照（服务端） | [apps/api/src/analysis/compute.mjs](../apps/api/src/analysis/compute.mjs)、[configs.mjs](../apps/api/src/analysis/configs.mjs)、[handlers/lottery-analysis.mjs](../apps/api/src/handlers/lottery-analysis.mjs) |
-| 分析快照（前端） | [src/features/analysis/useAnalysisSnapshot.ts](../src/features/analysis/useAnalysisSnapshot.ts)、[usePredictionTuning.ts](../src/features/analysis/usePredictionTuning.ts)、[src/api/lotteryAnalysisApi.ts](../src/api/lotteryAnalysisApi.ts) |
-| 分析快照（生成/回填） | [scripts/sync-analysis.mjs](../scripts/sync-analysis.mjs)、[scripts/analyze-snapshot.mjs](../scripts/analyze-snapshot.mjs) |
+| 预测算法（Python） | [apps/analysis/app/analysis/prediction.py](../apps/analysis/app/analysis/prediction.py)、[dlt.py](../apps/analysis/app/analysis/dlt.py)、[dlt_indicators.py](../apps/analysis/app/analysis/dlt_indicators.py) |
+| 分析快照（服务端） | [apps/api/src/analysis/compute.mjs](../apps/api/src/analysis/compute.mjs)、[configs.mjs](../apps/api/src/analysis/configs.mjs)、[handlers/lottery-analysis.mjs](../apps/api/src/handlers/lottery-analysis.mjs)、[apps/analysis/app/analysis/compute.py](../apps/analysis/app/analysis/compute.py) |
+| 分析快照（前端） | [src/features/analysis/useAnalysisSnapshot.ts](../src/features/analysis/useAnalysisSnapshot.ts)、[usePredictionTuning.ts](../src/features/analysis/usePredictionTuning.ts)、[src/api/lotteryAnalysisApi.ts](../src/api/lotteryAnalysisApi.ts)、[src/domain/analysisTypes.ts](../src/domain/analysisTypes.ts) |
+| 分析快照（生成/回填） | [scripts/analyze-snapshot.mjs](../scripts/analyze-snapshot.mjs)、[scripts/analysis-test.mjs](../scripts/analysis-test.mjs)、[scripts/analysis-dev.mjs](../scripts/analysis-dev.mjs) |
 | 分析快照（表结构） | [db/migrations/0007_analysis_snapshot.sql](../db/migrations/0007_analysis_snapshot.sql) |
 | 开奖逐期指标 | [src/domain/dltIndicators.ts](../src/domain/dltIndicators.ts)、[src/components/DltIndicatorRail.tsx](../src/components/DltIndicatorRail.tsx) |
-| 大乐透号码推演 | [src/domain/dltRecommendation.ts](../src/domain/dltRecommendation.ts)、[src/components/DltRecommendationPanel.tsx](../src/components/DltRecommendationPanel.tsx) |
+| 大乐透号码推演 | [apps/analysis/app/analysis/dlt.py](../apps/analysis/app/analysis/dlt.py)、[src/components/DltRecommendationPanel.tsx](../src/components/DltRecommendationPanel.tsx) |
 | 传输层 | [src/api/httpClient.ts](../src/api/httpClient.ts)、[src/api/sportteryApi.ts](../src/api/sportteryApi.ts) |
 | 数据库 schema | [db/migrations/0001_init.sql](../db/migrations/0001_init.sql) |
 | 彩种种子 | [db/seed/001_lottery_games.sql](../db/seed/001_lottery_games.sql) |

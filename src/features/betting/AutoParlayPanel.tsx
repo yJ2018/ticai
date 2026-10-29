@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
-import { type ParlayLeg } from './parlayModel'
+import { type RecommendPlan } from '../../api/recommendApi'
+import { planToLegs, type ParlayLeg } from './recommendation'
 import { type AutoParlayScope, type AutoParlayState } from './useAutoParlay'
 import './autoParlay.scss'
 
@@ -16,7 +17,7 @@ type AutoParlayPanelProps = {
 function percent(value: number) {
   const pct = value * 100
   if (pct >= 10) {
-    return `${pct.toFixed(0)}%`
+    return `${pct.toFixed(1)}%`
   }
   if (pct >= 1) {
     return `${pct.toFixed(1)}%`
@@ -31,9 +32,70 @@ function signedPercent(value: number) {
 
 const CONFIDENCE_LABEL = { high: '高', medium: '中', low: '低' } as const
 
+function PlanCard({ plan, onApply }: { plan: RecommendPlan; onApply: (legs: ParlayLeg[]) => void }) {
+  return (
+    <article className={`auto-parlay__plan is-${plan.id}`}>
+      <header className="auto-parlay__plan-head">
+        <div className="auto-parlay__plan-title">
+          <strong>{plan.label}</strong>
+          <span className={`auto-parlay__risk is-${plan.risk}`}>风险 {plan.risk}</span>
+        </div>
+        <div className="auto-parlay__plan-stats">
+          <span>
+            总赔率 <b>{plan.totalOdd.toFixed(2)}</b>
+          </span>
+          <span>
+            融合命中率 <b>{percent(plan.hitProb)}</b>
+          </span>
+          <span>
+            期望回报{' '}
+            <b className={plan.expectedReturn >= 1 ? 'is-good' : 'is-bad'}>
+              {plan.expectedReturn.toFixed(2)}×
+            </b>
+          </span>
+        </div>
+      </header>
+
+      <ol className="auto-parlay__plan-legs">
+        {plan.legs.map((leg) => (
+          <li key={leg.matchId}>
+            <div className="auto-parlay__leg-head">
+              <strong>{leg.matchNo}</strong>
+              <span>{leg.teams}</span>
+              <em className="auto-parlay__role is-primary">{leg.poolLabel}</em>
+            </div>
+            <div className="auto-parlay__leg-meta">
+              <b>{leg.optionLabel}</b>
+              <span>@ {leg.odd.toFixed(2)}</span>
+              <span>市场 {percent(leg.marketP)}</span>
+              <span>融合 {percent(leg.blendP)}</span>
+              <span className={leg.edge >= 0 ? 'is-good' : 'is-bad'}>{signedPercent(leg.edge)}</span>
+              <span className="auto-parlay__leg-conf">置信 {CONFIDENCE_LABEL[leg.confidence]}</span>
+            </div>
+            <ul className="auto-parlay__reasons">
+              {leg.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+
+      <p className="auto-parlay__note">{plan.note}</p>
+
+      <footer className="auto-parlay__plan-foot">
+        <span>{plan.legs.length === 1 ? '单关' : `${plan.legs.length}串1`}</span>
+        <button type="button" className="is-primary" onClick={() => onApply(planToLegs(plan))}>
+          应用到投注单
+        </button>
+      </footer>
+    </article>
+  )
+}
+
 /**
- * 一键串关的分析过程面板：步骤条 + 进度 + 最终的三选与串关明细。
- * 数字都是模型真算出来的，动画只负责把阶段露出来。
+ * 一键推荐面板：方案 + 每条腿的数据理由 + 回测 + 过滤说明。
+ * 数字全部来自服务端，前端不算概率。
  */
 export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeChange }: AutoParlayPanelProps) {
   const open = state.poolType !== null
@@ -60,9 +122,8 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
     return null
   }
 
-  const plan = state.plan
-  const shortPlan = state.shortPlan
-  const progress = plan ? 100 : state.total > 0 ? Math.round((state.processed / state.total) * 100) : 4
+  const data = state.data
+  const backtest = data?.backtest
 
   return createPortal(
     <div
@@ -74,16 +135,18 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
         }
       }}
     >
-      <section className="auto-parlay__card" role="dialog" aria-modal="true" aria-label="一键串关分析">
+      <section className="auto-parlay__card" role="dialog" aria-modal="true" aria-label="投注推荐">
         <header className="auto-parlay__head">
           <div>
-            <p className="auto-parlay__eyebrow">一键串关 · {poolLabel}</p>
+            <p className="auto-parlay__eyebrow">投注推荐 · {data?.poolLabel ?? poolLabel}</p>
             <h2>
               {state.running
-                ? '正在分析…'
-                : plan
-                  ? `${plan.legs.length}串1 方案`
-                  : state.error || '分析完成'}
+                ? '服务端正在算…'
+                : data
+                  ? data.plans.length > 0
+                    ? `${data.plans.length} 个方案 · 覆盖 ${data.coverage.inScope} 场`
+                    : `今天没有达门槛的方案`
+                  : state.error || '推荐结果'}
             </h2>
           </div>
           <button type="button" className="auto-parlay__close" onClick={onClose} aria-label="关闭">
@@ -111,149 +174,113 @@ export function AutoParlayPanel({ state, poolLabel, onApply, onClose, onScopeCha
             </button>
           </div>
           <span className="auto-parlay__scope-note">
-            {state.scope === 'today'
-              ? `默认只串今天 · ${state.inScope} 场可用${state.excluded > 0 ? `，已排除跨天 ${state.excluded} 场` : ''}`
-              : `已放开跨天 · 共 ${state.inScope} 场`}
+            {data
+              ? `在售 ${data.coverage.onSale} 场 · ${state.scope === 'today' ? '今天' : '全部'} ${data.coverage.inScope} 场 · 有赔率 ${data.coverage.withOdds} · 有伤停 ${data.coverage.withInjury} · 有近况 ${data.coverage.withHistory}`
+              : '概率全部由服务端计算'}
           </span>
         </div>
 
         <div className="auto-parlay__progress" aria-hidden="true">
-          <span style={{ width: `${Math.max(4, progress)}%` }} />
+          <span style={{ width: state.running ? '55%' : '100%' }} />
         </div>
-
-        <ol className="auto-parlay__steps">
-          {state.steps.map((step, index) => (
-            <li key={step.key} className={`is-${step.status}`}>
-              <i aria-hidden="true">
-                {step.status === 'done' ? '✓' : step.status === 'active' ? <span className="auto-parlay__dot" /> : index + 1}
-              </i>
-              <span>{step.label}</span>
-              <em>{step.detail}</em>
-            </li>
-          ))}
-        </ol>
 
         {state.running && (
           <p className="auto-parlay__running">
-            已分析 <b>{state.processed}</b> / {state.total || '—'} 场 · 模型依据：1X2 反推 λ → 泊松分布 → EV
+            读库 → 赔率去水 → 反推 λ → 近况/伤停有界修正 → 串关风控
           </p>
         )}
 
-        {plan && (
-          <div className="auto-parlay__result">
-            <div className="auto-parlay__summary">
-              <div>
-                <span>总赔率</span>
-                <b>{plan.totalOdd.toFixed(2)}</b>
-              </div>
-              <div>
-                <span>模型命中率</span>
-                <b>{percent(plan.hitProb)}</b>
-              </div>
-              <div>
-                <span>期望回报</span>
-                <b className={plan.expectedReturn >= 1 ? 'is-good' : 'is-bad'}>
-                  {plan.expectedReturn.toFixed(2)}×
-                </b>
-              </div>
-              <div>
-                <span>风险</span>
-                <b className={`auto-parlay__risk is-${plan.risk}`}>{plan.risk}</b>
-              </div>
-            </div>
+        <div className="auto-parlay__result">
+          {data?.plans.map((plan) => (
+            <PlanCard key={plan.id} plan={plan} onApply={onApply} />
+          ))}
 
-            <div className="auto-parlay__table-wrap">
-              <table className="auto-parlay__table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>场次 / 对阵</th>
-                    <th>选择</th>
-                    <th>赔率</th>
-                    <th>模型概率</th>
-                    <th>EV</th>
-                    <th>置信度</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plan.legs.map((leg, index) => (
-                    <tr key={leg.matchId}>
-                      <td className="is-index">{index + 1}</td>
-                      <td className="is-match">
-                        <strong>{leg.matchNo}</strong>
-                        <span>{leg.teams}</span>
-                      </td>
-                      <td>
-                        <em className={`auto-parlay__role is-${leg.role === '首选' ? 'primary' : 'steady'}`}>
-                          {leg.role}
-                        </em>
-                        {leg.pick.label}
-                      </td>
-                      <td className="is-num">{leg.pick.odd.toFixed(2)}</td>
-                      <td className="is-num">{percent(leg.pick.modelP)}</td>
-                      <td className={`is-num ${leg.ev >= 0 ? 'is-good' : 'is-bad'}`}>{signedPercent(leg.ev)}</td>
-                      <td className="is-num">{CONFIDENCE_LABEL[leg.confidence]}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <ul className="auto-parlay__legs">
-              {plan.legs.map((leg) => (
-                <li key={`card-${leg.matchId}`}>
-                  <div className="auto-parlay__leg-head">
-                    <strong>{leg.matchNo}</strong>
-                    <span>{leg.teams}</span>
-                  </div>
-                  <div className="auto-parlay__leg-meta">
-                    <em className={`auto-parlay__role is-${leg.role === '首选' ? 'primary' : 'steady'}`}>
-                      {leg.role}
-                    </em>
-                    <b>{leg.pick.label}</b>
-                    <span>赔率 {leg.pick.odd.toFixed(2)}</span>
-                    <span>概率 {percent(leg.pick.modelP)}</span>
-                    <span className={leg.ev >= 0 ? 'is-good' : 'is-bad'}>{signedPercent(leg.ev)}</span>
-                  </div>
-                </li>
+          {data && !state.running && data.notes.length > 0 && (
+            <ul className="auto-parlay__notes">
+              {data.notes.map((note) => (
+                <li key={note}>{note}</li>
               ))}
             </ul>
+          )}
 
-            <p className="auto-parlay__note">
-              {plan.note} 共 {state.analyzed} 场参与建模，按置信度与 EV 取前 {plan.legs.length} 场；
-              赔率来自竞彩官方，伤停/天气未纳入，结论只作概率参考。
-            </p>
+          {data && !state.running && data.candidates.length > 0 && (
+            <details className="auto-parlay__cands">
+              <summary>全部候选（{data.candidates.length} 场）与被过滤原因</summary>
+              <ul>
+                {data.candidates.map((candidate) => (
+                  <li key={candidate.matchId}>
+                    <span className="auto-parlay__cand-match">
+                      <strong>{candidate.matchNo}</strong> {candidate.teams}
+                    </span>
+                    <span className="auto-parlay__cand-pick">
+                      {candidate.optionLabel} @{candidate.odd.toFixed(2)} · 融合 {percent(candidate.blendP)}
+                    </span>
+                    {candidate.passSafe || candidate.passAggressive ? (
+                      <em className="is-on">已入方案</em>
+                    ) : (
+                      <em className="is-off">{candidate.rejectReason || '未达门槛'}</em>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
 
-            {shortPlan && (
-              <div className="auto-parlay__alt">
-                <span>
-                  负期望时可缩短：{shortPlan.legs.length}串1 · 总赔率 {shortPlan.totalOdd.toFixed(2)} ·
-                  命中率 {percent(shortPlan.hitProb)} · 期望 {shortPlan.expectedReturn.toFixed(2)}×
-                </span>
-                <button type="button" onClick={() => onApply(shortPlan.legs)}>
-                  改用 {shortPlan.legs.length}串1
-                </button>
+          {backtest && backtest.window.matches > 0 && (
+            <section className="auto-parlay__backtest">
+              <h3>
+                同口径回测 · 近 {backtest.window.matches} 场
+                {backtest.window.from ? `（${backtest.window.from} ~ ${backtest.window.to}）` : ''}
+              </h3>
+              <div className="auto-parlay__backtest-grid">
+                <div>
+                  <span>单场首选</span>
+                  <b>{percent(backtest.singles.hitRate)}</b>
+                  <em>
+                    {backtest.singles.n} 注 · 回报 {(backtest.singles.roi * 100).toFixed(0)}%
+                  </em>
+                </div>
+                <div>
+                  <span>2串1 模拟</span>
+                  <b>{percent(backtest.doubles.hitRate)}</b>
+                  <em>
+                    {backtest.doubles.n} 注 · 回报 {(backtest.doubles.roi * 100).toFixed(0)}%
+                  </em>
+                </div>
+                <div>
+                  <span>长赔（≥4）</span>
+                  <b>{percent(backtest.longshot.hitRate)}</b>
+                  <em>
+                    {backtest.longshot.n} 注 · 回报 {(backtest.longshot.roi * 100).toFixed(0)}%
+                  </em>
+                </div>
               </div>
-            )}
+              <p className="auto-parlay__bands">
+                赔率区间命中率：
+                {backtest.bands.map((band) => (
+                  <span key={band.label}>
+                    {band.label} {band.n > 0 ? percent(band.hitRate) : '—'}
+                  </span>
+                ))}
+              </p>
+              <p className="auto-parlay__note">{backtest.note}</p>
+            </section>
+          )}
 
-            <footer className="auto-parlay__actions">
-              <button type="button" className="is-primary" onClick={() => onApply(plan.legs)}>
-                应用到投注单
-              </button>
-              <button type="button" onClick={onClose}>
-                取消
-              </button>
-            </footer>
-          </div>
-        )}
+          {data && !state.running && (
+            <p className="auto-parlay__disclaimer">
+              风控上限：最多 3 场 · 总赔率 ≤ 8 · 单腿赔率 ≤ 3.3 · 2串1 命中率 ≥ 26%。
+              达不到门槛就空着——高赔长串不是被忽略，是被这几条挡住了。
+              推荐只是概率参考：庄家抽水让长期期望低于 1，别把它当成稳赚；单关的期望永远优于同场串关。
+            </p>
+          )}
+        </div>
 
-        {!plan && !state.running && state.error && (
-          <footer className="auto-parlay__actions">
-            <button type="button" onClick={onClose}>
-              关闭
-            </button>
-          </footer>
-        )}
+        <footer className="auto-parlay__actions">
+          <button type="button" onClick={onClose}>
+            关闭
+          </button>
+        </footer>
       </section>
     </div>,
     document.body,
