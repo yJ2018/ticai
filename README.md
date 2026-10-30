@@ -56,6 +56,7 @@
 | 分析服务 | Python 3.12 + FastAPI（Vercel Python 运行时），psycopg 连接池；与 Node 版逐字段对拍（概率差 < 5e-3） |
 | 爬虫 | Node 原生 ESM；体彩走 `fetch`，阵容走 Playwright（复用系统 Chrome） |
 | 数据 | PostgreSQL（生产 Prisma Postgres），24 张表 + 3 个视图 |
+| 统计 | Vercel Web Analytics（`@vercel/analytics` 2.x）：生产构建自动上报 PV / 访客 / 来源 |
 
 ## 快速开始
 
@@ -117,6 +118,7 @@ npm run deploy:analysis  # 只发 Python 分析服务（首次需先 link 项目
 ```
 
 - 前端不上传 `.env*`、`apps/`、`db/`、`scripts/`，环境变量由 Vercel 注入；
+- 访问统计用 Vercel Web Analytics：在项目 `ticai` 的 Analytics 里 Enable 后才开始计，脚本 `/_vercel/insights/script.js` 由 Vercel 提供，`next dev` 本地不上报；
 - 分析服务需要 `DATABASE_URL` / `DATABASE_SSL` / `DEEPSEEK_API_KEY`，并且**必须关闭 Deployment Protection**；
 - `DEPLOY_DRY_RUN=1` 只自检与暂存、不发布；
 - `git push` 到 `main` 会自动发布前端与 API，`SKIP_DEPLOY=1 git push` 跳过。

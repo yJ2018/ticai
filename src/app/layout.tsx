@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 
@@ -90,6 +91,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }}
         />
+        {/*
+          Vercel Web Analytics，只在生产构建里挂载：
+          - dev 下官方组件会去 va.vercel-scripts.com 拉 debug 脚本，本地不需要这条外网依赖；
+          - 生产注入 /_vercel/insights/script.js，由 Vercel 在项目域名上提供，
+            需要在项目 Dashboard 的 Analytics 里开启；未开启时只是控制台 404，不影响页面。
+          - 切页由组件内部的 usePathname 感知（本站导航走 next/link），每次导航记一次 pageview；
+            但本站只有 `[[...slug]]` 一个入口，route 维度会统一成 /[...slug]，看具体页面请用 path。
+        */}
+        {process.env.NODE_ENV === 'production' ? <Analytics /> : null}
       </body>
     </html>
   )

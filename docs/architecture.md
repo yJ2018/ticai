@@ -70,6 +70,7 @@
 | 持久化 | IndexedDB（开奖历史）；localStorage（登录 token、AI 结果缓存、免责弹层偏好） |
 | 传输 | 浏览器 `fetch('/api/*')`（默认同源，Vercel rewrite 转发到 API 项目）；API 只读库，不直连上游 |
 | 截图 | html2canvas → `canvas.toDataURL('image/png')` |
+| 统计 | Vercel Web Analytics（`@vercel/analytics`）：根布局挂 `<Analytics />`，仅生产构建渲染；脚本 `/_vercel/insights/script.js` 由 Vercel 提供，需在项目 Dashboard 开启 |
 
 ### 运行方式
 
@@ -1553,6 +1554,18 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 方案弹层排序 | 按用户勾选先后列出场次 | 统一按开赛时间 / 场次号排序（`compareMatchOrder`），保存投注与方案级 AI 分析同序 |
 | 宽屏与平板 | 全站固定 960px；历史页 `100vw` 溢出、页头与内容不对齐；iPad 横屏仍是 5 列窄表 | 普通页 1080px；开奖历史 `app-shell--full` 铺满视口；分析页 1600px；历史页 ≥1200px 多列走势、768–1200px 两列卡片、<768px 单列；主导航 ≤960px 折叠 |
 | 测试 | — | `ttg-distribution.test.mjs` 5 个 + `match-signals.test.mjs` 6 个用例 |
+
+### 2026-10-31 增量：接入 Vercel Web Analytics
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 数据来源 | 无访问统计 | `@vercel/analytics` 2.x，Vercel 边缘侧记录 PV / 访客 / 来源，不引入第三方脚本域 |
+| 挂载点 | — | 根布局 `src/app/layout.tsx` 末尾 `<Analytics />`；layout 跨路由不卸载，只注入一次脚本 |
+| 环境 | — | 只在 `NODE_ENV === 'production'` 渲染：dev 下官方组件会去 `va.vercel-scripts.com` 拉 debug 脚本，本地不需要这条外网依赖；预览与生产部署都会上报 |
+| 切页统计 | — | 组件内部用 `usePathname` 感知 App Router 导航，本站导航全走 `next/link`，每次切页各记一次 pageview，Keep-Alive 不会重复上报 |
+| 维度 | — | `path` 是真实路径；本站只有 `[[...slug]]` 一个入口，`route` 维度会统一成 `/[...slug]`，按页面看数据用 `path` |
+| 开启方式 | — | Vercel 项目 `ticai` → Analytics → Enable；未开启时脚本 404，只在控制台告警，不影响页面 |
+| 事件 | — | 暂未埋自定义事件；需要时在客户端组件 `import { track } from '@vercel/analytics'` 后调用 `track(name, props)` |
 
 ---
 
