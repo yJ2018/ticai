@@ -181,6 +181,29 @@ export function formatKickoffTime(text: string) {
   return `${shortDate || '--'} ${shortTime || '--:--'}`
 }
 
+/** 方案弹层 / AI 分析统一按场次排：先开赛时间，再场次号，最后 matchId。 */
+export function compareMatchOrder(left: MatchCard, right: MatchCard) {
+  const timeCompare = matchTimeKey(left.time).localeCompare(matchTimeKey(right.time))
+  if (timeCompare !== 0) {
+    return timeCompare
+  }
+
+  const noCompare = String(left.matchNo ?? '').localeCompare(String(right.matchNo ?? ''), 'zh-CN', {
+    numeric: true,
+  })
+  if (noCompare !== 0) {
+    return noCompare
+  }
+
+  return left.id - right.id
+}
+
+function matchTimeKey(value: string | undefined) {
+  const text = String(value ?? '').trim()
+  // 缺失/脏时间排到最后，避免排到当天第一场前面
+  return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(text) ? text : '9999-12-31 23:59:59'
+}
+
 export function formatPlanOptionLabel(poolType: MatchPoolType, option: MatchCardOption, item?: MatchCard) {
   if (poolType === 'ttg') {
     return `${option.label}球`

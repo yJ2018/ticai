@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { type MatchCard, type MatchCardOption, type MatchPoolType } from '../../service/matchService'
 import {
+  compareMatchOrder,
   flattenOptionGroups,
   formatKickoffTime,
   formatPassSummaryType,
@@ -131,18 +132,22 @@ export function useBetSlip(items: MatchCard[], activePool: MatchPoolType): BetSl
 
   const planEntries = useMemo<PlanEntry[]>(
     () =>
-      selectedOptionEntries.map((entry, index) => ({
-        id: entry.item.id,
-        order: index + 1,
-        matchNo: entry.item.matchNo || '周?000',
-        teams: entry.item.title,
-        kickoffTime: formatKickoffTime(entry.item.time),
-        selectedOptions: entry.selectedOptions.map((option) => ({
-          key: option.key,
-          label: formatPlanOptionLabel(activePool, option, entry.item),
-          value: option.value,
+      // 方案弹层按场次排，不跟勾选先后走：先开赛时间，再场次号
+      selectedOptionEntries
+        .slice()
+        .sort((left, right) => compareMatchOrder(left.item, right.item))
+        .map((entry, index) => ({
+          id: entry.item.id,
+          order: index + 1,
+          matchNo: entry.item.matchNo || '周?000',
+          teams: entry.item.title,
+          kickoffTime: formatKickoffTime(entry.item.time),
+          selectedOptions: entry.selectedOptions.map((option) => ({
+            key: option.key,
+            label: formatPlanOptionLabel(activePool, option, entry.item),
+            value: option.value,
+          })),
         })),
-      })),
     [activePool, selectedOptionEntries],
   )
 

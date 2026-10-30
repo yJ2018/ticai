@@ -506,6 +506,7 @@ sequenceDiagram
 | 最高奖金 | `Σ 各串法 max(赔率) 乘积 × 2 × 倍数`，再按单注限额封顶 |
 | 单注限额 | 单场 10 万、2/3 串 20 万、4/5 串 50 万、6 串以上 100 万；倍数按多注分别封顶后相加 |
 | 彩票税 | 奖金 > 10 000 元按 20% 计税 |
+| 方案顺序 | 方案弹层 / 方案级 AI 按开赛时间、场次号排序，不跟勾选先后走（`compareMatchOrder`） |
 | 截图 | `PlanModal` 根节点 → html2canvas → `toDataURL` → 预览/下载 |
 
 **保存投注**：`PlanModal` 里登录用户点「保存方案」→ `betPayload.ts` 组装 legs（场次号、玩法、选项、赔率、让球）→ `POST /api/bets`。注数、金额、最高奖金由服务端 `settlement.mjs` 重新计算，不信任客户端传值；保存成功后「我的投注」按赛果实时结算。
@@ -1545,6 +1546,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 接口 | 无 | `GET /api/odds-distribution`：优先读固化赔率，回退快照；5 分钟缓存；返回覆盖率与 `x-ttg-samples` |
 | 页面 | 赛果页只能按天看比分 | `/odds-distribution`：四条赔率曲线（最低 / 倒数第二低 / 第三低 / 中奖）+ 中奖排名柱状图 + 逐场样本；桌面表格、移动端卡片 |
 | 投注页标注 | 只有赔率数字与「一键串关」入口 | `GET /api/match-signals`：每场最低两档差 ≤8% 时标 `≈`，蓝框为融合概率更偏向的选项；说明里带近况样本与期望总进球 |
+| 方案弹层排序 | 按用户勾选先后列出场次 | 统一按开赛时间 / 场次号排序（`compareMatchOrder`），保存投注与方案级 AI 分析同序 |
 | 测试 | — | `ttg-distribution.test.mjs` 5 个 + `match-signals.test.mjs` 6 个用例 |
 
 ---
