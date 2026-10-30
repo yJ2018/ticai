@@ -17,7 +17,7 @@ npm install                      # 首次，装 pg
 # 需要数据库的接口要配 DATABASE_URL（根 .env 或 apps/api/.env）
 node apps/api/src/index.mjs      # 或 npm run api:dev
 
-node --test apps/api/test        # 或 npm run api:test（99 个用例）
+node --test apps/api/test        # 或 npm run api:test（105 个用例）
 ```
 
 启动后会打印数据库、DeepSeek、聚合数据、邮件与微信各自的就绪状态。
@@ -31,6 +31,7 @@ node --test apps/api/test        # 或 npm run api:test（99 个用例）
 | `GET /api/match-detail?matchId=` | **数据库** | 对战详情：交锋/伤停/近况/未来/特征/积分/射手 7 个板块，缺失返回 null |
 | `GET /api/results?date=&days=` | **数据库** | 赛果开奖：比分 + `had/hhad/ttg/crs/hafu`，按真实开赛时间倒序 |
 | `GET /api/odds-distribution` | **数据库** | 不限时间的总进球赔率分布：最低 / 倒数第二低 / 第三低 / 中奖赔率 + 中奖排名（读 `match_result.ttg_odds`，回退赔率快照） |
+| `GET /api/match-signals?pool=` | **数据库** | 投注页「赔率接近」：最低两档差 ≤8% 才标，分析偏向复用推荐引擎的近况/伤停修正 |
 | `POST /api/auth/code` | **数据库 + Resend** | 发邮箱验证码（注册 / 免密登录 / 绑定邮箱），带冷却与频次限制 |
 | `POST /api/auth/register` `login` `logout`、`GET /api/auth/me` | **数据库** | 邮箱 + 密码 / 验证码登录（未注册邮箱自动建无密码账号）；Bearer 不透明 token |
 | `POST /api/auth/password` | **数据库** | 设置 / 修改密码；没有密码或验证码登录的会话免当前密码，改完吊销其他会话 |

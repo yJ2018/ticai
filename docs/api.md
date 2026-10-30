@@ -53,7 +53,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 | 头 | 出现位置 | 说明 |
 | --- | --- | --- |
 | `x-request-id` | 所有响应 | 排障用，错误时也返回 |
-| `x-cache` | `/api/matches`、`/api/history`、`/api/results`、`/api/odds-distribution`、`/api/horoscope`、`/api/weather`、`/api/ip` | `hit` / `miss` |
+| `x-cache` | `/api/matches`、`/api/history`、`/api/results`、`/api/odds-distribution`、`/api/match-signals`、`/api/horoscope`、`/api/weather`、`/api/ip` | `hit` / `miss` |
 | `x-data-as-of` | `/api/matches` | 库中这批数据的最后抓取时间（ISO） |
 | `x-match-count` | `/api/matches` | 本次返回场次数 |
 
@@ -515,6 +515,57 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 | `recent` | 最近 15 场逐场明细，含比分、总进球与中奖排名 |
 
 缓存：单实例 5 分钟；响应头 `x-ttg-samples` 为进入统计的场次数。
+
+---
+
+### 2.4.2 `GET /api/match-signals`
+
+投注页「赔率接近」标注。与 `/api/recommendations` 共用推荐引擎（市场去水 → 近况 / 伤停有界修正），
+但不生成方案、不跑回测；**不限当天**，首页展示的全部在售比赛都会计算。
+
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| `pool` | `mixed` | `had`（含 had + hhad）/ `hhad` / `ttg` / `mixed`；非法值回退 `mixed` |
+
+**标注口径**
+
+- 同一玩法内按赔率升序，只比较**最低两档**（总进球尾部 6/7 球虽然经常只差 0.1，但对走势没有意义）；
+- 相对差 `(第二低 − 最低) / 最低 ≤ 8%` 才返回信号；
+- `preferred` 由推荐引擎的 `blendP`（市场概率 + 双方近期战绩 + 伤停修正）决定，不是「谁赔率低选谁」；
+- 近期样本 ≥3/3 时文案写「模型偏向」，否则降级为「分析略偏」；
+- 比分 / 半全场没有概率模型，不返回信号。
+
+```json
+{
+  "success": true,
+  "data": {
+    "generatedAt": "2026-10-30T09:50:00.000Z",
+    "scope": "all",
+    "pool": "ttg",
+    "poolLabel": "总进球",
+    "signals": [
+      {
+        "matchId": 2042359,
+        "matchNo": "周五005",
+        "teams": "博德闪耀 vs 维京",
+        "pool": "ttg",
+        "poolLabel": "总进球",
+        "gap": 0.0513,
+        "note": "3球 / 4球 赔率接近（差 5.1%）；期望总进球 3.9（市场 3.9），分析略偏 3球",
+        "options": [
+          { "optionKey": "s3", "optionLabel": "3球", "odd": 3.9, "marketP": 0.2144, "modelP": 0.2064, "blendP": 0.2141, "preferred": true },
+          { "optionKey": "s4", "optionLabel": "4球", "odd": 4.1, "marketP": 0.2026, "modelP": 0.1941, "blendP": 0.2022, "preferred": false }
+        ],
+        "sample": { "homeMatches": 0, "awayMatches": 1 },
+        "goalExpectation": { "expectedTotal": 3.92, "marketTotal": 3.92, "homeMatches": 0, "awayMatches": 0 }
+      }
+    ]
+  }
+}
+```
+
+`pool=had` 时同一场可能同时返回 `had` 与 `hhad` 两条信号；前端按 `matchId:pool` 匹配到对应选项行。
+缓存：单实例 60 秒；响应头 `x-cache`。
 
 ---
 
@@ -1242,6 +1293,7 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-30 | 新增 `GET /api/match-signals`：投注页「赔率接近」标注，每个玩法最低两档差 ≤8% 时标 `≈`，分析偏向由推荐引擎的融合概率决定（近况/伤停修正） |
 | 2026-10-30 | 新增 `GET /api/odds-distribution`：开奖记录 × 总进球赔率分布（最低 / 倒数第二低 / 第三低 / 中奖赔率 + 排名），不限时间；`match_result` 新增固化赔率列，赛果入库时保存停售前最后一份 TTG 赔率 |
 | 2026-10-29 | `/api/recommendations` 增加 `goalExpectation`（主客场进球 / 对手失球 / 联赛节奏 → 期望总进球），总进球按修正分布选选项；推荐面板加骨架屏、进度过渡与被过滤候选的「手动加入」 |
 | 2026-10-29 | `/api/analysis/lottery` 新增 `w=` 自定义权重参数；前端删除 TS 分析实现与 `sync-analysis` 生成链，权重滑块改为 400ms 防抖调服务端 |

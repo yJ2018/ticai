@@ -8,6 +8,7 @@ import { createBetHandlers } from './handlers/bets.mjs'
 import { createHealthHandlers } from './handlers/health.mjs'
 import { createLotteryAnalysisHandlers } from './handlers/lottery-analysis.mjs'
 import { createMatchDetailHandler } from './handlers/match-detail.mjs'
+import { createMatchSignalHandlers } from './handlers/match-signals.mjs'
 import { createOddsDistributionHandlers } from './handlers/odds-distribution.mjs'
 import { createParlayHandler } from './handlers/parlay.mjs'
 import { createRecommendationHandlers } from './handlers/recommendations.mjs'
@@ -79,6 +80,7 @@ export function createApp(config) {
   const recommendations = createRecommendationHandlers(config)
   const results = createResultsHandlers(config)
   const oddsDistribution = createOddsDistributionHandlers(config)
+  const matchSignals = createMatchSignalHandlers(config)
   const auth = createAuthHandlers(config)
   const bets = createBetHandlers(config)
   const wechat = createWechatHandlers(config)
@@ -94,6 +96,8 @@ export function createApp(config) {
     ['/api/results', ['GET'], results.results],
     // 开奖记录 × 总进球赔率：不限时间的最低 / 第二低 / 第三低 / 中奖赔率分布
     ['/api/odds-distribution', ['GET'], oddsDistribution.ttg],
+    // 投注页「赔率接近」标注：与推荐引擎共用近况/伤停模型，不跑方案
+    ['/api/match-signals', ['GET'], matchSignals.signals],
     ['/api/match-detail', ['GET'], matchDetail],
     // 单场 AI 分析：只收 matchId + pool，提示词在服务端装配
     ['/api/ai-analysis', ['POST'], analysis],

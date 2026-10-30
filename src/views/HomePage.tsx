@@ -20,6 +20,7 @@ import { useMatchAiAnalysis } from '../features/betting/useMatchAiAnalysis'
 import { useParlayAiAnalysis } from '../features/betting/useParlayAiAnalysis'
 import { useBetSlip } from '../features/betting/useBetSlip'
 import { useAutoParlay } from '../features/betting/useAutoParlay'
+import { useMatchSignals } from '../features/betting/useMatchSignals'
 import { AutoParlayPanel } from '../features/betting/AutoParlayPanel'
 import { type ParlayLeg } from '../features/betting/recommendation'
 import { PLAN_MODAL_ANIMATION_MS, formatMoney, getSportteryTaxInfo } from '../features/betting/betSlipMath'
@@ -116,6 +117,7 @@ export function HomePage() {
   const aiAnalysis = useMatchAiAnalysis(activePool)
   const parlayAi = useParlayAiAnalysis()
   const autoParlay = useAutoParlay()
+  const matchSignals = useMatchSignals(activePool, activeCache.dataAsOf)
 
   useEffect(() => {
     loadMatches()
@@ -667,6 +669,9 @@ export function HomePage() {
 
   const dataAgeMs = activeCache.dataAsOf ? Date.now() - Date.parse(activeCache.dataAsOf) : Number.POSITIVE_INFINITY
   const isDataStale = Number.isFinite(dataAgeMs) && dataAgeMs > 45 * 60_000
+  const showSignalLegend =
+    (activePool === 'had' || activePool === 'ttg' || activePool === 'mixed') &&
+    Object.keys(matchSignals).length > 0
 
   return (
     <section className="home-page">
@@ -708,6 +713,14 @@ export function HomePage() {
             ? '正在同步最新盘口…'
             : `数据更新于 ${formatDataAsOf(activeCache.dataAsOf)}`}
         </span>
+        {showSignalLegend && (
+          <span
+            className="home-page__signal-legend"
+            title="分析偏向 = 市场赔率 + 本库双方近期战绩 / 伤停修正；样本少时更接近市场。"
+          >
+            <span aria-hidden="true">≈</span> 赔率接近，蓝框为分析偏向
+          </span>
+        )}
         <button
           type="button"
           className="home-page__data-refresh"
@@ -729,6 +742,7 @@ export function HomePage() {
             items={items}
             activePool={activePool}
             selectedOptionKeys={betSlip.selectedOptionKeys}
+            signals={matchSignals}
             expandedMixedIds={betSlip.expandedMixedIds}
             onToggleOption={betSlip.toggleOption}
             onToggleMixed={betSlip.toggleMixedExpand}

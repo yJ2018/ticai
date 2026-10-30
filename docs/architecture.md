@@ -25,20 +25,20 @@
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | Next.js（Vercel `ticai` 项目，静态 + Serverless 函数）+ Node API（Vercel `ticai-service`）+ Python 分析服务（Vercel `ticai-analysis`）；生产用同源 `/api` rewrite 代理 |
-| 前端规模 | 14 个页面（`src/views`）；`src` 下 106 个 TS/TSX 文件；`global.scss` + 7 个按域拆分样式 |
-| 服务端规模 | `apps/api`：14 个 handler 模块、33 个接口路径（35 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
+| 前端规模 | 14 个页面（`src/views`）；`src` 下 108 个 TS/TSX 文件；`global.scss` + 7 个按域拆分样式 |
+| 服务端规模 | `apps/api`：15 个 handler 模块、34 个接口路径（36 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
 | 数据层 | PostgreSQL 24 张表 + 3 个视图：API 与分析服务只读（分析服务额外写 `lottery_analysis_snapshot`），爬虫只写（`db/README.md`） |
 | 构建产物 | `.next`：客户端 JS ≈ 670 KB + 143 KB CSS（gzip 后约 185 + 24 KB）+ 一个 SSR Serverless 函数 |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（Next 服务端 / API 函数）+ Python 3.12（Vercel Python 运行时） |
 | 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；Node 服务端仅 `pg`；Python：FastAPI + uvicorn + psycopg；爬虫可选 `playwright`（阵容） |
-| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 142 个（API 99 + 爬虫 43）+ Python unittest 38 个（含与 Node 的对拍） |
+| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 148 个（API 105 + 爬虫 43）+ Python unittest 38 个（含与 Node 的对拍） |
 | tsconfig | `strict` **未开启**；开启 `noUnusedLocals`、`noUnusedParameters`、`erasableSyntaxOnly`、`verbatimModuleSyntax` |
 
 ### 功能地图
 
 | 路由 | 页面 | 核心能力 | 数据来源 |
 | --- | --- | --- | --- |
-| `/` | 赛事投注 | 5 种玩法池、赔率勾选、串关注数/金额/最高奖金（按体彩单注限额封顶）/税、首屏骨架屏、单场与方案级 AI 分析、高清快照、保存投注 | `GET /api/matches`、`POST /api/bets` |
+| `/` | 赛事投注 | 5 种玩法池、赔率勾选、**赔率接近标注**（最低两档 ≤8% 时标 ≈，蓝框为分析偏向）、串关注数/金额/最高奖金（按体彩单注限额封顶）/税、首屏骨架屏、单场与方案级 AI 分析、高清快照、保存投注 | `GET /api/matches`、`GET /api/match-signals`、`POST /api/bets` |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气，PC 弹框与 H5 页面共用正文 | `GET /api/match-detail`、`GET /api/venue-weather` |
 | `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要；工具栏「选号投注」可直接选号并保存到我的投注 | `GET /api/history` + IndexedDB（分析结果已有服务端快照：`GET /api/analysis/lottery`）、`POST /api/bets`（`kind=lottery`） |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏；阶数 1–5 直接切快照，拖权重滑块时把权重作为 `w=` 参数发给服务端现算 | `GET /api/analysis/lottery?kind=prediction&order=N&w=34-20-22-14-10` |
@@ -264,17 +264,17 @@ D:\ticai
 ├─ .env / .env.example         # 数据库、AI、聚合数据、Resend、微信（.env 已被 gitignore）
 ├─ public/                     # favicon / apple-touch / PWA 图标、robots.txt、sitemap.xml、og-cover.png
 ├─ apps/
-│  ├─ api/                     # ★ 独立 Node 服务端：只读库，33 个接口路径
+│  ├─ api/                     # ★ 独立 Node 服务端：只读库，34 个接口路径
 │  │  ├─ api/index.js          # Vercel 函数入口（全路径 rewrite 到这里）
 │  │  ├─ src/app.mjs           # 路由表、CORS、错误信封、/healthz
 │  │  ├─ src/index.mjs         # 本地 / VPS node:http 入口
 │  │  ├─ src/config.mjs        # 环境变量 → 配置对象（.env 查找顺序）
 │  │  ├─ src/db.mjs            # pg 连接池（懒加载 / 保活）
 │  │  ├─ src/proxy.mjs         # ★ 分析接口 → Python（ANALYSIS_API_BASE；失败回退）
-│  │  ├─ src/handlers/         # sporttery | results | odds-distribution | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis | recommendations
+│  │  ├─ src/handlers/         # sporttery | results | odds-distribution | match-signals | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis | recommendations
 │  │  ├─ src/repos/            # matches | lottery | results（含 TTG 样本）| bets 读库 SQL
 │  │  ├─ src/ttg-distribution.mjs # 总进球赔率分布纯函数（排序 / 排名 / 区间 / 汇总）
-│  │  ├─ src/recommend/        # 推荐引擎的 Node 版（对拍基准 + 回退）
+│  │  ├─ src/recommend/        # 推荐引擎的 Node 版（对拍基准 + 回退）；signals.mjs = 赔率接近标注
 │  │  ├─ src/analysis/         # 开奖分析：configs（参数指纹/预设）+ compute + 冻结的算法（回退）
 │  │  ├─ src/ai/               # prompt / parlay-prompt / context / parlay-context
 │  │  ├─ src/auth.mjs / session.mjs / mail.mjs / wechat.mjs
@@ -350,6 +350,7 @@ D:\ticai
    │  │  ├─ aiAnalysisCache.ts # AI 结果 localStorage 缓存（3 小时 TTL）
    │  │  ├─ useBetSlip.ts / betSlipMath.ts # 选择态与纯函数投注计算
    │  │  ├─ recommendation.ts / useAutoParlay.ts / AutoParlayPanel.tsx # 一键推荐（概率在服务端算）
+   │  │  ├─ useMatchSignals.ts # 赔率接近标注（最低两档 ≤8%，模型偏向）
    │  │  ├─ MatchPoolList.tsx / BetSlipFooter.tsx / PlanModal.tsx / SnapshotOverlay.tsx
    │  │  └─ betPayload.ts      # 投注单请求体（登录后保存）
    │  ├─ bets                  # 投注详情弹层 + 金额格式
@@ -374,6 +375,7 @@ D:\ticai
    │  ├─ httpClient.ts / base.ts # 超时 + AbortSignal + 统一 ApiError；同源 /api
    │  ├─ sportteryApi.ts / resultsApi.ts / matchDetailApi.ts
    │  ├─ oddsDistributionApi.ts # 总进球赔率分布响应类型与请求
+   │  ├─ matchSignalsApi.ts     # 投注页「赔率接近」标注
    │  ├─ analysisApi.ts / parlayApi.ts / aiApi.ts / venueWeatherApi.ts
    │  ├─ authApi.ts / betApi.ts
    │  ├─ index.ts              # 统一导出
@@ -964,6 +966,31 @@ flowchart LR
   天气 2.1s（Manchester）、大乐透 377ms、自定义权重 `markov=3;w=60-20-22-14-10`、AI SSE 42 个事件。
 - **测试命令**：`npm run analysis:test`（Python unittest：数学、风控边界、AI 提示词、rewrite 中间件、与 Node 对拍）。
 
+#### 5.9.2 投注页「赔率接近」标注
+
+分布页回答「最低赔率整体上多容易中」，投注页回答「这一场最低两档是不是咬得很紧、分析更偏谁」。
+两者都复用推荐引擎，但投注页只取每场每玩法的**最低两个选项**：
+
+```mermaid
+flowchart LR
+  P[投注页 /] -->|"GET /api/match-signals?pool=ttg"| H[handlers/match-signals.mjs]
+  H -->|slate + injuries + finished| E[recommend/engine.mjs]
+  E --> S[recommend/signals.mjs<br/>最低两档 / 差 ≤8% / 融合概率]
+  S -->|"signals[]"| UI[选项 ≈ 角标 + 蓝框分析偏向 + 说明]
+```
+
+- **只标最低两档**：总进球 6/7 球这类尾部选项经常只差 0.1，但对比赛走势没有意义；
+  最低 / 倒数第二低才是用户能理解的「接近」。
+- **阈值 8%**：`(第二低 − 最低) / 最低 ≤ 0.08` 才标；2026-10-30 实测 54 场在售里 18 场触发。
+- **偏向不是「谁赔率低选谁」**：用引擎的 `blendP`（市场去水概率 + 双方近况 / 伤停修正）比较；
+  近况样本 ≥3/3 时写「模型偏向」，样本少时降级为「分析略偏」，页面图例的 tooltip 有说明。
+- **覆盖玩法**：had / hhad / ttg；比分、半全场没有概率模型，不硬标。
+- **混合过关**：TTG 标注在展开后的「总进球」区块里；未展开时按钮上带一个 `≈` 提醒。
+- **前端**：`useMatchSignals` 按玩法 + `dataAsOf` 拉取，60 秒服务端缓存；失败静默不标，不影响投注。
+- **实现位置**：该接口不进入 `ANALYSIS_PATHS`，直接复用 Node 端 `recommend/engine.mjs`（与 Python 对拍的同一套口径），
+  只读、轻量，不生成方案也不跑回测；`/api/recommendations` 仍按原路径走 Python。
+- **测试**：`match-signals.test.mjs` 6 个用例（阈值、同赔、让球标签、缺项、signalsOnly 不返回方案）。
+
 ### 5.10 彩票选号投注（排列五 / 七星彩 / 大乐透，支持复式）
 
 足球投注是「场次 × 选项」存 `bet_leg`；彩票是「一组号码 × 倍数」，没有场次。为了复用列表、统计、
@@ -1021,6 +1048,7 @@ flowchart LR
 | 开奖分析 | `GET /api/analysis/lottery`、`GET /api/analysis/lottery/snapshots`（Python） | 数据库（爬虫开奖后预算的快照） | 同一期不变：`s-maxage=900`；落后开奖时 60 s |
 | 赛果 | `GET /api/results` | 数据库 | 30 s |
 | 赔率分布 | `GET /api/odds-distribution` | 数据库（`match_result.ttg_odds`，回退赔率快照） | 5 min |
+| 赔率接近 | `GET /api/match-signals` | 数据库（赔率 + 近况 + 伤停，复用推荐引擎） | 60 s |
 | 对战详情 | `GET /api/match-detail` | 数据库 | 无（按场次） |
 | AI | `POST /api/ai-analysis`、`POST /api/ai-parlay`（Python）、`POST /api/ai-chat`（Node 遗留） | 数据库 + DeepSeek | 无（SSE） |
 | 认证 | `POST /api/auth/code` `/register` `/login` `/logout`、`GET /api/auth/me` | 数据库 + Resend | 无 |
@@ -1121,6 +1149,7 @@ flowchart LR
 | `/api/matches` | 数据库 | 库 → 体彩 `matchInfoList` 信封；忽略 `poolType`，一次返回全部玩法 |
 | `/api/results` | 数据库 | 赛果开奖：比分 + 五个玩法结果（`had/hhad/ttg/crs/hafu`），按**真实开赛时间**筛选与升序 |
 | `/api/odds-distribution` | 数据库 | 不限时间的总进球赔率分布：最低 / 倒数第二低 / 第三低 / 中奖赔率 + 中奖排名；优先读赛果固化的 `ttg_odds` |
+| `/api/match-signals` | 数据库 | 投注页「赔率接近」：每个玩法取最低两档，差 ≤8% 才标；融合概率决定分析偏向，复用推荐引擎的近况/伤停修正 |
 | `/api/history` | 数据库 | 库 → `{list,pageNo,pageSize,pages,total}`；金额字段同时输出上游真名与历史误用名 |
 | `/api/match-detail` | 数据库 | 对战详情 7 个板块（交锋/伤停/近况/未来/特征/积分/射手），**缺失返回 null、空分组保留空数组，并列出 `missing`** |
 | `/api/auth/code` `/register` `/login` `/logout` `/me` | 数据库 + Resend | 邮箱验证码 / 密码登录，Bearer 不透明 token，服务端只存 sha256 |
@@ -1506,7 +1535,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 我的投注 | 号码球平铺 | 复式按位次分组渲染，命中位次/号码标绿，显示中奖注数与奖级 |
 | 测试 | 5 个用例 | 6 个（新增组合数、复式注数、复式中奖注数、旧扁平数据兼容） |
 
-### 2026-10-30 增量：总进球赔率分布
+### 2026-10-30 增量：总进球赔率分布 + 投注页赔率接近标注
 
 | 项 | 改造前 | 改造后 |
 | --- | --- | --- |
@@ -1515,7 +1544,8 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 聚合 | 无 | `src/ttg-distribution.mjs` 纯函数：8 选项排序、并列排名、固定区间直方图、命中率 / 均值 / 最近样本 |
 | 接口 | 无 | `GET /api/odds-distribution`：优先读固化赔率，回退快照；5 分钟缓存；返回覆盖率与 `x-ttg-samples` |
 | 页面 | 赛果页只能按天看比分 | `/odds-distribution`：四条赔率曲线（最低 / 倒数第二低 / 第三低 / 中奖）+ 中奖排名柱状图 + 逐场样本；桌面表格、移动端卡片 |
-| 测试 | — | `ttg-distribution.test.mjs` 5 个用例（聚合、并列排名、缺项跳过、区间边界、最近样本） |
+| 投注页标注 | 只有赔率数字与「一键串关」入口 | `GET /api/match-signals`：每场最低两档差 ≤8% 时标 `≈`，蓝框为融合概率更偏向的选项；说明里带近况样本与期望总进球 |
+| 测试 | — | `ttg-distribution.test.mjs` 5 个 + `match-signals.test.mjs` 6 个用例 |
 
 ---
 
@@ -1530,6 +1560,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | API 投注 / 结算 | [apps/api/src/handlers/bets.mjs](../apps/api/src/handlers/bets.mjs)、[apps/api/src/repos/bets.mjs](../apps/api/src/repos/bets.mjs)、[apps/api/src/settlement.mjs](../apps/api/src/settlement.mjs) |
 | API 赛果 | [apps/api/src/handlers/results.mjs](../apps/api/src/handlers/results.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs) |
 | 赔率分布 | [apps/api/src/handlers/odds-distribution.mjs](../apps/api/src/handlers/odds-distribution.mjs)、[apps/api/src/ttg-distribution.mjs](../apps/api/src/ttg-distribution.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs)、[src/views/OddsDistributionPage.tsx](../src/views/OddsDistributionPage.tsx)、[src/api/oddsDistributionApi.ts](../src/api/oddsDistributionApi.ts)、[db/migrations/0011_match_result_ttg_odds.sql](../db/migrations/0011_match_result_ttg_odds.sql) |
+| 投注页标注 | [apps/api/src/handlers/match-signals.mjs](../apps/api/src/handlers/match-signals.mjs)、[apps/api/src/recommend/signals.mjs](../apps/api/src/recommend/signals.mjs)、[apps/api/src/recommend/engine.mjs](../apps/api/src/recommend/engine.mjs)、[src/features/betting/useMatchSignals.ts](../src/features/betting/useMatchSignals.ts)、[src/features/betting/MatchPoolList.tsx](../src/features/betting/MatchPoolList.tsx) |
 | 开发双进程脚本 | [scripts/dev.mjs](../scripts/dev.mjs) |
 | 环境变量样例 | [.env.example](../.env.example) |
 | 构建 / 代理 / 部署 | [next.config.ts](../next.config.ts)、[vercel.json](../vercel.json)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs) |

@@ -1002,6 +1002,7 @@ button:focus-visible,
 }
 
 .pool-card__odd-item {
+  position: relative;
   border: none;
   border-radius: 0.56rem;
   min-height: 3.1rem;
@@ -1050,6 +1051,50 @@ button:focus-visible,
   }
 }
 
+/* 赔率接近：最低两档差距 ≤6% 时标 ≈；蓝框表示模型更偏向这个选项 */
+.pool-card__odd-item.is-close:not(.is-active) {
+  background: #fffdf5;
+  box-shadow: inset 0 0 0 1.5px rgba(245, 158, 11, 0.62);
+}
+
+.pool-card__odd-item.is-close.is-preferred:not(.is-active) {
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1.5px #2563eb;
+}
+
+.pool-card__odd-mark {
+  position: absolute;
+  top: 0.16rem;
+  right: 0.3rem;
+  color: #d97706;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pool-card__odd-item.is-close.is-preferred .pool-card__odd-mark {
+  color: #1d4ed8;
+}
+
+.pool-card__odd-item.is-active .pool-card__odd-mark {
+  color: #fff;
+}
+
+.pool-card__signal {
+  display: flex;
+  gap: 0.28rem;
+  margin: 0.3rem 0.15rem 0.08rem;
+  color: #64748b;
+  font-size: 0.7rem;
+  line-height: 1.45;
+
+  span {
+    flex: 0 0 auto;
+    color: #d97706;
+    font-weight: 700;
+  }
+}
+
 .pool-card--had .pool-card__odd-item {
   min-height: 3rem;
 }
@@ -1081,6 +1126,9 @@ button:focus-visible,
 }
 
 .mixed-card__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   border: none;
   background: transparent;
   padding: 0.1rem 0;
@@ -1090,6 +1138,20 @@ button:focus-visible,
   color: #2563eb;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.mixed-card__toggle-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .mixed-card__sections {
@@ -6403,6 +6465,22 @@ span.analysis-skeleton__pill--light {
   white-space: nowrap;
 }
 
+.home-page__signal-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 0 1 auto;
+  margin-left: auto;
+  color: #64748b;
+  font-size: 0.7rem;
+  white-space: nowrap;
+
+  span {
+    color: #d97706;
+    font-weight: 700;
+  }
+}
+
 .home-page__data-refresh {
   flex: 0 0 auto;
   border: 0;
@@ -6420,5 +6498,11 @@ span.analysis-skeleton__pill--light {
   &:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+  }
+}
+
+@media (max-width: 40rem) {
+  .home-page__signal-legend {
+    display: none;
   }
 }

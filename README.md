@@ -28,7 +28,7 @@
 
 | 路由 | 页面 | 核心能力 |
 | --- | --- | --- |
-| `/` | 赛事投注 | 5 种玩法池、赔率勾选、**一键串关**（赔率→λ→泊松→EV）、奖金按体彩单注限额封顶、方案截图、单场与方案两级 AI 分析（SSE）、登录后可保存投注 |
+| `/` | 赛事投注 | 5 种玩法池、赔率勾选、**赔率接近标注**（最低两档 ≤8% 时标 ≈，蓝框为分析偏向）、**一键串关**（赔率→λ→泊松→EV）、奖金按体彩单注限额封顶、方案截图、单场与方案两级 AI 分析（SSE）、登录后可保存投注 |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气；PC 弹框与 H5 页面共用正文 |
 | `/history` | 开奖历史 | 三种彩种走势；大乐透号码矩阵 + 逐期指标 + 下期 5+2 号码参考 |
 | `/history-analysis` | 分析页面 | 频次 / 遗漏 / 马尔可夫 / 滚动回测 / 组合推荐，权重与阶数可调 |
@@ -126,7 +126,7 @@ npm run deploy:analysis  # 只发 Python 分析服务（首次需先 link 项目
 | 文档 | 内容 |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | 分层、路由、数据流、设计取舍、技术债 |
-| [docs/api.md](docs/api.md) | 33 个接口的契约、SSE 协议、错误码 |
+| [docs/api.md](docs/api.md) | 34 个接口的契约、SSE 协议、错误码 |
 | [docs/SEO.md](docs/SEO.md) | 收录现状、meta / robots / sitemap、上线清单 |
 | [apps/api/README.md](apps/api/README.md) | 服务端结构、配置、部署 |
 | [apps/analysis/README.md](apps/analysis/README.md) | Python 分析服务：目录、对拍、部署与路径还原 |

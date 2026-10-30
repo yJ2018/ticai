@@ -1,5 +1,6 @@
 import { clamp, fitLambdas, poolProbabilities, scoreMatrix } from './math.mjs'
 import { POOL_LABEL, marketProbabilities, optionLabel, readPools } from './odds.mjs'
+import { buildCloseSignals } from './signals.mjs'
 
 /**
  * 投注推荐引擎（服务端，纯函数）。目标不是「猜中」，而是别把明显不成立的东西推给用户：
@@ -488,6 +489,7 @@ function describeLeg(leg, injury, homeForm, awayForm, goal) {
  * @param {Array} input.finished  已结束比赛（data.loadFinishedMatches）
  * @param {string} input.pool     had | hhad | ttg | mixed
  * @param {string} input.scope    today | all
+ * @param {boolean} [input.signalsOnly] 只返回赔率接近标注（投注页用），不返回方案
  */
 export function buildRecommendation({
   slate,
@@ -496,6 +498,7 @@ export function buildRecommendation({
   pool = 'mixed',
   scope = 'today',
   now = new Date(),
+  signalsOnly = false,
 }) {
   const today = beijingDate(now)
   const allowed = POOL_SETS[pool] ?? []
@@ -515,6 +518,7 @@ export function buildRecommendation({
 
   const candidates = []
   const analyzed = []
+  const signals = []
 
   for (const match of inScope) {
     if (!match.odds) {
@@ -638,6 +642,7 @@ export function buildRecommendation({
     }
 
     matchCandidates.sort((left, right) => right.blendP - left.blendP)
+    signals.push(...buildCloseSignals(matchCandidates))
     const best = matchCandidates[0]
     const safeTier = TIERS.safe[0]
     const aggressiveTier = TIERS.aggressive[0]
@@ -754,6 +759,19 @@ export function buildRecommendation({
     notes.push('今天没有达到门槛的方案：宁可空着，也不硬凑高赔长串。')
   }
 
+  if (signalsOnly) {
+    return {
+      generatedAt: new Date().toISOString(),
+      scope,
+      pool,
+      poolLabel: POOL_SET_LABEL[pool] ?? pool,
+      coverage,
+      filtered,
+      signals,
+      notes,
+    }
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     scope,
@@ -762,6 +780,7 @@ export function buildRecommendation({
     coverage,
     filtered,
     plans,
+    signals,
     candidates: candidates
       .sort((left, right) => right.blendP - left.blendP)
       .slice(0, 12)
@@ -790,6 +809,28 @@ export function buildRecommendation({
     analyzed: analyzed.length,
     notes,
   }
+}
+
+/**
+ * 投注页的「赔率接近」标注：与推荐引擎同一套数据与模型，只是不生成方案。
+ * 不限当天，首页展示的全部在售比赛都要能标注。
+ */
+export function buildMatchSignals({
+  slate,
+  injuries = new Map(),
+  finished = [],
+  pool = 'mixed',
+  now = new Date(),
+}) {
+  return buildRecommendation({
+    slate,
+    injuries,
+    finished,
+    pool,
+    scope: 'all',
+    now,
+    signalsOnly: true,
+  })
 }
 
 export { MAX_LEGS, POOL_LABEL }

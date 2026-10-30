@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useNavigate } from '../../lib/navigation'
 
+import { type MatchSignal } from '../../api/matchSignalsApi'
 import { type MatchCard, type MatchCardOptionGroup, type MatchPoolType } from '../../service/matchService'
 import { MatchDetailDialog } from '../matchDetail/MatchDetailDialog'
 import { useIsMobile } from '../matchDetail/useIsMobile'
@@ -15,6 +16,7 @@ type MatchPoolListProps = {
   items: MatchCard[]
   activePool: MatchPoolType
   selectedOptionKeys: Record<number, string[]>
+  signals?: Record<string, MatchSignal>
   expandedMixedIds: number[]
   onToggleOption: (matchId: number, optionKey: string) => void
   onToggleMixed: (matchId: number) => void
@@ -30,6 +32,7 @@ export function MatchPoolList({
   items,
   activePool,
   selectedOptionKeys,
+  signals,
   expandedMixedIds,
   onToggleOption,
   onToggleMixed,
@@ -52,6 +55,10 @@ export function MatchPoolList({
     const groupList = groups ?? item.optionGroups ?? []
 
     return groupList.map((group) => {
+      const groupPool = group.options[0]?.pool
+      const signal = groupPool ? signals?.[`${item.id}:${groupPool}`] : undefined
+      const flagged = new Map((signal?.options ?? []).map((option) => [option.optionKey, option]))
+
       const rowContent = (
         <div key={group.key} className={`pool-card__row ${group.rowLabel ? 'has-row-label' : ''}`}>
           {group.rowLabel && <div className="pool-card__row-label">{group.rowLabel}</div>}
@@ -61,15 +68,29 @@ export function MatchPoolList({
           >
             {group.options.map((option) => {
               const active = (selectedOptionKeys[item.id] ?? []).includes(option.key)
+              const flag = flagged.get(option.key)
               return (
                 <button
                   key={option.key}
                   type="button"
                   disabled={option.value === '--'}
-                  className={`pool-card__odd-item ${active ? 'is-active' : ''}`}
+                  className={[
+                    'pool-card__odd-item',
+                    active ? 'is-active' : '',
+                    flag ? 'is-close' : '',
+                    flag?.preferred ? 'is-preferred' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   aria-pressed={active}
+                  title={flag ? signal?.note : undefined}
                   onClick={() => onToggleOption(item.id, option.key)}
                 >
+                  {flag && (
+                    <span className="pool-card__odd-mark" aria-hidden="true">
+                      ≈
+                    </span>
+                  )}
                   <i>{option.label}</i>
                   <b>{option.value}</b>
                 </button>
@@ -79,15 +100,27 @@ export function MatchPoolList({
         </div>
       )
 
+      const content = (
+        <Fragment key={group.key}>
+          {rowContent}
+          {signal && (
+            <p className="pool-card__signal">
+              <span aria-hidden="true">≈</span>
+              {signal.note}
+            </p>
+          )}
+        </Fragment>
+      )
+
       if (wrapGroups) {
         return (
           <div key={group.key} className="pool-card__group-wrap">
-            {rowContent}
+            {content}
           </div>
         )
       }
 
-      return rowContent
+      return content
     })
   }
 
@@ -158,6 +191,7 @@ export function MatchPoolList({
 
               if (activePool === 'mixed') {
                 const expanded = expandedMixedIds.includes(item.id)
+                const hasHiddenSignal = Boolean(signals?.[`${item.id}:ttg`])
                 return (
                   <li key={item.id} className={`${picked ? 'is-picked ' : ''}is-option-layout`}>
                     <div className="pool-card pool-card--mixed">
@@ -171,6 +205,11 @@ export function MatchPoolList({
                             onClick={() => onToggleMixed(item.id)}
                           >
                             {expanded ? '收起' : '展开更多玩法'}
+                            {!expanded && hasHiddenSignal && (
+                              <span className="mixed-card__toggle-flag" aria-label="进球数有赔率接近">
+                                ≈
+                              </span>
+                            )}
                           </button>
                         </div>
                       </div>
