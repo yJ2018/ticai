@@ -92,6 +92,11 @@ button:focus-visible,
   max-width: 1600px;
 }
 
+/* 开奖历史：七星彩 7 列 / 排列五 5 列，宽屏直接铺满视口，不再留 1600 上限 */
+.app-shell--full {
+  max-width: none;
+}
+
 .app-main {
   flex: 1;
   min-height: 0;
