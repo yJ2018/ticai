@@ -79,12 +79,17 @@ button:focus-visible,
   height: 100vh;
   /* 移动端浏览器地址栏会吃掉 100vh 的高度，dvh 跟随可视区域，避免整页可滚动后两个吸顶头互相压住 */
   height: 100dvh;
-  max-width: 960px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+/* 历史 / 分析页：数据密度高，宽屏用更宽的容器；小屏仍然是 100% */
+.app-shell--wide {
+  max-width: 1600px;
 }
 
 .app-main {
@@ -264,7 +269,7 @@ button:focus-visible,
   display: none;
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 60rem) {
   .app-topbar {
     flex-wrap: wrap;
     align-items: center;
@@ -2113,8 +2118,8 @@ button:focus-visible,
 
 .history-page {
   height: 100%;
-  width: calc(100vw - 1.5rem);
-  margin-left: calc(50% - 50vw + 0.75rem);
+  width: 100%;
+  margin-left: 0;
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, #f8fbff 0%, #f8fafc 100%);
@@ -2615,6 +2620,15 @@ button:focus-visible,
 
 .history-page__mobile {
   display: block;
+}
+
+/* 平板（768–1200）：还没到五列走势，但一张卡片铺满整屏太浪费，改成两列卡片 */
+@media (min-width: 48rem) and (max-width: 74.99rem) {
+  .history-page__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
 }
 
 /* 翻页入场：只做轻微横向位移，不再从全透明淡入，避免"闪一下" */
@@ -5386,7 +5400,7 @@ span.analysis-skeleton__pill--light {
   }
 }
 
-@media (min-width: 64rem) {
+@media (min-width: 75rem) {
   .history-page__desktop {
     flex: 1;
     min-height: 0;
@@ -5444,8 +5458,8 @@ span.analysis-skeleton__pill--light {
   }
 }
 
-/* 1024–1200px：右栏占位后号码矩阵变窄，字号再收一点，避免两位数挤在一起 */
-@media (min-width: 64rem) and (max-width: 75rem) {
+/* 1200–1312px：右栏占位后号码矩阵仍偏窄，字号再收一点，避免两位数挤在一起 */
+@media (min-width: 75rem) and (max-width: 82rem) {
   .history-page__desktop.is-dlt .trend-panel.is-wide {
     .trend-panel__digits-head span,
     .trend-panel__cell {

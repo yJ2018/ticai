@@ -85,9 +85,14 @@ export default function App() {
   }, [])
 
   const isFullscreen = isFullscreenRoute(pathname)
+  const isWide = isWidePage(pathname)
 
   return (
-    <div className={`app-shell${isFullscreen ? ' app-shell--fullscreen' : ''}`}>
+    <div
+      className={`app-shell${isFullscreen ? ' app-shell--fullscreen' : ''}${
+        isWide ? ' app-shell--wide' : ''
+      }`}
+    >
       {/* H5 对战详情是全屏页面，带自己的返回栏，不需要站点头部 */}
       {!isFullscreen && (
         <header className={`app-topbar${isNavOpen ? ' is-nav-open' : ''}`}>
@@ -170,6 +175,11 @@ export default function App() {
 /** 这些路由自带导航栏，渲染时隐藏站点头部 */
 function isFullscreenRoute(pathname: string) {
   return pathname.startsWith('/match/')
+}
+
+/** 数据密度高、需要横向空间的页面；其余页面保持 1080 的阅读宽度 */
+function isWidePage(pathname: string) {
+  return ['/history', '/history-analysis', '/math-trend-analysis'].includes(pathname)
 }
 
 function isActivePath(pathname: string, href: string) {

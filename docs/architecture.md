@@ -436,21 +436,24 @@ flowchart LR
 
 1. 访问过的页面常驻 React 树，切换只改 `display`，`useState`/滚动位置保留。
 2. **无缓存淘汰**：`cachedPathsRef` 只增不减；`cache: false` 的页面切走即卸载。
-3. **移动端（≤640px）主导航折叠**：页头只留标题 + 登录/账号 + 汉堡按钮，导航收进两列菜单；
+3. **平板/移动端（≤960px）主导航折叠**：页头只留标题 + 登录/账号 + 汉堡按钮，导航收进两列菜单；
    路由切换时自动收起。桌面端保持平铺。
-4. **吸顶不要叠两层**：站点头部吸顶，页面自己的工具条（如首页玩法切换）不再吸顶，
+4. **容器宽度分两档**：普通页面 `app-shell` 最大 1080px；历史 / 两个分析页加 `app-shell--wide`，
+   宽屏最大 1600px。历史页五列走势在 ≥1200px 才启用，768–1200px 用两列手机卡片，
+   ≤960px 单列；避免 iPad 横屏被拉成一整屏一张卡，也避免宽屏只占中间 960px。
+5. **吸顶不要叠两层**：站点头部吸顶，页面自己的工具条（如首页玩法切换）不再吸顶，
    否则整页可滚动时会互相遮挡；`.app-shell` 用 `100dvh` 跟随移动端可视高度。
-5. **路由级 SEO**：服务端 `generateMetadata` 产出 title / description / canonical / robots / OG；
+6. **路由级 SEO**：服务端 `generateMetadata` 产出 title / description / canonical / robots / OG；
    客户端导航后由 `App` 调 `applyPageMeta` 补齐，两者共用 `resolvePageMeta()` 同一份规则。
    登录后才可见的页面标记 `noindex`。站点级 OG / JSON-LD 在 `src/app/layout.tsx`，
    `public/robots.txt` 与 `public/sitemap.xml` 仍作为静态文件返回。
-6. **SSR 与首屏预取**：页面外壳由服务端渲染（`force-dynamic`，每次请求渲染，不做构建期静态化）；
+7. **SSR 与首屏预取**：页面外壳由服务端渲染（`force-dynamic`，每次请求渲染，不做构建期静态化）；
    **首页与赛果开奖页已在服务端预取**（`src/proxy.ts` 写 `x-pathname` → 根 layout 取数 → context 下发），
    其余页面（history / 两个分析页）仍是客户端拉取，见 §13.6。
-7. 精确匹配为主；`/match/:matchId` 是唯一的动态路由（`cache: false`），切换不同 `matchId` 时组件不卸载，但 `useMatchDetail` 会按 id 重新拉取。
-8. 副作用常驻：页面的定时器与后台请求在切走后仍运行（`historyService` 的后台补页就是全局单例，不受影响）。
-9. **导航与传参**：`react-router` 已移除。`src/lib/navigation.ts` 提供 `useNavigate` / `usePathname`，
-   `src/lib/nav-state.ts` 用一次性内存槽替代 `location.state`（「我的投注 → 带方案去投注」「列表 → 详情占位队名」「登录后回哪」三处）。
+8. 精确匹配为主；`/match/:matchId` 是唯一的动态路由（`cache: false`），切换不同 `matchId` 时组件不卸载，但 `useMatchDetail` 会按 id 重新拉取。
+9. 副作用常驻：页面的定时器与后台请求在切走后仍运行（`historyService` 的后台补页就是全局单例，不受影响）。
+10. **导航与传参**：`react-router` 已移除。`src/lib/navigation.ts` 提供 `useNavigate` / `usePathname`，
+    `src/lib/nav-state.ts` 用一次性内存槽替代 `location.state`（「我的投注 → 带方案去投注」「列表 → 详情占位队名」「登录后回哪」三处）。
 
 对战详情有两条入口，同一份正文组件（`MatchDetailContent`）：
 
@@ -1547,6 +1550,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 页面 | 赛果页只能按天看比分 | `/odds-distribution`：四条赔率曲线（最低 / 倒数第二低 / 第三低 / 中奖）+ 中奖排名柱状图 + 逐场样本；桌面表格、移动端卡片 |
 | 投注页标注 | 只有赔率数字与「一键串关」入口 | `GET /api/match-signals`：每场最低两档差 ≤8% 时标 `≈`，蓝框为融合概率更偏向的选项；说明里带近况样本与期望总进球 |
 | 方案弹层排序 | 按用户勾选先后列出场次 | 统一按开赛时间 / 场次号排序（`compareMatchOrder`），保存投注与方案级 AI 分析同序 |
+| 宽屏与平板 | 全站固定 960px；历史页 `100vw` 溢出、页头与内容不对齐；iPad 横屏仍是 5 列窄表 | 普通页 1080px；历史 / 分析页 `app-shell--wide` 1600px；历史页 ≥1200px 五列、768–1200px 两列卡片、<768px 单列；主导航 ≤960px 折叠 |
 | 测试 | — | `ttg-distribution.test.mjs` 5 个 + `match-signals.test.mjs` 6 个用例 |
 
 ---
