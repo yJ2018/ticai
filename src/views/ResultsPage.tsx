@@ -207,9 +207,14 @@ export function ResultsPage() {
             {updatedAt && <span className="results-page__updated"> · 更新于 {formatClock(updatedAt)}</span>}
           </p>
         </div>
-        <Link className="btn-ghost results-page__link" href="/">
-          去投注
-        </Link>
+        <div className="results-page__links">
+          <Link className="btn-ghost" href="/odds-distribution">
+            赔率分布
+          </Link>
+          <Link className="btn-ghost" href="/">
+            去投注
+          </Link>
+        </div>
       </header>
 
       <div className="results-toolbar">

@@ -25,13 +25,13 @@
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | Next.js（Vercel `ticai` 项目，静态 + Serverless 函数）+ Node API（Vercel `ticai-service`）+ Python 分析服务（Vercel `ticai-analysis`）；生产用同源 `/api` rewrite 代理 |
-| 前端规模 | 13 个页面（`src/views`）；`src` 下 97 个 TS/TSX 文件；`global.scss` + 6 个按域拆分样式 |
-| 服务端规模 | `apps/api`：12 个 handler 模块、28 个接口路径（30 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
+| 前端规模 | 14 个页面（`src/views`）；`src` 下 106 个 TS/TSX 文件；`global.scss` + 7 个按域拆分样式 |
+| 服务端规模 | `apps/api`：14 个 handler 模块、33 个接口路径（35 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
 | 数据层 | PostgreSQL 24 张表 + 3 个视图：API 与分析服务只读（分析服务额外写 `lottery_analysis_snapshot`），爬虫只写（`db/README.md`） |
 | 构建产物 | `.next`：客户端 JS ≈ 670 KB + 143 KB CSS（gzip 后约 185 + 24 KB）+ 一个 SSR Serverless 函数 |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（Next 服务端 / API 函数）+ Python 3.12（Vercel Python 运行时） |
 | 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；Node 服务端仅 `pg`；Python：FastAPI + uvicorn + psycopg；爬虫可选 `playwright`（阵容） |
-| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 131 个（API 88 + 爬虫 43）+ Python unittest 38 个（含与 Node 的对拍） |
+| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 142 个（API 99 + 爬虫 43）+ Python unittest 38 个（含与 Node 的对拍） |
 | tsconfig | `strict` **未开启**；开启 `noUnusedLocals`、`noUnusedParameters`、`erasableSyntaxOnly`、`verbatimModuleSyntax` |
 
 ### 功能地图
@@ -45,6 +45,7 @@
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | `GET /api/analysis/lottery?kind=math_trend` |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
 | `/results` | 赛果开奖 | 按比赛日翻看比分与五个玩法的开奖结果，未开奖场次明确标注 | `GET /api/results` |
+| `/odds-distribution` | 赔率分布 | 开奖记录 × 总进球赔率：不限时间统计最低 / 倒数第二低 / 第三低 / 中奖赔率四条分布与中奖赔率排名，逐场对照最近样本 | `GET /api/odds-distribution` |
 | `/login` | 登录 / 注册 | 邮箱 + 密码，或邮箱验证码（Resend；未注册邮箱直接建号，登录后引导设置密码）；可接微信扫码；登录态存 localStorage，请求带 Bearer | `/api/auth/*` |
 | `/auth/wechat` | 微信回调 | 用一次性 ticket 换正式会话，失败时展示原因 | `POST /api/auth/wechat/session` |
 | `/account` | 账号 | 账号资料与登录方式；「邮箱与密码」卡片（绑定邮箱 / 设置密码 / 修改密码）、绑定 / 解绑微信 | `/api/auth/identities`、`/api/auth/password`、`/api/auth/email`、`/api/auth/wechat/*` |
@@ -126,7 +127,7 @@ flowchart TB
     A2["app/[[...slug]]/page.tsx 唯一入口 · 404 · generateMetadata"]
     A3["AppShell（client）· 未登记路径返回 null"]
     A4["App.tsx 顶栏 + 导航 + 免责弹层"]
-    A5["KeepAliveRoutes + router/manifest.ts（13 条）"]
+    A5["KeepAliveRoutes + router/manifest.ts（14 条）"]
     A6["lib/navigation / lib/nav-state（替代 react-router）"]
   end
 
@@ -263,15 +264,16 @@ D:\ticai
 ├─ .env / .env.example         # 数据库、AI、聚合数据、Resend、微信（.env 已被 gitignore）
 ├─ public/                     # favicon / apple-touch / PWA 图标、robots.txt、sitemap.xml、og-cover.png
 ├─ apps/
-│  ├─ api/                     # ★ 独立 Node 服务端：只读库，28 个接口路径
+│  ├─ api/                     # ★ 独立 Node 服务端：只读库，33 个接口路径
 │  │  ├─ api/index.js          # Vercel 函数入口（全路径 rewrite 到这里）
 │  │  ├─ src/app.mjs           # 路由表、CORS、错误信封、/healthz
 │  │  ├─ src/index.mjs         # 本地 / VPS node:http 入口
 │  │  ├─ src/config.mjs        # 环境变量 → 配置对象（.env 查找顺序）
 │  │  ├─ src/db.mjs            # pg 连接池（懒加载 / 保活）
 │  │  ├─ src/proxy.mjs         # ★ 分析接口 → Python（ANALYSIS_API_BASE；失败回退）
-│  │  ├─ src/handlers/         # sporttery | results | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis | recommendations
-│  │  ├─ src/repos/            # matches | lottery | results | bets 读库 SQL
+│  │  ├─ src/handlers/         # sporttery | results | odds-distribution | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis | recommendations
+│  │  ├─ src/repos/            # matches | lottery | results（含 TTG 样本）| bets 读库 SQL
+│  │  ├─ src/ttg-distribution.mjs # 总进球赔率分布纯函数（排序 / 排名 / 区间 / 汇总）
 │  │  ├─ src/recommend/        # 推荐引擎的 Node 版（对拍基准 + 回退）
 │  │  ├─ src/analysis/         # 开奖分析：configs（参数指纹/预设）+ compute + 冻结的算法（回退）
 │  │  ├─ src/ai/               # prompt / parlay-prompt / context / parlay-context
@@ -290,7 +292,7 @@ D:\ticai
 │  │  └─ tests/                # 38 个用例：数学、风控、对拍、提示词、路径还原
 │  └─ crawler/                 # ★ 本地爬虫：只写库
 │     ├─ src/tasks/matches.mjs # 赛程 + 赔率快照 + 自动下架
-│     ├─ src/tasks/results.mjs # 赛果开奖：比分 + 五个玩法结果
+│     ├─ src/tasks/results.mjs # 赛果开奖：比分 + 五个玩法结果 + 固化 TTG 收盘赔率
 │     ├─ src/tasks/history.mjs # 四彩种开奖（含奖级）→ 写完后触发分析快照重算
 │     ├─ src/tasks/details.mjs # 伤停（--full 时 7 个官方接口）
 │     ├─ src/tasks/lineups*.mjs# 阵容（500.com + Playwright）
@@ -300,7 +302,7 @@ D:\ticai
 │     ├─ src/bet-window.mjs    # 竞彩销售时段闸门
 │     └─ src/daemon.mjs        # 常驻调度器：串行队列 + 开盘补跑
 ├─ db/
-│  ├─ migrations/              # 0001_init → 0008_code_signup_password
+│  ├─ migrations/              # 0001_init → 0011_match_result_ttg_odds
 │  ├─ seed/                    # 四彩种字典
 │  └─ maintenance.sql          # 阵容/赔率/抓取记录保留策略
 ├─ scripts/
@@ -323,19 +325,20 @@ D:\ticai
    ├─ app-shell/AppShell.tsx   # 客户端外壳：路径校验 + 挂 App
    ├─ App.tsx                  # 顶栏 + 导航 + 免责弹层 + 路由级 SEO
    ├─ router
-   │  ├─ manifest.ts           # 路由清单（13 条）+ matchAppRoute + 公开/私有
+   │  ├─ manifest.ts           # 路由清单（14 条）+ matchAppRoute + 公开/私有
    │  ├─ KeepAliveRoutes.tsx   # pathname 匹配 + display 切换的缓存路由
    │  └─ routes.tsx / match.ts / types.ts
    ├─ lib                      # navigation · nav-state · initial-data（首屏数据类型）
    ├─ server/prefetch.ts       # ★ 首屏取数（只在根 layout 调用，失败即降级）
    ├─ ssr                      # seed（首屏灌 store）· initial-context（context 通道）
    ├─ proxy.ts                 # 写 x-pathname 请求头，layout 靠它知道当前页面
-   ├─ views                    # 13 个页面（见 §4 路由表）
+   ├─ views                    # 14 个页面（见 §4 路由表）
    │  ├─ HomePage.tsx          # 803 行：状态编排 + 组合子组件 + 方案弹层
    │  ├─ HistoryPage.tsx       # 920 行：走势矩阵 + 大乐透号码推演 + 右栏指标
    │  ├─ HistoryAnalysisPage   # 723 行（仍未拆分）
    │  ├─ MathTrendAnalysisPage # 444 行（仍未拆分）
    │  ├─ ResultsPage.tsx       # 258 行：比赛日翻页 + 五个玩法结果
+   │  ├─ OddsDistributionPage.tsx # 总进球赔率分布：SVG 四线分布 + 排名图 + 逐场样本
    │  ├─ AuthPage / WechatCallbackPage / AccountPage
    │  ├─ MyBetsPage.tsx        # 492 行：骨架屏 + 统计 + 筛选 + 详情弹层
    │  └─ MatchDetailPage / HoroscopePage / AboutPage / ProfilePage
@@ -370,11 +373,12 @@ D:\ticai
    ├─ api
    │  ├─ httpClient.ts / base.ts # 超时 + AbortSignal + 统一 ApiError；同源 /api
    │  ├─ sportteryApi.ts / resultsApi.ts / matchDetailApi.ts
+   │  ├─ oddsDistributionApi.ts # 总进球赔率分布响应类型与请求
    │  ├─ analysisApi.ts / parlayApi.ts / aiApi.ts / venueWeatherApi.ts
    │  ├─ authApi.ts / betApi.ts
    │  ├─ index.ts              # 统一导出
    │  └─ types.ts              # BffEnvelope<T>
-   ├─ styles                   # global.scss + authBets / results / account / confirmDialog
+   ├─ styles                   # global.scss + authBets / results / oddsDistribution / account / confirmDialog
    ├─ components               # 骨架屏 / 大乐透指标与推荐 / ConfirmDialog
    └─ assets                   # 未被引用的图片（可删）
 ```
@@ -404,13 +408,14 @@ flowchart LR
 
 > 为什么不能按路由拆多个 `page.tsx`：Next 每次导航都会换页面组件实例，Keep-Alive 缓存和页面输入状态会全部丢失。实测把 `<AppShell />` 从 page 挪到 layout 后，`/about` → `/results` → 返回，输入内容才得以保留。
 
-### 路由清单（`appRouteManifest` 13 条 / `navLinks` 7 项）
+### 路由清单（`appRouteManifest` 14 条 / `navLinks` 8 项）
 
 | 路径 | 页面 | 缓存 | 说明 |
 | --- | --- | --- | --- |
 | `/` | HomePage | ✅ | 投注主流程 |
 | `/history` | HistoryPage | ✅ | 开奖历史 |
 | `/results` | ResultsPage | ❌ | 按天翻页，回来时重新拉最新开奖 |
+| `/odds-distribution` | OddsDistributionPage | ❌ | 不限时间的总进球赔率分布，进入时重新聚合 |
 | `/history-analysis` | HistoryAnalysisPage | ✅ | 本地分析 |
 | `/math-trend-analysis` | MathTrendAnalysisPage | ✅ | 本地分析 |
 | `/match/:matchId` | MatchDetailPage | ❌ | 唯一动态路由，H5 详情 |
@@ -422,7 +427,7 @@ flowchart LR
 | `/my-bets` | MyBetsPage | ❌ | 回来时重新拉最新结算 |
 | `/profile` | ProfilePage | ❌ | 不在导航中 |
 
-> 导航（`navLinks`）：赛事投注 / 赛果开奖 / 开奖历史 / 分析页面 / 数学走势 / 星座运势 / 我的投注。
+> 导航（`navLinks`）：赛事投注 / 赛果开奖 / 赔率分布 / 开奖历史 / 分析页面 / 数学走势 / 星座运势 / 我的投注。
 > 未登记路径由 `page.tsx` 直接 `notFound()`，是**真 404**（不再有「渲染首页 + 200」的软 404）。
 
 要点：
@@ -795,6 +800,34 @@ flowchart LR
 
 ---
 
+### 5.7.1 总进球赔率分布（`/odds-distribution`，不限时间）
+
+赛果页回答「这场开了什么」，分布页回答「最低赔率到底有多容易中」。两件事共用 `match_result`，
+但赔率快照只保留 120 天，所以赛果入库时先把该场最后一份总进球赔率**固化**到
+`match_result.ttg_odds`（迁移 `0011`），再做全量聚合。
+
+```mermaid
+flowchart LR
+  MS[(match_odds_snapshot<br/>120 天保留)] -->|赛果入库时取最后一份| CR[crawler results]
+  CR --> MR[(match_result<br/>ttg_result + ttg_odds)]
+  MR --> API[GET /api/odds-distribution]
+  API --> PURE[src/ttg-distribution.mjs<br/>排序 / 排名 / 区间 / 汇总]
+  PURE --> UI[四线分布图 + 排名图 + 最近样本]
+```
+
+- **样本**：所有 `ttg_result` 非空、且能拿到 8 个总进球选项赔率的场次；没有日期参数，不设时间窗。
+- **赔率来源**：优先 `match_result.ttg_odds`；迁移前 / 爬虫尚未固化的行，回退到当前保留期内该场最后一份快照。
+- **排名**：每场 8 个选项按赔率升序，中奖排名 = 严格更低的选项数 + 1；赔率并列共享排名。
+- **四条分布**：最低 / 倒数第二低 / 第三低 / 中奖赔率的赔率区间直方图（固定区间，不随样本漂移）。
+- **覆盖说明**：接口同时返回「有总进球赛果的场次」总数，前端显示 `117 / 231` 这类覆盖率，
+  避免把「老场次没有赔率」误读成统计遗漏。
+- **缓存**：单实例 5 分钟；页面不做 Keep-Alive（每次进入重新拉取），与赛果页一致。
+
+> 当前样本（2026-10-30）：117 场，最低赔率命中 29.1%，落在前三低 63.2%，平均最低 3.39 /
+> 平均中奖 6.27。样本会随赛果链路持续增长，页面不做时间截断。
+
+---
+
 ### 5.8 账号、登录方式与密码（微信 / 邮箱 / 验证码）
 
 账号（`app_user`）与登录方式（`user_identity`）是两层：
@@ -987,6 +1020,7 @@ flowchart LR
 | 开奖 | `GET /api/history` | 数据库 | 60 s |
 | 开奖分析 | `GET /api/analysis/lottery`、`GET /api/analysis/lottery/snapshots`（Python） | 数据库（爬虫开奖后预算的快照） | 同一期不变：`s-maxage=900`；落后开奖时 60 s |
 | 赛果 | `GET /api/results` | 数据库 | 30 s |
+| 赔率分布 | `GET /api/odds-distribution` | 数据库（`match_result.ttg_odds`，回退赔率快照） | 5 min |
 | 对战详情 | `GET /api/match-detail` | 数据库 | 无（按场次） |
 | AI | `POST /api/ai-analysis`、`POST /api/ai-parlay`（Python）、`POST /api/ai-chat`（Node 遗留） | 数据库 + DeepSeek | 无（SSE） |
 | 认证 | `POST /api/auth/code` `/register` `/login` `/logout`、`GET /api/auth/me` | 数据库 + Resend | 无 |
@@ -1059,7 +1093,7 @@ flowchart LR
 | 彩票 | `lottery_game` / `lottery_draw` / `lottery_prize_level` | 开奖爬虫（4 个彩种） | 永久 |
 | 分析 | `lottery_analysis_snapshot` | 开奖后由爬虫算（API 缺失时兜底现算） | 永久（每期 × 每参数一条，单条 ~11 KB） |
 | 足球 | `league` / `team` / `team_alias` / `match` / `match_odds_snapshot` | 赛程爬虫 + 赛果爬虫 | 赔率快照 120 天 |
-| 赛果 | `match_result` | 赛果开奖爬虫 | 永久（按 sporttery_match_id 幂等覆盖） |
+| 赛果 | `match_result`（含固化的 `ttg_odds`） | 赛果开奖爬虫 | 永久（按 sporttery_match_id 幂等覆盖；TTG 赔率首写不覆盖） |
 | 补充 | `player` / `injury` / `match_lineup` / `match_lineup_player` | 自建爬虫 | 阵容每队只留最近 1 场 |
 | 映射 | `external_ref` | 人工确认后写入 | 永久 |
 | 账户 | `app_user` / `email_code` / `user_session` | API（登录链路） | 会话 30 天，验证码 10 分钟（用途 `register` / `login` / `bind`）；会话记 `verified_by` |
@@ -1086,6 +1120,7 @@ flowchart LR
 | --- | --- | --- |
 | `/api/matches` | 数据库 | 库 → 体彩 `matchInfoList` 信封；忽略 `poolType`，一次返回全部玩法 |
 | `/api/results` | 数据库 | 赛果开奖：比分 + 五个玩法结果（`had/hhad/ttg/crs/hafu`），按**真实开赛时间**筛选与升序 |
+| `/api/odds-distribution` | 数据库 | 不限时间的总进球赔率分布：最低 / 倒数第二低 / 第三低 / 中奖赔率 + 中奖排名；优先读赛果固化的 `ttg_odds` |
 | `/api/history` | 数据库 | 库 → `{list,pageNo,pageSize,pages,total}`；金额字段同时输出上游真名与历史误用名 |
 | `/api/match-detail` | 数据库 | 对战详情 7 个板块（交锋/伤停/近况/未来/特征/积分/射手），**缺失返回 null、空分组保留空数组，并列出 `missing`** |
 | `/api/auth/code` `/register` `/login` `/logout` `/me` | 数据库 + Resend | 邮箱验证码 / 密码登录，Bearer 不透明 token，服务端只存 sha256 |
@@ -1133,7 +1168,7 @@ flowchart LR
 | 任务 | 数据源 | 写入 | 频率 |
 | --- | --- | --- | --- |
 | `matches` | 体彩 | `league` / `team` / `match` / `match_odds_snapshot` | 每 30 分钟（销售时段内） |
-| `results` | 体彩赛果开奖 | `match_result` + 回写 `match` 比分 | 每 30 分钟；没有待开奖比赛时自动跳过 |
+| `results` | 体彩赛果开奖 | `match_result` + 回写 `match` 比分 + 固化 TTG 赔率 | 每 30 分钟；没有待开奖比赛时自动跳过 |
 | `history` | 体彩 | `lottery_draw` / `lottery_prize_level` | 每 3 小时 |
 | `details` | 体彩 | `injury` / `player` / `match_feed` | 每 3 小时（默认只抓伤停） |
 | `lineups` | 500.com | `match_lineup` / `match_lineup_player` / `player` | 每 60 分钟，仅赛前 6 小时窗口 |
@@ -1471,6 +1506,17 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 我的投注 | 号码球平铺 | 复式按位次分组渲染，命中位次/号码标绿，显示中奖注数与奖级 |
 | 测试 | 5 个用例 | 6 个（新增组合数、复式注数、复式中奖注数、旧扁平数据兼容） |
 
+### 2026-10-30 增量：总进球赔率分布
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 赔率保留 | 只存在 `match_odds_snapshot`，120 天后被裁掉 | 迁移 `0011`：`match_result` 增加 `ttg_odds` / `ttg_odds_captured_at`，赛果入库时固化最后一份 TTG 赔率；旧行从保留期内快照回填 |
+| 采集 | 赛果链路只写比分与五个玩法结果 | `UPSERT_RESULT` 同时取该场最新 TTG 快照，首写后不覆盖（保持收盘口径） |
+| 聚合 | 无 | `src/ttg-distribution.mjs` 纯函数：8 选项排序、并列排名、固定区间直方图、命中率 / 均值 / 最近样本 |
+| 接口 | 无 | `GET /api/odds-distribution`：优先读固化赔率，回退快照；5 分钟缓存；返回覆盖率与 `x-ttg-samples` |
+| 页面 | 赛果页只能按天看比分 | `/odds-distribution`：四条赔率曲线（最低 / 倒数第二低 / 第三低 / 中奖）+ 中奖排名柱状图 + 逐场样本；桌面表格、移动端卡片 |
+| 测试 | — | `ttg-distribution.test.mjs` 5 个用例（聚合、并列排名、缺项跳过、区间边界、最近样本） |
+
 ---
 
 ## 12. 关键文件索引
@@ -1483,6 +1529,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | API 微信身份 | [apps/api/src/wechat.mjs](../apps/api/src/wechat.mjs)、[apps/api/src/handlers/wechat.mjs](../apps/api/src/handlers/wechat.mjs) |
 | API 投注 / 结算 | [apps/api/src/handlers/bets.mjs](../apps/api/src/handlers/bets.mjs)、[apps/api/src/repos/bets.mjs](../apps/api/src/repos/bets.mjs)、[apps/api/src/settlement.mjs](../apps/api/src/settlement.mjs) |
 | API 赛果 | [apps/api/src/handlers/results.mjs](../apps/api/src/handlers/results.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs) |
+| 赔率分布 | [apps/api/src/handlers/odds-distribution.mjs](../apps/api/src/handlers/odds-distribution.mjs)、[apps/api/src/ttg-distribution.mjs](../apps/api/src/ttg-distribution.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs)、[src/views/OddsDistributionPage.tsx](../src/views/OddsDistributionPage.tsx)、[src/api/oddsDistributionApi.ts](../src/api/oddsDistributionApi.ts)、[db/migrations/0011_match_result_ttg_odds.sql](../db/migrations/0011_match_result_ttg_odds.sql) |
 | 开发双进程脚本 | [scripts/dev.mjs](../scripts/dev.mjs) |
 | 环境变量样例 | [.env.example](../.env.example) |
 | 构建 / 代理 / 部署 | [next.config.ts](../next.config.ts)、[vercel.json](../vercel.json)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs) |

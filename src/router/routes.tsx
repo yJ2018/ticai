@@ -8,6 +8,7 @@ import { HoroscopePage } from '../views/HoroscopePage'
 import { MathTrendAnalysisPage } from '../views/MathTrendAnalysisPage'
 import { MatchDetailPage } from '../views/MatchDetailPage'
 import { MyBetsPage } from '../views/MyBetsPage'
+import { OddsDistributionPage } from '../views/OddsDistributionPage'
 import { ProfilePage } from '../views/ProfilePage'
 import { ResultsPage } from '../views/ResultsPage'
 import { WechatCallbackPage } from '../views/WechatCallbackPage'
@@ -18,6 +19,8 @@ export const appRoutes: KeepAliveRouteItem[] = [
   { path: '/history', element: <HistoryPage />, cache: true },
   // 赛果开奖：按天翻页，不缓存，回来时重新拉最新开奖
   { path: '/results', element: <ResultsPage />, cache: false },
+  // 赔率分布：不限时间，每次进入重新拉最新统计
+  { path: '/odds-distribution', element: <OddsDistributionPage />, cache: false },
   { path: '/history-analysis', element: <HistoryAnalysisPage />, cache: true },
   { path: '/math-trend-analysis', element: <MathTrendAnalysisPage />, cache: true },
   // H5 对战详情：不缓存，换一场要重新拉数据
@@ -38,6 +41,7 @@ export const appRoutes: KeepAliveRouteItem[] = [
 export const navLinks: NavItem[] = [
   { to: '/', label: '赛事投注' },
   { to: '/results', label: '赛果开奖' },
+  { to: '/odds-distribution', label: '赔率分布' },
   { to: '/history', label: '开奖历史' },
   { to: '/history-analysis', label: '分析页面' },
   { to: '/math-trend-analysis', label: '数学走势' },

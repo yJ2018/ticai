@@ -13,21 +13,35 @@ import { fetchMatchResults } from '../sporttery.mjs'
  *     所以这条链路不过销售时段闸门。
  */
 
-const UPSERT_RESULT = `
+export const UPSERT_RESULT = `
   insert into match_result (
     sporttery_match_id, match_id, match_num_str, match_date, league_id, league_name,
     home_name, away_name, home_team_id, away_team_id,
     half_home, half_away, full_home, full_away, goal_line,
     had_result, hhad_result, ttg_result, crs_result, hafu_result,
-    win_flag, pool_status, result_status, settled, settled_at, raw
+    win_flag, pool_status, result_status, settled, settled_at, raw,
+    ttg_odds, ttg_odds_captured_at
   )
-  values (
-    $1, (select id from match where sporttery_match_id = $1), $2, $3, $4, $5,
+  select
+    $1, m.id, $2, $3, $4, $5,
     $6, $7, $8, $9,
     $10, $11, $12, $13, $14,
     $15, $16, $17, $18, $19,
-    $20, $21, $22, $23, case when $23 then now() else null end, $24
-  )
+    $20, $21, $22, $23, case when $23 then now() else null end, $24,
+    -- 只有已开奖的场次才固化赔率：未开奖行后续赔率还会变
+    case when $23 then picked.ttg_odds else null end,
+    case when $23 then picked.captured_at else null end
+  from (select 1) as anchor
+  left join match m on m.sporttery_match_id = $1
+  left join lateral (
+    -- 赛果入库时把最后一份总进球赔率固化下来：快照只保留 120 天，
+    -- 而「开奖 × 赔率」的历史分布要求不限时间。
+    select s.odds->'ttg' as ttg_odds, s.captured_at
+    from match_odds_snapshot s
+    where s.match_id = m.id
+    order by s.captured_at desc
+    limit 1
+  ) picked on true
   on conflict (sporttery_match_id) do update set
     match_id      = coalesce(match_result.match_id, excluded.match_id),
     match_num_str = coalesce(excluded.match_num_str, match_result.match_num_str),
@@ -54,6 +68,9 @@ const UPSERT_RESULT = `
     settled       = excluded.settled or match_result.settled,
     settled_at    = coalesce(match_result.settled_at, excluded.settled_at),
     raw           = excluded.raw,
+    -- 首份赔率即收盘口径；后续轮次即使快照变了也不覆盖
+    ttg_odds      = coalesce(match_result.ttg_odds, excluded.ttg_odds),
+    ttg_odds_captured_at = coalesce(match_result.ttg_odds_captured_at, excluded.ttg_odds_captured_at),
     updated_at    = now()
   where (match_result.full_home, match_result.full_away, match_result.half_home, match_result.half_away,
          match_result.goal_line, match_result.result_status, match_result.pool_status)
@@ -61,15 +78,26 @@ const UPSERT_RESULT = `
         (excluded.full_home, excluded.full_away, excluded.half_home, excluded.half_away,
          excluded.goal_line, excluded.result_status, excluded.pool_status)
      or match_result.win_flag is distinct from excluded.win_flag
+     or (match_result.ttg_odds is null and excluded.ttg_odds is not null)
   returning sporttery_match_id
 `
 
 /** 赛果先入库、比赛后入库时，match_id 会在后续轮次补上（内容没变就不会走 upsert 的 update）。 */
-const LINK_MATCH = `
+export const LINK_MATCH = `
   update match_result r set
     match_id   = m.id,
+    -- 补关联时顺手补上赔率；未开奖行不填，等真正开奖时的 upsert 再取收盘口径
+    ttg_odds   = case when r.settled then coalesce(r.ttg_odds, picked.ttg_odds) else r.ttg_odds end,
+    ttg_odds_captured_at = case when r.settled then coalesce(r.ttg_odds_captured_at, picked.captured_at) else r.ttg_odds_captured_at end,
     updated_at = now()
   from match m
+  left join lateral (
+    select s.odds->'ttg' as ttg_odds, s.captured_at
+    from match_odds_snapshot s
+    where s.match_id = m.id
+    order by s.captured_at desc
+    limit 1
+  ) picked on true
   where m.sporttery_match_id = r.sporttery_match_id
     and r.match_id is null
     and r.sporttery_match_id = any($1::bigint[])

@@ -13,6 +13,7 @@ dist-ssr
 .next
 out
 *.local
+*.tsbuildinfo
 
 # 本地环境变量（含第三方密钥，禁止提交）
 .env

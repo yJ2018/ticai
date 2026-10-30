@@ -26,6 +26,11 @@ const PAGE_META: Record<string, PageMeta> = {
     description:
       '按比赛日查看竞彩足球开奖结果：胜平负、让球胜平负、总进球、比分、半全场的赛果与奖金，数据随官方开奖更新。',
   },
+  '/odds-distribution': {
+    title: '总进球赔率分布',
+    description:
+      '把已开奖比赛的总进球赔率从低到高排序，统计最低赔率、倒数第二低、第三低与最终中奖赔率的分布，不限时间回看赔率与赛果的关系。',
+  },
   '/history': {
     title: '体彩开奖历史',
     description: '体彩开奖历史查询，按日期查看竞彩足球等玩法的开奖结果与派奖信息。',

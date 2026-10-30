@@ -8,6 +8,7 @@ import { createBetHandlers } from './handlers/bets.mjs'
 import { createHealthHandlers } from './handlers/health.mjs'
 import { createLotteryAnalysisHandlers } from './handlers/lottery-analysis.mjs'
 import { createMatchDetailHandler } from './handlers/match-detail.mjs'
+import { createOddsDistributionHandlers } from './handlers/odds-distribution.mjs'
 import { createParlayHandler } from './handlers/parlay.mjs'
 import { createRecommendationHandlers } from './handlers/recommendations.mjs'
 import { createResultsHandlers } from './handlers/results.mjs'
@@ -41,7 +42,7 @@ function buildCorsHeaders(req, config) {
         'x-data-as-of,x-match-count,x-draw-count,server-timing,' +
         'x-analysis-through-issue,x-analysis-through-date,x-analysis-draw-count,' +
         'x-analysis-computed-at,x-analysis-stale,x-analysis-source,' +
-        'x-analysis-game,x-analysis-kind,x-analysis-config,x-analysis-via',
+        'x-analysis-game,x-analysis-kind,x-analysis-config,x-analysis-via,x-ttg-samples',
       'access-control-max-age': '86400',
       vary: 'Origin',
     }
@@ -77,6 +78,7 @@ export function createApp(config) {
   const parlay = createParlayHandler(config)
   const recommendations = createRecommendationHandlers(config)
   const results = createResultsHandlers(config)
+  const oddsDistribution = createOddsDistributionHandlers(config)
   const auth = createAuthHandlers(config)
   const bets = createBetHandlers(config)
   const wechat = createWechatHandlers(config)
@@ -90,6 +92,8 @@ export function createApp(config) {
     ['/api/analysis/lottery', ['GET'], lotteryAnalysis.latest],
     ['/api/analysis/lottery/snapshots', ['GET'], lotteryAnalysis.snapshots],
     ['/api/results', ['GET'], results.results],
+    // 开奖记录 × 总进球赔率：不限时间的最低 / 第二低 / 第三低 / 中奖赔率分布
+    ['/api/odds-distribution', ['GET'], oddsDistribution.ttg],
     ['/api/match-detail', ['GET'], matchDetail],
     // 单场 AI 分析：只收 matchId + pool，提示词在服务端装配
     ['/api/ai-analysis', ['POST'], analysis],

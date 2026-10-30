@@ -19,7 +19,7 @@
 | `src/app/layout.tsx` | `lang="zh-CN"`；站点级 title / description / keywords / OG / Twitter、机器人图标（favicon.ico / 32 / apple-touch / 192 / 512）、WebSite + Organization 的 JSON-LD |
 | `src/app/[[...slug]]/page.tsx` | 页面级 `generateMetadata`：title、description、canonical、robots、OG；未知路径 `notFound()` |
 | `public/robots.txt` | 允许抓取公开页，屏蔽 `/my-bets`、`/account`、`/login`、`/auth/`、`/profile`，并声明 sitemap |
-| `public/sitemap.xml` | 7 个公开页面，带 `lastmod`/`changefreq`/`priority` |
+| `public/sitemap.xml` | 8 个公开页面，带 `lastmod`/`changefreq`/`priority` |
 | `public/og-cover.png` | 1200×630 分享图（微信 / Twitter / 搜索结果富卡片） |
 | `src/features/seo/seo.ts` | `resolvePageMeta()` 纯函数：按 pathname 产出 title / description / canonical / `robots`；私有页自动 `noindex,follow`。服务端与客户端共用 |
 | `src/App.tsx` | 客户端导航后调用 `applyPageMeta`（首屏 meta 已由服务端给出） |

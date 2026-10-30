@@ -41,6 +41,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/maintenance.sql
 | `db/migrations/0004_auth_bets.sql` | 可选登录（`app_user` / `email_code` / `user_session`）与投注单（`bet` / `bet_leg`） |
 | `db/migrations/0009_lottery_bets.sql` | `bet` 扩展 `kind` / `lottery_game_no` / `lottery_numbers`，支持排列五 / 七星彩 / 大乐透选号投注 |
 | `db/migrations/0010_lottery_complex.sql` | 彩票复式：位次型号码改为「每位一个数组」，旧单式数据原地转换；注数按位乘积/组合数计算 |
+| `db/migrations/0011_match_result_ttg_odds.sql` | `match_result` 增加 `ttg_odds` / `ttg_odds_captured_at`：赛果入库时固化最后一份总进球赔率，赔率快照裁剪后仍可做不限时间的历史分布 |
 | `db/migrations/0005_identities_wechat.sql` | 第三方身份（`user_identity`）+ 一次性登录票据（`auth_ticket`）；`app_user.email` 允许为空 |
 | `db/migrations/0006_wechat_password_nullable.sql` | 微信建的账号没有密码，`password_hash` 允许为空 |
 | `db/migrations/0007_analysis_snapshot.sql` | 开奖分析快照 `lottery_analysis_snapshot` + `lottery_analysis_latest` 视图 |
@@ -149,7 +150,7 @@ on conflict (sporttery_match_id) do update set
 | 表 | 策略 | 原因 |
 | --- | --- | --- |
 | `match_lineup` | **每队只留最近 1 场** | 你的需求是"只看最近"；一场 36 行，不裁会一直涨 |
-| `match_odds_snapshot` | 120 天 | 一场每天 30-80 次变更，是唯一会失控的表 |
+| `match_odds_snapshot` | 120 天 | 一场每天 30-80 次变更，是唯一会失控的表；总进球收盘赔率会先固化到 `match_result.ttg_odds`，不受裁剪影响 |
 | `crawl_run` | 30 天 | 只用于排障和新鲜度判断 |
 | `injury` | 未愈 + 近 1 年 | 历史伤病仅用于球员耐用度标签 |
 | `lottery_draw` | 永久 | 四个彩种合计约 1.7 万期，毫无压力 |
@@ -186,9 +187,9 @@ grant usage, select on all sequences in schema public to ticai_crawler;
 - `(game_no, issue)` 唯一约束、赔率 `(match_id, content_hash)` 去重
 - `lateral` 多彩种取最近 N 期、大乐透前区频次统计
 - `db/maintenance.sql` 全量执行、阵容裁剪与级联删除
-- `npm run db:verify` 7 项自检全绿
+- `npm run db:verify` 9 项自检全绿
 
-**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0008_code_signup_password`，`npm run db:verify` 7 项自检全绿。数据库当前共 24 张表 + 3 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest`）。
+**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0011_match_result_ttg_odds`，`npm run db:verify` 9 项自检全绿。数据库当前共 24 张表 + 3 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest`）。
 
 账号链路的三条新约定（`0008`）：
 

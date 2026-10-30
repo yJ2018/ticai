@@ -34,6 +34,7 @@
 | `/history-analysis` | 分析页面 | 频次 / 遗漏 / 马尔可夫 / 滚动回测 / 组合推荐，权重与阶数可调 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测 |
 | `/results` | 赛果开奖 | 按比赛日翻看比分与五个玩法的开奖结果 |
+| `/odds-distribution` | 赔率分布 | 开奖记录 × 总进球赔率：不限时间统计最低 / 倒数第二低 / 第三低 / 中奖赔率分布与中奖排名 |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 |
 | `/login` `/auth/wechat` `/account` | 账号 | 邮箱密码 / 验证码登录，可接微信扫码；登录态 30 天 |
 | `/my-bets` | 我的投注 | 保存的方案按赛果自动判中奖、算奖金；详情可导出截图或一键回填 |
@@ -125,7 +126,7 @@ npm run deploy:analysis  # 只发 Python 分析服务（首次需先 link 项目
 | 文档 | 内容 |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | 分层、路由、数据流、设计取舍、技术债 |
-| [docs/api.md](docs/api.md) | 28 个接口的契约、SSE 协议、错误码 |
+| [docs/api.md](docs/api.md) | 33 个接口的契约、SSE 协议、错误码 |
 | [docs/SEO.md](docs/SEO.md) | 收录现状、meta / robots / sitemap、上线清单 |
 | [apps/api/README.md](apps/api/README.md) | 服务端结构、配置、部署 |
 | [apps/analysis/README.md](apps/analysis/README.md) | Python 分析服务：目录、对拍、部署与路径还原 |

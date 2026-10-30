@@ -42,9 +42,19 @@
   color: #94a3b8;
 }
 
-.results-page__link {
+.results-page__links {
   flex: 0 0 auto;
   align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
 }
 
 .results-toolbar {
@@ -315,9 +325,12 @@
     flex-direction: column;
   }
 
-  .results-page__link {
+  .results-page__links {
     align-self: stretch;
-    text-align: center;
+
+    .btn-ghost {
+      flex: 1;
+    }
   }
 
   .results-count {

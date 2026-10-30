@@ -1,6 +1,6 @@
 # ticai API 接口文档
 
-> 版本：2026-10-29 · Node 服务端在 `apps/api/`；分析类接口（推荐 / 开奖分析 / 天气 / AI）由
+> 版本：2026-10-30 · Node 服务端在 `apps/api/`；分析类接口（推荐 / 开奖分析 / 天气 / AI）由
 > `apps/analysis/`（Python + FastAPI）实现，Node 反向代理并保留同口径回退。
 > 实现细节见 [apps/api/README.md](../apps/api/README.md) 与 [apps/analysis/README.md](../apps/analysis/README.md)。
 
@@ -53,7 +53,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 | 头 | 出现位置 | 说明 |
 | --- | --- | --- |
 | `x-request-id` | 所有响应 | 排障用，错误时也返回 |
-| `x-cache` | `/api/matches`、`/api/history`、`/api/results`、`/api/horoscope`、`/api/weather`、`/api/ip` | `hit` / `miss` |
+| `x-cache` | `/api/matches`、`/api/history`、`/api/results`、`/api/odds-distribution`、`/api/horoscope`、`/api/weather`、`/api/ip` | `hit` / `miss` |
 | `x-data-as-of` | `/api/matches` | 库中这批数据的最后抓取时间（ISO） |
 | `x-match-count` | `/api/matches` | 本次返回场次数 |
 
@@ -431,6 +431,90 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 - `crs`：比分玩法的选项 key，与前端 `optionKey` 完全一致（`s02s01`、`s1sh` 等）。
 - `hafu`：半全场，`hh` `hd` … `aa`。
 - `settled=false` 时比分与全部结果字段都是 `null`，表示还没开奖。
+
+---
+
+### 2.4.1 `GET /api/odds-distribution`
+
+开奖记录 × 赛前总进球赔率。**不限时间、无日期参数**：库里所有「已开奖 + 赛前有总进球赔率」
+的场次都会进入统计，聚合成四条分布（最低赔率 / 倒数第二低 / 第三低 / 中奖赔率），
+并给出中奖赔率在 8 个总进球选项里的排名分布。
+
+**赔率来源**
+
+1. 优先读 `match_result.ttg_odds`：赛果入库时把该场最后一份 TTG 赔率固化下来
+   （迁移 `0011_match_result_ttg_odds`），因此 `match_odds_snapshot` 的 120 天保留期不会让历史分布掉数据；
+2. 迁移前 / 爬虫还没固化的行，回退到当前保留期内该场最后一份 `match_odds_snapshot`。
+
+**口径**
+
+- 每场取 `s0..s7` 八个选项（`s7` = 7+），按赔率升序；
+- 中奖排名 = 严格更低的选项数 + 1，赔率并列时共享排名（两个选项同为最低，押中任一都记最低）；
+- 缺一个选项或赔率 ≤ 1 的场次整场跳过，避免半套赔率污染分布；
+- `sample.coverage` = 有赔率场次 ÷ 库里有总进球赛果的场次，用来说明「老场次为什么没进来」。
+
+```json
+{
+  "success": true,
+  "data": {
+    "sample": {
+      "matches": 117,
+      "settledResults": 231,
+      "coverage": 0.5065,
+      "skipped": 0,
+      "from": "2026-10-23",
+      "to": "2026-10-30",
+      "updatedAt": "2026-10-30T02:14:02.246Z"
+    },
+    "bins": [
+      { "from": 3, "to": 3.5, "label": "3–3.5", "lowest": 81, "second": 18, "third": 0, "winning": 27 }
+    ],
+    "series": [
+      { "key": "lowest", "label": "最低赔率", "average": 3.39, "median": 3.4, "min": 2.7, "max": 4.3 }
+    ],
+    "ranks": [
+      { "rank": 1, "label": "最低", "count": 34, "rate": 0.2906 }
+    ],
+    "highlights": {
+      "lowestHits": 34,
+      "lowestHitRate": 0.2906,
+      "top3Hits": 74,
+      "top3HitRate": 0.6325,
+      "averageLowest": 3.39,
+      "averageWinning": 6.27,
+      "averageRatio": 1.87
+    },
+    "recent": [
+      {
+        "matchId": 2042322,
+        "matchDate": "2026-10-30",
+        "leagueName": "意大利甲级联赛",
+        "homeName": "佛罗伦萨",
+        "awayName": "亚特兰大",
+        "score": "2:2",
+        "ttg": 4,
+        "ttgLabel": "4",
+        "lowest": 3.25,
+        "second": 4.2,
+        "third": 4.4,
+        "winning": 4.2,
+        "rank": 2,
+        "rankLabel": "第二低"
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `bins` | 固定区间（`<2.5` … `30+`），每条含四个系列在区间内的场次；最后一档 `to=null` |
+| `series` | 四个系列的平均 / 中位 / 最小 / 最大赔率；无样本时为 `null` |
+| `ranks` | 中奖赔率排名 1–8（最低 → 最高）的场次与占比，`rate` 为 0–1 |
+| `highlights` | 最低命中、前三低命中、平均最低 / 中奖与平均倍数 |
+| `recent` | 最近 15 场逐场明细，含比分、总进球与中奖排名 |
+
+缓存：单实例 5 分钟；响应头 `x-ttg-samples` 为进入统计的场次数。
 
 ---
 
@@ -1158,6 +1242,7 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-30 | 新增 `GET /api/odds-distribution`：开奖记录 × 总进球赔率分布（最低 / 倒数第二低 / 第三低 / 中奖赔率 + 排名），不限时间；`match_result` 新增固化赔率列，赛果入库时保存停售前最后一份 TTG 赔率 |
 | 2026-10-29 | `/api/recommendations` 增加 `goalExpectation`（主客场进球 / 对手失球 / 联赛节奏 → 期望总进球），总进球按修正分布选选项；推荐面板加骨架屏、进度过渡与被过滤候选的「手动加入」 |
 | 2026-10-29 | `/api/analysis/lottery` 新增 `w=` 自定义权重参数；前端删除 TS 分析实现与 `sync-analysis` 生成链，权重滑块改为 400ms 防抖调服务端 |
 | 2026-10-29 | 单场/串关 AI 分析（`/api/ai-analysis`、`/api/ai-parlay`）迁到 Python 分析服务，SSE 协议与 `meta` 事件不变；提示词逐字节对拍 |

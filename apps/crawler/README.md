@@ -32,7 +32,7 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 | 命令 | 作用 | 典型频率 |
 | --- | --- | --- |
 | `matches` | 在售赛程 + 赔率，按内容 hash 去重写快照 | 30 min |
-| `results` | 赛果开奖：比分 + 五个玩法结果，回写 `match` 与 `match_result` | 30 min（无待开奖比赛时跳过） |
+| `results` | 赛果开奖：比分 + 五个玩法结果，回写 `match` 与 `match_result`；已开奖场次固化最后一份 TTG 赔率 | 30 min（无待开奖比赛时跳过） |
 | `history` | 四个彩种各抓最新一页（100 期） | 3 h |
 | `history --backfill` | 从第 1 页翻到最后一页 | 一次性 |
 | `details` | 伤停；`--full` 抓全部 7 个源 | 3 h |

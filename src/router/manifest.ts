@@ -20,6 +20,7 @@ export const appRouteManifest: AppRouteManifestItem[] = [
   { path: '/', cache: true },
   { path: '/history', cache: true },
   { path: '/results', cache: false },
+  { path: '/odds-distribution', cache: false },
   { path: '/history-analysis', cache: true },
   { path: '/math-trend-analysis', cache: true },
   { path: '/match/:matchId', cache: false },

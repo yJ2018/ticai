@@ -293,6 +293,18 @@ async function commandVerify(client) {
     return 'match_side, match_odds_latest'
   })
 
+  await check('match_result 已固化总进球赔率列', async () => {
+    const { rows } = await client.query(
+      `select column_name from information_schema.columns
+       where table_schema = 'public' and table_name = 'match_result'
+         and column_name in ('ttg_odds','ttg_odds_captured_at')`,
+    )
+    if (rows.length !== 2) {
+      throw new Error('缺少 ttg_odds / ttg_odds_captured_at，先跑 npm run db:migrate')
+    }
+    return 'ttg_odds, ttg_odds_captured_at'
+  })
+
   await check('四个彩种已种子化', async () => {
     const { rows } = await client.query(
       `select game_key from lottery_game where game_key = any($1::text[]) order by game_key`,

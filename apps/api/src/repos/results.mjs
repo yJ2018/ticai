@@ -99,3 +99,73 @@ export async function getResultsByIds(config, ids) {
   const { rows } = await query(config, BY_IDS_SQL, [unique])
   return new Map(rows.map((row) => [Number(row.sporttery_match_id), toResultShape(row)]))
 }
+
+/**
+ * 总进球赔率分布样本。
+ *
+ * 优先读 `match_result.ttg_odds`（赛果入库时固化的收盘赔率，不受 120 天快照裁剪影响）；
+ * 迁移前/爬虫还没固化的行退回当前保留期内的最后一份 `match_odds_snapshot`。
+ * 这里特意按 `sporttery_match_id` 关联 match，而不是 `match_result.match_id`：
+ * 历史赛果可能没回填内部 id，但两边的体彩 id 是一致的。
+ */
+const TTG_SAMPLE_SQL = `
+  select
+    r.sporttery_match_id,
+    to_char(r.match_date, 'YYYY-MM-DD') as match_date,
+    r.league_name, r.home_name, r.away_name,
+    r.full_home, r.full_away, r.ttg_result,
+    coalesce(r.ttg_odds, fallback.ttg_odds) as ttg_odds,
+    coalesce(r.ttg_odds_captured_at, fallback.captured_at) as odds_captured_at
+  from match_result r
+  left join match m on m.sporttery_match_id = r.sporttery_match_id
+  left join lateral (
+    select s.odds->'ttg' as ttg_odds, s.captured_at
+    from match_odds_snapshot s
+    where s.match_id = m.id
+      and r.ttg_odds is null
+    order by s.captured_at desc
+    limit 1
+  ) fallback on true
+  where r.ttg_result is not null
+    and coalesce(r.ttg_odds, fallback.ttg_odds) is not null
+  order by r.match_date desc, r.sporttery_match_id desc
+`
+
+const TTG_COVERAGE_SQL = `
+  select
+    count(*)::int as total,
+    max(updated_at) as updated_at
+  from match_result
+  where ttg_result is not null
+`
+
+function toTtgSample(row) {
+  return {
+    matchId: Number(row.sporttery_match_id),
+    matchDate: row.match_date ?? '',
+    leagueName: row.league_name ?? '',
+    homeName: row.home_name ?? '',
+    awayName: row.away_name ?? '',
+    homeScore: row.full_home === null || row.full_home === undefined ? null : Number(row.full_home),
+    awayScore: row.full_away === null || row.full_away === undefined ? null : Number(row.full_away),
+    ttg: row.ttg_result === null || row.ttg_result === undefined ? null : Number(row.ttg_result),
+    ttgOdds: row.ttg_odds,
+    oddsCapturedAt: row.odds_captured_at instanceof Date
+      ? row.odds_captured_at.toISOString()
+      : (row.odds_captured_at ?? null),
+  }
+}
+
+export async function listTtgOddsSamples(config) {
+  const { rows } = await query(config, TTG_SAMPLE_SQL)
+  return rows.map(toTtgSample)
+}
+
+export async function getTtgResultCoverage(config) {
+  const { rows } = await query(config, TTG_COVERAGE_SQL)
+  const row = rows[0] ?? {}
+  return {
+    total: Number(row.total) || 0,
+    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : (row.updated_at ?? null),
+  }
+}

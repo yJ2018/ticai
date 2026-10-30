@@ -50,6 +50,17 @@ export type {
   MarketPool,
 } from './betApi'
 export { getMatchDetail } from './matchDetailApi'
+export { getOddsDistribution } from './oddsDistributionApi'
+export type {
+  OddsDistribution,
+  TtgBin,
+  TtgHighlights,
+  TtgRank,
+  TtgRecentSample,
+  TtgSampleMeta,
+  TtgSeries,
+  TtgSeriesKey,
+} from './oddsDistributionApi'
 export type {
   MatchDetail,
   MatchFeedHistory,
