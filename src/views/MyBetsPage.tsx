@@ -17,8 +17,11 @@ import {
   POOL_FILTER_OPTIONS,
   POOL_LABELS,
   STATUS_LABELS,
+  describeClosingOdds,
   formatDateTime,
+  formatDelta,
   formatMoney,
+  oddsDelta,
 } from '../features/bets/format'
 import { useAuthStore } from '../store/authStore'
 import '../features/bets/lotteryBet.scss'
@@ -196,6 +199,12 @@ function BetCard({ bet, deleting, onDelete, onOpen }: BetCardProps) {
     return <LotteryBetCard bet={bet} deleting={deleting} onDelete={onDelete} />
   }
 
+  // 票面奖金 vs 按开奖赔率试算：只在有奖金可对比时才展示，未开完奖 / 缺赔率不猜
+  const closing = bet.closing
+  const closingPayout = closing?.payout ?? null
+  const closingDiff = closing?.diff ?? null
+  const closingTone = closingDiff === null || closingDiff === 0 ? '' : closingDiff > 0 ? ' is-up' : ' is-down'
+
   return (
     <article
       className={`bet-card bet-card--${bet.status}`}
@@ -226,36 +235,51 @@ function BetCard({ bet, deleting, onDelete, onOpen }: BetCardProps) {
       </header>
 
       <ul className="bet-legs">
-        {bet.legs.map((leg) => (
-          <li key={leg.id} className="bet-leg">
-            <div className="bet-leg__main">
-              <p className="bet-leg__match">
-                <span className="bet-leg__no">{leg.matchNo}</span>
-                {leg.leagueName && <span className="bet-leg__league">{leg.leagueName}</span>}
-                <span className="bet-leg__teams">
-                  {leg.homeName} vs {leg.awayName}
-                </span>
-              </p>
-              <p className="bet-leg__pick">
-                <span>{POOL_LABELS[leg.pool]}</span>
-                <strong>{leg.optionLabel}</strong>
-                <span className="bet-leg__odds">@{leg.odds.toFixed(2)}</span>
-              </p>
-            </div>
-            <div className="bet-leg__side">
-              {leg.result?.settled &&
-                leg.result.homeScore !== null &&
-                leg.result.awayScore !== null && (
-                  <span className="bet-leg__score">
-                    {leg.result.homeScore}:{leg.result.awayScore}
+        {bet.legs.map((leg) => {
+          const closingOdds = leg.closingOdds
+          const delta = oddsDelta(closingOdds, leg.odds)
+          return (
+            <li key={leg.id} className="bet-leg">
+              <div className="bet-leg__main">
+                <p className="bet-leg__match">
+                  <span className="bet-leg__no">{leg.matchNo}</span>
+                  {leg.leagueName && <span className="bet-leg__league">{leg.leagueName}</span>}
+                  <span className="bet-leg__teams">
+                    {leg.homeName} vs {leg.awayName}
                   </span>
-                )}
-              <span className={`bet-leg__result bet-leg__result--${leg.outcome}`}>
-                {OUTCOME_LABELS[leg.outcome]}
-              </span>
-            </div>
-          </li>
-        ))}
+                </p>
+                <p className="bet-leg__pick">
+                  <span>{POOL_LABELS[leg.pool]}</span>
+                  <strong>{leg.optionLabel}</strong>
+                  <span className="bet-leg__odds">@{leg.odds.toFixed(2)}</span>
+                  {closingOdds !== null && (
+                    <span
+                      className="bet-leg__closing"
+                      title={describeClosingOdds(leg.outcome === 'pending', leg.closingOddsAt)}
+                    >
+                      {leg.outcome === 'pending' ? '最新' : '开奖'} @{closingOdds.toFixed(2)}
+                      {delta !== null && delta !== 0 && (
+                        <em className={delta > 0 ? 'is-up' : 'is-down'}>{formatDelta(delta)}</em>
+                      )}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="bet-leg__side">
+                {leg.result?.settled &&
+                  leg.result.homeScore !== null &&
+                  leg.result.awayScore !== null && (
+                    <span className="bet-leg__score">
+                      {leg.result.homeScore}:{leg.result.awayScore}
+                    </span>
+                  )}
+                <span className={`bet-leg__result bet-leg__result--${leg.outcome}`}>
+                  {OUTCOME_LABELS[leg.outcome]}
+                </span>
+              </div>
+            </li>
+          )
+        })}
       </ul>
 
       <footer className="bet-card__foot">
@@ -272,6 +296,15 @@ function BetCard({ bet, deleting, onDelete, onOpen }: BetCardProps) {
         <div className="bet-card__money">
           {bet.payout > 0 && (
             <span className="bet-card__payout">奖金 {formatMoney(bet.payout)} 元</span>
+          )}
+          {bet.payout > 0 && closingPayout !== null && (
+            <span
+              className={`bet-card__closing${closingTone}`}
+              title="按开奖赔率（停售前最后一份官方赔率）试算；竞彩实际按票面固定奖金结算"
+            >
+              按开奖赔率 {formatMoney(closingPayout)} 元
+              {closingDiff !== null && closingDiff !== 0 && <em>（{formatDelta(closingDiff)}）</em>}
+            </span>
           )}
           {bet.status === 'pending' && bet.payout > 0 && (
             <span className="bet-card__hint">部分过关已中，等待其余场次开奖</span>

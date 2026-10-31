@@ -38,6 +38,30 @@ export function formatMoney(value: number) {
   return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+/** 赔率变化 = 开奖赔率 - 票面赔率；缺开奖赔率返回 null。 */
+export function oddsDelta(closingOdds: number | null | undefined, odds: number) {
+  if (closingOdds === null || closingOdds === undefined || !Number.isFinite(closingOdds)) {
+    return null
+  }
+  const delta = Number((closingOdds - odds).toFixed(2))
+  return Math.abs(delta) < 0.005 ? 0 : delta
+}
+
+/** +0.16 / -0.05；0 返回空串（表示持平，不占位）。 */
+export function formatDelta(delta: number | null | undefined) {
+  if (delta === null || delta === undefined || delta === 0) {
+    return ''
+  }
+  return `${delta > 0 ? '+' : ''}${delta.toFixed(2)}`
+}
+
+/** 开奖赔率的说明文案：哪来的、什么时候的快照。 */
+export function describeClosingOdds(pending: boolean, capturedAt: string | null) {
+  const label = pending ? '最新赔率' : '开奖赔率'
+  const at = capturedAt ? `（${formatDateTime(capturedAt)} 快照）` : ''
+  return `${label}：停售前最后一份官方赔率${at}`
+}
+
 function pad(value: number) {
   return String(value).padStart(2, '0')
 }

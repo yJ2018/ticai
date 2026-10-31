@@ -9,6 +9,11 @@
  *   - 单注奖金按过关场次封顶：单场 10 万、2/3 串 20 万、4/5 串 50 万、6 串以上 100 万，
  *     倍数算多注，每一注各自封顶后相加（与实体票面「本票最高可能固定奖金」一致）。
  *
+ * 开奖赔率对比（`closing`）：
+ *   竞彩按票面赔率（下注时锁定的固定奖金）结算，`payout` 就是实得奖金；
+ *   这里再用「开奖赔率」（停售前最后一份官方赔率，见 closing-odds.mjs）按同一套规则
+ *   试算一遍，给出差额，方便看赔率变化对奖金的影响。缺开奖赔率的注不猜，返回 null。
+ *
  * 赛果缺失（还没开奖）一律 pending，不猜。
  */
 
@@ -37,6 +42,12 @@ export function parsePassType(passType) {
 export function formatPassType(passType) {
   const need = parsePassType(passType)
   return need >= 2 ? `${need}串1` : String(passType ?? '')
+}
+
+/** 开奖赔率：只认 ≥1 的数值，缺了就返回 null（不拿票面赔率顶替，否则差额永远是 0）。 */
+function closingOddsOf(leg) {
+  const value = Number(leg?.closingOdds)
+  return Number.isFinite(value) && value >= 1 ? Number(value.toFixed(2)) : null
 }
 
 /**
@@ -165,7 +176,7 @@ export function legOutcome(leg, result) {
 
 /**
  * @param {object} bet    { passTypes, multiple }
- * @param {Array}  legs   每行一条：{ sportteryMatchId, pool, optionKey, odds, goalLine }
+ * @param {Array}  legs   每行一条：{ sportteryMatchId, pool, optionKey, odds, goalLine, closingOdds }
  * @param {Map}    results sportteryMatchId → 赛果
  */
 export function settleBet({ bet, legs, results }) {
@@ -187,6 +198,7 @@ export function settleBet({ bet, legs, results }) {
     const result = results.get(matchId) ?? null
     const legStates = groupLegs.map((leg) => ({
       ...leg,
+      closingOdds: closingOddsOf(leg),
       outcome: legOutcome(leg, result),
     }))
     const winning = legStates.filter((state) => state.outcome === 'won')
@@ -201,6 +213,9 @@ export function settleBet({ bet, legs, results }) {
   })
 
   let payout = 0
+  let closingPayout = 0
+  /** 有命中组合缺开奖赔率时不再给对比金额，避免算出一个偏小的数 */
+  let closingComplete = true
   const passTypeDetails = []
 
   for (const passType of passTypes) {
@@ -217,10 +232,18 @@ export function settleBet({ bet, legs, results }) {
       if (combo.some((group) => group.pending || group.winning.length === 0)) {
         continue
       }
-      const odds = combo.reduce((product, group) => product * Number(group.winning[0].odds || 0), 1)
+      const winners = combo.map((group) => group.winning[0])
+      const odds = winners.reduce((product, leg) => product * Number(leg.odds || 0), 1)
       wonUnits += 1
       // 每一注（2 元 × 1 倍）先按单注限额封顶，倍数算多注
       passPayout += Math.min(2 * odds, limit) * multiple
+
+      if (winners.some((leg) => leg.closingOdds === null)) {
+        closingComplete = false
+      } else {
+        const closingOdds = winners.reduce((product, leg) => product * leg.closingOdds, 1)
+        closingPayout += Math.min(2 * closingOdds, limit) * multiple
+      }
     }
 
     passPayout = Number(passPayout.toFixed(2))
@@ -235,13 +258,22 @@ export function settleBet({ bet, legs, results }) {
   }
 
   payout = Number(payout.toFixed(2))
+  closingPayout = Number(closingPayout.toFixed(2))
 
   const anyPending = groups.some((group) => group.pending)
   const status = anyPending ? 'pending' : payout > 0 ? 'won' : 'lost'
 
+  // 还没开完不对比（部分过关的金额会随剩余场次变化，拿它做差容易误读）
+  const comparable = !anyPending && closingComplete
+
   return {
     status,
     payout,
+    closing: {
+      payout: comparable ? closingPayout : null,
+      diff: comparable ? Number((closingPayout - payout).toFixed(2)) : null,
+      complete: closingComplete,
+    },
     passTypeDetails,
     legs: groups.flatMap((group) =>
       group.legStates.map((state) => ({
@@ -251,6 +283,8 @@ export function settleBet({ bet, legs, results }) {
         optionKey: state.optionKey,
         optionLabel: state.optionLabel,
         odds: Number(state.odds) || 0,
+        closingOdds: state.closingOdds,
+        closingOddsAt: state.closingOdds === null ? null : (state.closingOddsAt ?? null),
         outcome: state.outcome,
         result: group.result
           ? {

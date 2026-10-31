@@ -89,7 +89,7 @@ export async function listResults(config, { from, to, limit = 200 }) {
   return { ...result, cache: 'miss' }
 }
 
-/** 结算用：按 sporttery_match_id 批量取赛果。 */
+/** 结算用：按 sporttery_match_id 批量取赛果（不含赔率，给只关心奖金的统计用）。 */
 export async function getResultsByIds(config, ids) {
   const unique = Array.from(new Set(ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))))
   if (unique.length === 0) {
@@ -98,6 +98,62 @@ export async function getResultsByIds(config, ids) {
 
   const { rows } = await query(config, BY_IDS_SQL, [unique])
   return new Map(rows.map((row) => [Number(row.sporttery_match_id), toResultShape(row)]))
+}
+
+/**
+ * 结算上下文：一次查询同时取「赛果 + 开奖赔率」。
+ *
+ * 开奖赔率（停售前最后一份官方赔率）优先 `match_result.closing_odds`（赛果入库时整包固化，
+ * 不受 120 天快照裁剪影响）；还没固化的场次回退到该场最新一份 `match_odds_snapshot`。
+ *
+ * 两个 Map 分开返回：投注可能落在「有比赛没赛果」（待开奖）或「有赛果没比赛行」
+ * （历史回灌）的场次上，不能假设任何一边一定存在。
+ *
+ * 合并成一条 SQL 是因为库在跨境链路上，一次往返 2–4s；结算要用两次数据，
+ * 分成两条查询等于白白多花一趟。
+ */
+const SETTLEMENT_SQL = `
+  select ids.id as match_id,
+         ${COLUMNS},
+         coalesce(r.closing_odds, s.odds) as closing_odds,
+         coalesce(r.closing_odds_captured_at, s.captured_at) as closing_odds_captured_at
+  from unnest($1::bigint[]) as ids(id)
+  left join match_result r on r.sporttery_match_id = ids.id
+  left join match m on m.sporttery_match_id = ids.id
+  left join lateral (
+    select s.odds, s.captured_at
+    from match_odds_snapshot s
+    where s.match_id = m.id
+    order by s.captured_at desc
+    limit 1
+  ) s on true
+`
+
+export async function getSettlementContextByIds(config, ids) {
+  const unique = Array.from(new Set(ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))))
+  const results = new Map()
+  const closing = new Map()
+  if (unique.length === 0) {
+    return { results, closing }
+  }
+
+  const { rows } = await query(config, SETTLEMENT_SQL, [unique])
+  for (const row of rows) {
+    const id = Number(row.match_id)
+    if (row.sporttery_match_id !== null && row.sporttery_match_id !== undefined) {
+      results.set(id, toResultShape(row))
+    }
+    if (row.closing_odds) {
+      closing.set(id, {
+        odds: row.closing_odds,
+        capturedAt: row.closing_odds_captured_at instanceof Date
+          ? row.closing_odds_captured_at.toISOString()
+          : (row.closing_odds_captured_at ?? null),
+      })
+    }
+  }
+
+  return { results, closing }
 }
 
 /**

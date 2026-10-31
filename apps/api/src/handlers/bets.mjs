@@ -18,8 +18,11 @@ export function createBetHandlers(config) {
     const offset = intParam(ctx.url, 'offset', 0, { min: 0, max: 10_000 })
     const pool = textParam(ctx.url, 'pool', '')
 
-    const items = await listBets(config, session.user.id, { limit, offset, pool })
-    const stats = offset === 0 ? await getBetStats(config, session.user.id) : null
+    // 列表与统计互不依赖，并发跑：库在跨境链路上，串行等待会把首屏拖到十几秒
+    const [items, stats] = await Promise.all([
+      listBets(config, session.user.id, { limit, offset, pool }),
+      offset === 0 ? getBetStats(config, session.user.id) : Promise.resolve(null),
+    ])
 
     sendData(ctx.res, { items, stats, limit, offset })
   }

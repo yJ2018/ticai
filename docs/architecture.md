@@ -303,7 +303,7 @@ D:\ticai
 │     ├─ src/bet-window.mjs    # 竞彩销售时段闸门
 │     └─ src/daemon.mjs        # 常驻调度器：串行队列 + 开盘补跑
 ├─ db/
-│  ├─ migrations/              # 0001_init → 0011_match_result_ttg_odds
+│  ├─ migrations/              # 0001_init → 0012_match_result_closing_odds
 │  ├─ seed/                    # 四彩种字典
 │  └─ maintenance.sql          # 阵容/赔率/抓取记录保留策略
 ├─ scripts/
@@ -836,6 +836,34 @@ flowchart LR
 
 ---
 
+### 5.7.2 开奖赔率对比（`closing`，只对比、不改奖金）
+
+竞彩按**票面赔率**结算（下注时锁定，`payout` 就是实得奖金）。「我的投注」再展示一份
+「按开奖赔率算这单值多少」的试算，方便看临场赔率变化对奖金的影响。
+
+- **开奖赔率口径**：停售前最后一份官方赔率。赛果接口自带的 `h/d/a` 就是官方开奖赔率（胜平负），
+  与快照的收盘值逐场一致，用它校验取数口径。
+- **持久化**：快照只保留 120 天，所以赛果首次入库时把整包赔率固化到 `match_result.closing_odds`
+  （迁移 `0012`），首写不覆盖；更早的行从保留期内快照回填。未固化的场次仍回退到最新快照，
+  所以「待开奖」的腿能显示「最新赔率」。
+- **不可比时不给数**：没有快照、或收盘让球盘口与下注时不同（`hhad.goalLine` 变了），该腿
+  `closingOdds = null`；命中组合缺任何一条开奖赔率时 `closing.payout / diff` 直接 `null`，
+  不拿票面赔率顶替——否则差额永远是 0，看起来像「没变化」。
+- **开销**：结算需要的「赛果 + 开奖赔率」合并成一条 SQL（跨境库一次往返 2–4s）；
+  `/api/bets/stats` 只算奖金、不查赔率；列表与统计在 handler 里并发执行。
+
+```mermaid
+flowchart LR
+  MS[(match_odds_snapshot<br/>120 天保留)] -->|赛果入库时整包固化| MR[(match_result<br/>closing_odds)]
+  MR --> Q[getSettlementContextByIds<br/>赛果 + 赔率 一次查询]
+  BETS[(bet_leg<br/>odds / goalLine)] --> P[closing-odds.mjs<br/>pickClosingOdds]
+  Q --> P
+  P --> S[settlement.mjs<br/>payout + closing.payout]
+  S --> UI[我的投注 / 详情弹层<br/>开奖 @x.xx · 按开奖赔率 y 元]
+```
+
+---
+
 ### 5.8 账号、登录方式与密码（微信 / 邮箱 / 验证码）
 
 账号（`app_user`）与登录方式（`user_identity`）是两层：
@@ -1127,7 +1155,7 @@ flowchart LR
 | 彩票 | `lottery_game` / `lottery_draw` / `lottery_prize_level` | 开奖爬虫（4 个彩种） | 永久 |
 | 分析 | `lottery_analysis_snapshot` | 开奖后由爬虫算（API 缺失时兜底现算） | 永久（每期 × 每参数一条，单条 ~11 KB） |
 | 足球 | `league` / `team` / `team_alias` / `match` / `match_odds_snapshot` | 赛程爬虫 + 赛果爬虫 | 赔率快照 120 天 |
-| 赛果 | `match_result`（含固化的 `ttg_odds`） | 赛果开奖爬虫 | 永久（按 sporttery_match_id 幂等覆盖；TTG 赔率首写不覆盖） |
+| 赛果 | `match_result`（含固化的 `ttg_odds` / `closing_odds`） | 赛果开奖爬虫 | 永久（按 sporttery_match_id 幂等覆盖；TTG / 全玩法收盘赔率首写不覆盖） |
 | 补充 | `player` / `injury` / `match_lineup` / `match_lineup_player` | 自建爬虫 | 阵容每队只留最近 1 场 |
 | 映射 | `external_ref` | 人工确认后写入 | 永久 |
 | 账户 | `app_user` / `email_code` / `user_session` | API（登录链路） | 会话 30 天，验证码 10 分钟（用途 `register` / `login` / `bind`）；会话记 `verified_by` |
@@ -1203,7 +1231,7 @@ flowchart LR
 | 任务 | 数据源 | 写入 | 频率 |
 | --- | --- | --- | --- |
 | `matches` | 体彩 | `league` / `team` / `match` / `match_odds_snapshot` | 每 30 分钟（销售时段内） |
-| `results` | 体彩赛果开奖 | `match_result` + 回写 `match` 比分 + 固化 TTG 赔率 | 每 30 分钟；没有待开奖比赛时自动跳过 |
+| `results` | 体彩赛果开奖 | `match_result` + 回写 `match` 比分 + 固化总进球 / 全玩法收盘赔率 | 每 30 分钟；没有待开奖比赛时自动跳过 |
 | `history` | 体彩 | `lottery_draw` / `lottery_prize_level` | 每 3 小时 |
 | `details` | 体彩 | `injury` / `player` / `match_feed` | 每 3 小时（默认只抓伤停） |
 | `lineups` | 500.com | `match_lineup` / `match_lineup_player` / `player` | 每 60 分钟，仅赛前 6 小时窗口 |
@@ -1567,6 +1595,18 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 开启方式 | — | Vercel 项目 `ticai` → Analytics → Enable；未开启时脚本 404，只在控制台告警，不影响页面 |
 | 事件 | — | 暂未埋自定义事件；需要时在客户端组件 `import { track } from '@vercel/analytics'` 后调用 `track(name, props)` |
 
+### 2026-10-31 增量：投注「开奖赔率」对比
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 赔率保留 | 只固化总进球一档（迁移 `0011`） | 迁移 `0012`：`match_result` 增加 `closing_odds` / `closing_odds_captured_at`，赛果入库时把五个玩法的收盘赔率整包固化；旧行从保留期内快照回填 |
+| 数据来源 | 无「开奖赔率」 | 停售前最后一份官方赔率；赛果接口自带的 `h/d/a` 就是官方开奖赔率（胜平负），与快照收盘值逐场一致，作为口径校验 |
+| 结算 | 只有票面奖金的 `payout` | `settleBet` 增加 `closing { payout, diff, complete }`：同一套组合 / 单注限额规则用开奖赔率再算一遍，不改 `payout` |
+| 不可比 | — | 没快照 / 收盘让球盘口变过 → 该腿 `closingOdds = null`；命中组合缺赔率 → 对比金额 `null`，不拿票面赔率顶替 |
+| 页面 | 每腿只有票面 `@赔率`；中奖只显示奖金 | 每腿显示「开奖 @x.xx（±差额）」（未开奖的腿显示「最新」），单子显示「按开奖赔率 y 元（±差额）」；详情弹层加两行 meta 与口径说明 |
+| 性能 | 列表与统计串行；结算分两次查询 | 赛果 + 开奖赔率合并成一条 SQL（跨境库一次往返）；统计不查赔率；列表与统计并发 |
+| 测试 | — | `closing-odds.test.mjs` 11 个用例（五玩法取值、让球盘口校验、限额封顶、缺赔率、待开奖、全灭） |
+
 ---
 
 ## 12. 关键文件索引
@@ -1577,7 +1617,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | API 配置 / 基础设施 | [apps/api/src/config.mjs](../apps/api/src/config.mjs)、[apps/api/src/lib.mjs](../apps/api/src/lib.mjs)、[apps/api/src/db.mjs](../apps/api/src/db.mjs) |
 | API 认证 / 会话 | [apps/api/src/auth.mjs](../apps/api/src/auth.mjs)、[apps/api/src/session.mjs](../apps/api/src/session.mjs)、[apps/api/src/handlers/auth.mjs](../apps/api/src/handlers/auth.mjs) |
 | API 微信身份 | [apps/api/src/wechat.mjs](../apps/api/src/wechat.mjs)、[apps/api/src/handlers/wechat.mjs](../apps/api/src/handlers/wechat.mjs) |
-| API 投注 / 结算 | [apps/api/src/handlers/bets.mjs](../apps/api/src/handlers/bets.mjs)、[apps/api/src/repos/bets.mjs](../apps/api/src/repos/bets.mjs)、[apps/api/src/settlement.mjs](../apps/api/src/settlement.mjs) |
+| API 投注 / 结算 | [apps/api/src/handlers/bets.mjs](../apps/api/src/handlers/bets.mjs)、[apps/api/src/repos/bets.mjs](../apps/api/src/repos/bets.mjs)、[apps/api/src/settlement.mjs](../apps/api/src/settlement.mjs)、[apps/api/src/closing-odds.mjs](../apps/api/src/closing-odds.mjs) |
 | API 赛果 | [apps/api/src/handlers/results.mjs](../apps/api/src/handlers/results.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs) |
 | 赔率分布 | [apps/api/src/handlers/odds-distribution.mjs](../apps/api/src/handlers/odds-distribution.mjs)、[apps/api/src/ttg-distribution.mjs](../apps/api/src/ttg-distribution.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs)、[src/views/OddsDistributionPage.tsx](../src/views/OddsDistributionPage.tsx)、[src/api/oddsDistributionApi.ts](../src/api/oddsDistributionApi.ts)、[db/migrations/0011_match_result_ttg_odds.sql](../db/migrations/0011_match_result_ttg_odds.sql) |
 | 投注页标注 | [apps/api/src/handlers/match-signals.mjs](../apps/api/src/handlers/match-signals.mjs)、[apps/api/src/recommend/signals.mjs](../apps/api/src/recommend/signals.mjs)、[apps/api/src/recommend/engine.mjs](../apps/api/src/recommend/engine.mjs)、[src/features/betting/useMatchSignals.ts](../src/features/betting/useMatchSignals.ts)、[src/features/betting/MatchPoolList.tsx](../src/features/betting/MatchPoolList.tsx) |

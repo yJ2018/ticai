@@ -1,8 +1,9 @@
 import { query, withTransaction } from '../db.mjs'
 import { HttpError } from '../lib.mjs'
+import { pickClosingOdds } from '../closing-odds.mjs'
 import { judgeLotteryBet, LOTTERY_GAMES, MAX_LOTTERY_UNITS, normalizeLotteryNumbers, resolveLotteryGame } from '../lottery-settlement.mjs'
 import { computePlanMetrics, parsePassType, settleBet } from '../settlement.mjs'
-import { getResultsByIds } from './results.mjs'
+import { getResultsByIds, getSettlementContextByIds } from './results.mjs'
 
 /**
  * 投注记录：写一份「方案快照」。
@@ -305,11 +306,16 @@ function gameByNo(gameNo) {
   return Object.values(LOTTERY_GAMES).find((game) => game.gameNo === gameNo) ?? null
 }
 
-async function hydrate(config, betRows, legsByBet) {
+async function hydrate(config, betRows, legsByBet, { withClosing = true } = {}) {
   // 注意：pg 把 bigint 读成字符串，Map 的 key 必须统一成 String，
   // 否则 create/get 时按 number 取不到腿，结算会误判成「未中奖」。
   const allLegs = betRows.flatMap((row) => legsByBet.get(String(row.id)) ?? [])
-  const resultMap = await getResultsByIds(config, allLegs.map((leg) => leg.sporttery_match_id))
+  const matchIds = allLegs.map((leg) => leg.sporttery_match_id)
+  // 统计页（withClosing=false）只关心奖金，不用为了对比多查一趟赔率；
+  // 需要对比时赛果与开奖赔率合并成一次查询，别让跨境库多跑一趟。
+  const { results: resultMap, closing: closingMap } = withClosing
+    ? await getSettlementContextByIds(config, matchIds)
+    : { results: await getResultsByIds(config, matchIds), closing: new Map() }
 
   const lotteryByBet = new Map()
   for (const row of betRows) {
@@ -344,6 +350,7 @@ async function hydrate(config, betRows, legsByBet) {
         matchCount: 0,
         status: judged.status,
         payout: 0,
+        closing: null,
         passTypeDetails: [],
         legs: [],
         lottery: {
@@ -370,7 +377,17 @@ async function hydrate(config, betRows, legsByBet) {
       }
     }
 
-    const legs = (legsByBet.get(String(row.id)) ?? []).map(toLegShape)
+    const legRows = (legsByBet.get(String(row.id)) ?? []).map(toLegShape)
+    // 每条腿带上自己的开奖赔率：让球盘口变过的注拿不到可比赔率，宁缺勿错
+    const legs = legRows.map((leg) => {
+      const closing = closingMap.get(leg.sportteryMatchId) ?? null
+      const closingOdds = closing ? pickClosingOdds(closing.odds, leg.pool, leg.optionKey, leg.goalLine) : null
+      return {
+        ...leg,
+        closingOdds,
+        closingOddsAt: closingOdds === null ? null : closing.capturedAt,
+      }
+    })
     const settlement = settleBet({
       bet: { passTypes: row.pass_types, multiple: row.multiple },
       legs,
@@ -391,6 +408,7 @@ async function hydrate(config, betRows, legsByBet) {
       matchCount: new Set(legs.map((leg) => leg.sportteryMatchId)).size,
       status: settlement.status,
       payout: settlement.payout,
+      closing: settlement.closing,
       passTypeDetails: settlement.passTypeDetails,
       legs: settlement.legs.map((leg) => {
         const meta = legs.find((item) => item.id === leg.id)
@@ -501,7 +519,7 @@ export async function getBetStats(config, userId) {
     legsByBet.get(key).push(leg)
   }
 
-  const hydrated = await hydrate(config, rows, legsByBet)
+  const hydrated = await hydrate(config, rows, legsByBet, { withClosing: false })
   const stats = { total: hydrated.length, pending: 0, won: 0, lost: 0, amount: 0, payout: 0 }
   for (const bet of hydrated) {
     stats[bet.status] = (stats[bet.status] ?? 0) + 1

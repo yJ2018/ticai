@@ -846,6 +846,7 @@ Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，�
         "matchCount": 2,
         "status": "won",
         "payout": 15.64,
+        "closing": { "payout": 16.2, "diff": 0.56, "complete": true },
         "passTypeDetails": [{ "passType": "2串1", "need": 2, "totalUnits": 1, "wonUnits": 1, "payout": 15.64 }],
         "legs": [
           {
@@ -858,6 +859,8 @@ Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，�
             "optionKey": "h",
             "optionLabel": "胜",
             "odds": 2.3,
+            "closingOdds": 2.41,
+            "closingOddsAt": "2026-10-25T11:36:17.091Z",
             "goalLine": null,
             "outcome": "won",
             "result": { "settled": true, "homeScore": 1, "awayScore": 0, "homeHalfScore": 0, "awayHalfScore": 0 }
@@ -871,6 +874,21 @@ Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，�
 ```
 
 `status`：`pending`（还有场次没开奖）/ `won` / `lost`；`stats` 只在 `offset=0` 时返回。
+
+**开奖赔率对比（`closing` / `closingOdds`）**：竞彩按票面赔率（下注时锁定的固定奖金）结算，`payout` 就是实得奖金；
+`closing` 是用「开奖赔率」（停售前最后一份官方赔率，落在 `match_result.closing_odds`，未固化时回退到
+`match_odds_snapshot` 的最新一份）按同一套规则再算一遍的试算值，只用于对比，不参与 `stats` 汇总。
+
+| 字段 | 说明 |
+| --- | --- |
+| `leg.closingOdds` | 该选项的开奖赔率；没有赔率快照、或让球盘口已经变过（收盘让球数与下注时不同）时为 `null` |
+| `leg.closingOddsAt` | 开奖赔率对应的快照时间 |
+| `closing.payout` | 按开奖赔率试算的奖金；还有场次没开奖、或命中组合缺开奖赔率时是 `null` |
+| `closing.diff` | `closing.payout - payout`；同上，不可比时为 `null` |
+| `closing.complete` | 命中组合是否都拿到了开奖赔率（`false` 时不给对比金额，避免给出偏小的假数） |
+
+`closingOdds` 为空时不展示，不拿票面赔率顶替（否则差额永远是 0）。未开奖的场次里，
+`closingOdds` 是「最新赔率」，前端据此显示「最新」而不是「开奖」。
 
 ### 3.9 `GET /api/bets/stats`
 
@@ -956,6 +974,9 @@ Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，�
 - 让球胜平负按**下注时**的 `goalLine` 重算（2:1、让一球 → 1:1 → 让球平）。
 - 复式每场多选时，最多只有一个选项能中，中奖注数 = 命中组合数。
 - 比分玩法覆盖官方全部选项，包括「胜其它 / 平其它 / 负其它」。
+- 开奖赔率对比：另用「停售前最后一份官方赔率」按同一套规则（含单注限额）试算一份奖金，
+  只做对比、不改 `payout`。数据取 `match_result.closing_odds`（赛果入库时整包固化，不受快照 120 天裁剪影响），
+  没固化的场次回退 `match_odds_snapshot` 最新一份；让球盘口变过的注不给对比。
 
 ### 3.13 微信登录与绑定
 
@@ -1293,6 +1314,7 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-10-31 | `/api/bets` 增加开奖赔率对比：每条腿返回 `closingOdds` / `closingOddsAt`，单子返回 `closing { payout, diff, complete }`（按停售前最后一份官方赔率试算，只对比不改 `payout`）；`match_result` 新增 `closing_odds` 固化全玩法收盘赔率（迁移 `0012`），统计接口不再多查一趟赔率，列表与统计改为并发 |
 | 2026-10-30 | 新增 `GET /api/match-signals`：投注页「赔率接近」标注，每个玩法最低两档差 ≤8% 时标 `≈`，分析偏向由推荐引擎的融合概率决定（近况/伤停修正） |
 | 2026-10-30 | 新增 `GET /api/odds-distribution`：开奖记录 × 总进球赔率分布（最低 / 倒数第二低 / 第三低 / 中奖赔率 + 排名），不限时间；`match_result` 新增固化赔率列，赛果入库时保存停售前最后一份 TTG 赔率 |
 | 2026-10-29 | `/api/recommendations` 增加 `goalExpectation`（主客场进球 / 对手失球 / 联赛节奏 → 期望总进球），总进球按修正分布选选项；推荐面板加骨架屏、进度过渡与被过滤候选的「手动加入」 |

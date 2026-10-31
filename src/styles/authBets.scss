@@ -648,6 +648,28 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 开奖赔率：与票面赔率并列展示；涨/跌只给箭头数值上色，不抢主信息 */
+.bet-leg__closing {
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  em {
+    margin-left: 0.2rem;
+    font-style: normal;
+    font-weight: 700;
+    color: #94a3b8;
+  }
+
+  em.is-up {
+    color: #c2410c;
+  }
+
+  em.is-down {
+    color: #0f766e;
+  }
+}
+
 .bet-leg__side {
   flex: 0 0 auto;
   display: flex;
@@ -739,6 +761,29 @@
 .bet-card__hint {
   color: #94a3b8;
   font-size: 0.72rem;
+}
+
+/* 奖金对比：票面固定奖金之后补一句按开奖赔率试算，差额带符号 */
+.bet-card__closing {
+  color: #475569;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  em {
+    margin-left: 0.15rem;
+    font-style: normal;
+    font-weight: 700;
+    color: #94a3b8;
+  }
+
+  &.is-up em {
+    color: #c2410c;
+  }
+
+  &.is-down em {
+    color: #0f766e;
+  }
 }
 
 .bet-card__detail {
@@ -1112,6 +1157,36 @@
   margin-left: 0.4rem;
   color: #b45309;
   font-variant-numeric: tabular-nums;
+}
+
+.bet-modal__closing {
+  margin-left: 0.5rem;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  em {
+    margin-left: 0.2rem;
+    font-style: normal;
+    font-weight: 700;
+    color: #94a3b8;
+  }
+
+  em.is-up {
+    color: #c2410c;
+  }
+
+  em.is-down {
+    color: #0f766e;
+  }
+}
+
+.bet-modal__note {
+  margin: 0;
+  padding: 0.55rem 1.1rem 0;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  line-height: 1.45;
 }
 
 .bet-modal__time {

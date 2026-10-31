@@ -81,7 +81,24 @@ export type BetLeg = BetLegInput & {
   kickoffAt: string | null
   optionLabel: string
   outcome: 'won' | 'lost' | 'pending'
+  /** 开奖赔率：停售前最后一份官方赔率（没有快照的场次为 null） */
+  closingOdds: number | null
+  /** 开奖赔率对应的快照时间 */
+  closingOddsAt: string | null
   result: BetLegResult | null
+}
+
+/**
+ * 按开奖赔率试算的奖金对比。
+ *
+ * 竞彩按票面固定奖金结算，`payout` 是票面口径；这里只是用开奖赔率（停售前最后一份
+ * 官方赔率）按同一套规则再算一遍，看赔率变化对奖金的影响。还没开完奖、或命中组合
+ * 缺开奖赔率时不给数字（null），避免算出一个偏小/偏大的假数。
+ */
+export type BetClosing = {
+  payout: number | null
+  diff: number | null
+  complete: boolean
 }
 
 export type BetPassTypeDetail = {
@@ -106,6 +123,8 @@ export type Bet = {
   matchCount: number
   status: 'pending' | 'won' | 'lost'
   payout: number
+  /** kind === 'football' 时给出；彩票单为 null */
+  closing: BetClosing | null
   passTypeDetails: BetPassTypeDetail[]
   legs: BetLeg[]
   /** kind === 'lottery' 时存在 */

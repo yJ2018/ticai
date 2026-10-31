@@ -8,8 +8,11 @@ import {
   OUTCOME_LABELS,
   POOL_LABELS,
   STATUS_LABELS,
+  describeClosingOdds,
+  formatDelta,
   formatFullDateTime,
   formatMoney,
+  oddsDelta,
 } from './format'
 
 type BetDetailModalProps = {
@@ -39,6 +42,8 @@ export function BetDetailModal({ bet, open, deleting, onClose, onDelete }: BetDe
   }
 
   const betId = bet.id
+  const closingPayout = bet.closing?.payout ?? null
+  const closingDiff = bet.closing?.diff ?? null
 
   async function capture() {
     if (!cardRef.current || capturing) {
@@ -140,6 +145,20 @@ export function BetDetailModal({ bet, open, deleting, onClose, onDelete }: BetDe
             <dd className={bet.payout > 0 ? 'is-won' : ''}>{formatMoney(bet.payout)} 元</dd>
           </div>
           <div>
+            <dt>开奖赔率奖金</dt>
+            <dd className={closingPayout ? 'is-won' : ''}>
+              {closingPayout === null ? '—' : `${formatMoney(closingPayout)} 元`}
+            </dd>
+          </div>
+          <div>
+            <dt>与票面差额</dt>
+            <dd className={closingDiff && closingDiff > 0 ? 'is-won' : ''}>
+              {closingDiff === null
+                ? '—'
+                : `${closingDiff > 0 ? '+' : ''}${formatMoney(closingDiff)} 元`}
+            </dd>
+          </div>
+          <div>
             <dt>过关注数</dt>
             <dd>
               {bet.passTypeDetails.length > 0
@@ -149,32 +168,51 @@ export function BetDetailModal({ bet, open, deleting, onClose, onDelete }: BetDe
           </div>
         </dl>
 
+        <p className="bet-modal__note">
+          开奖赔率取停售前最后一份官方赔率，只用于对比；竞彩按票面固定奖金结算。
+        </p>
+
         <ul className="bet-modal__legs">
-          {bet.legs.map((leg) => (
-            <li key={leg.id} className="bet-modal__leg">
-              <div className="bet-modal__leg-main">
-                <p className="bet-modal__match">
-                  <span className="bet-modal__no">{leg.matchNo}</span>
-                  {leg.homeName} vs {leg.awayName}
-                </p>
-                <p className="bet-modal__pick">
-                  {POOL_LABELS[leg.pool]} · {leg.optionLabel}
-                  <span className="bet-modal__odds">@{leg.odds.toFixed(2)}</span>
-                </p>
-                {leg.kickoffAt && <p className="bet-modal__time">开赛 {formatFullDateTime(leg.kickoffAt)}</p>}
-              </div>
-              <div className="bet-modal__leg-side">
-                {leg.result?.settled && leg.result.homeScore !== null && leg.result.awayScore !== null && (
-                  <span className="bet-modal__score">
-                    {leg.result.homeScore}:{leg.result.awayScore}
+          {bet.legs.map((leg) => {
+            const closingOdds = leg.closingOdds
+            const delta = oddsDelta(closingOdds, leg.odds)
+            return (
+              <li key={leg.id} className="bet-modal__leg">
+                <div className="bet-modal__leg-main">
+                  <p className="bet-modal__match">
+                    <span className="bet-modal__no">{leg.matchNo}</span>
+                    {leg.homeName} vs {leg.awayName}
+                  </p>
+                  <p className="bet-modal__pick">
+                    {POOL_LABELS[leg.pool]} · {leg.optionLabel}
+                    <span className="bet-modal__odds">@{leg.odds.toFixed(2)}</span>
+                    {closingOdds !== null && (
+                      <span
+                        className="bet-modal__closing"
+                        title={describeClosingOdds(leg.outcome === 'pending', leg.closingOddsAt)}
+                      >
+                        {leg.outcome === 'pending' ? '最新' : '开奖'} @{closingOdds.toFixed(2)}
+                        {delta !== null && delta !== 0 && (
+                          <em className={delta > 0 ? 'is-up' : 'is-down'}>{formatDelta(delta)}</em>
+                        )}
+                      </span>
+                    )}
+                  </p>
+                  {leg.kickoffAt && <p className="bet-modal__time">开赛 {formatFullDateTime(leg.kickoffAt)}</p>}
+                </div>
+                <div className="bet-modal__leg-side">
+                  {leg.result?.settled && leg.result.homeScore !== null && leg.result.awayScore !== null && (
+                    <span className="bet-modal__score">
+                      {leg.result.homeScore}:{leg.result.awayScore}
+                    </span>
+                  )}
+                  <span className={`bet-leg__result bet-leg__result--${leg.outcome}`}>
+                    {OUTCOME_LABELS[leg.outcome]}
                   </span>
-                )}
-                <span className={`bet-leg__result bet-leg__result--${leg.outcome}`}>
-                  {OUTCOME_LABELS[leg.outcome]}
-                </span>
-              </div>
-            </li>
-          ))}
+                </div>
+              </li>
+            )
+          })}
         </ul>
 
         {hint && <p className="bet-modal__hint">{hint}</p>}
