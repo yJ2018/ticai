@@ -140,35 +140,6 @@ export function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navState])
 
-  // 盘口每 30 分钟更新一轮，页面开着也要能看到新数据：
-  // 每 5 分钟静默刷新一次当前玩法（只在标签页可见时），切回标签页时若数据过期也补一次。
-  useEffect(() => {
-    const refreshIfVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void loadMatches(activePool, true)
-      }
-    }
-
-    const timer = window.setInterval(refreshIfVisible, 5 * 60_000)
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') {
-        return
-      }
-      const cache = useMatchStore.getState().poolCache[useMatchStore.getState().activePool]
-      const asOf = cache.dataAsOf ? Date.parse(cache.dataAsOf) : 0
-      if (!asOf || Date.now() - asOf > 5 * 60_000) {
-        refreshIfVisible()
-      }
-    }
-
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => {
-      window.clearInterval(timer)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-    }
-  }, [activePool, loadMatches])
-
   useEffect(() => {
     if (!toastText) {
       return
@@ -662,6 +633,8 @@ export function HomePage() {
     setToastText(`税额 ${formatMoney(taxInfo.taxAmount)} 元，税后约 ${formatMoney(taxInfo.afterTaxAmount)} 元`)
   }
 
+  // 只认「用户点刷新」这一种主动刷新：不跟随窗口/标签页切换，也不定时轮询。
+  // 缓存过的数据留到下一次手动刷新，新鲜度看页头「数据更新于」（超 45 分钟标黄）。
   async function refreshMatches() {
     await loadMatches(activePool, true)
     setToastText('已获取最新数据')
