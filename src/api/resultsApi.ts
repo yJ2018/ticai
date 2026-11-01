@@ -6,8 +6,10 @@ import { request } from './httpClient'
 export type MatchResultItem = {
   matchId: number
   matchNo: string
-  /** 销售日（跨零点场次会早于自然日） */
+  /** 开赛日（跨零点场次会晚于期） */
   matchDate: string
+  /** 期（销售日）：竞彩按「周X」分期，跨零点场次归前一天 */
+  period: string
   leagueId: number | null
   leagueName: string
   homeName: string
@@ -33,24 +35,44 @@ export type MatchResultItem = {
   kickoffAt: string | null
 }
 
+/** 一期（销售日）的汇总，赛果页用它做「按期翻页」 */
+export type ResultPeriod = {
+  period: string
+  /** 周一 / 周六 … */
+  label: string
+  count: number
+  settled: number
+}
+
+export type ResultsPayload = {
+  period: string
+  label: string
+  count: number
+  settled: number
+  updatedAt: string | null
+  /** 最近若干期，按时间倒序，前端直接渲染成切换条 */
+  periods: ResultPeriod[]
+  items: MatchResultItem[]
+}
+
 type Envelope<T> = { success: boolean; data: T; errorMessage?: string }
 
 export type ResultsQuery = {
-  date?: string
-  days?: number
+  /** 期（销售日）'YYYY-MM-DD'；不传 = 最近一期 */
+  period?: string
   limit?: number
 }
 
 export async function getMatchResults(query: ResultsQuery = {}) {
   const params = new URLSearchParams()
-  if (query.date) params.set('date', query.date)
-  if (query.days) params.set('days', String(query.days))
+  if (query.period) params.set('period', query.period)
   if (query.limit) params.set('limit', String(query.limit))
 
   const suffix = params.toString()
-  const response = await request<
-    Envelope<{ from: string; to: string; updatedAt: string | null; count: number; items: MatchResultItem[] }>
-  >(apiUrl(`/api/results${suffix ? `?${suffix}` : ''}`), { timeoutMs: 20_000 })
+  const response = await request<Envelope<ResultsPayload>>(
+    apiUrl(`/api/results${suffix ? `?${suffix}` : ''}`),
+    { timeoutMs: 20_000 },
+  )
 
   return response.data
 }

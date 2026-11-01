@@ -1,4 +1,4 @@
-import type { MatchResultItem } from '../api/resultsApi'
+import type { MatchResultItem, ResultPeriod } from '../api/resultsApi'
 import type { MatchCard, MatchPoolType } from '../service/matchService'
 
 /**
@@ -15,8 +15,10 @@ export type InitialMatches = {
 }
 
 export type InitialResults = {
-  /** 预取的是哪一天的赛果（北京时间的「今天」） */
-  date: string
+  /** 预取的是哪一期（销售日）；不传期时后端给最近一期 */
+  period: string
+  label: string
+  periods: ResultPeriod[]
   items: MatchResultItem[]
   updatedAt: string | null
 }

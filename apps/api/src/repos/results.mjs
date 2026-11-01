@@ -1,14 +1,19 @@
 import { query } from '../db.mjs'
 import { createTtlCache } from '../lib.mjs'
+import { weekdayLabel } from '../periods.mjs'
 
 /**
  * 赛果开奖读取。
  *
- * 列表按比赛日倒序，前端「赛果」区块和投注结算共用同一份行结构：
- * 结算只需要 id + 各玩法结果，多取几列也不贵（一天几十场）。
+ * 列表按**期（销售日）**分组，而不是按自然日：竞彩按「周X」分期，周六 001–0xx
+ * 从周六下午一直排到周日凌晨，按日期切会把同一期拆成两天。
+ * 前端「赛果」区块和投注结算共用同一份行结构：结算只需要 id + 各玩法结果。
  */
 
 const cache = createTtlCache({ ttlMs: 30_000, maxEntries: 24 })
+
+/** 期列表默认给最近多少期（够翻两周） */
+const PERIOD_PAGE_SIZE = 24
 
 const COLUMNS = `
   r.sporttery_match_id, r.match_num_str, r.match_date, r.league_id, r.league_name,
@@ -19,19 +24,58 @@ const COLUMNS = `
 `
 
 /**
- * 上游的 matchDate 是「销售日」，凌晨/次日场次会挂在前一天。
- * 展示与按天筛选都用真实开赛时间（关联到 match 后取 kickoff_at），
- * 关联不上的老比赛退回销售日。
+ * 期（销售日）表达式。
+ *
+ * 优先用 `match.business_date`（爬虫写入的销售日）；关联不到 match 的老赛果，
+ * 用 `match_num_str` 的「周X」前缀把开赛日倒推回那一期：例如「周六021」开赛在周日凌晨，
+ * 期就是开赛日之前最近的那个周六。
  */
-const MATCH_DAY = `coalesce(m.kickoff_at at time zone 'Asia/Shanghai', r.match_date::timestamp)`
+function periodExpr(r = 'r', m = 'm') {
+  return `coalesce(
+    ${m}.business_date,
+    case
+      when ${r}.match_num_str ~ '^周[一二三四五六日]'
+        then (${r}.match_date - ((extract(isodow from ${r}.match_date)::int
+             - position(substr(${r}.match_num_str, 2, 1) in '一二三四五六日') + 7) % 7))::date
+      else ${r}.match_date
+    end
+  )`
+}
 
-const LIST_SQL = `
-  select ${COLUMNS}
+const PERIODS_SQL = `
+  select to_char(${periodExpr()}, 'YYYY-MM-DD') as period,
+         count(*)::int as total,
+         count(*) filter (where r.settled)::int as settled
   from match_result r
   left join match m on m.sporttery_match_id = r.sporttery_match_id
-  where ${MATCH_DAY}::date between $1::date and $2::date
-  order by ${MATCH_DAY} asc, r.match_num_str asc
-  limit $3
+  group by 1
+  order by 1 desc
+  limit $1
+`
+
+const PERIOD_ITEMS_SQL = `
+  select ${COLUMNS},
+         to_char(${periodExpr()}, 'YYYY-MM-DD') as period
+  from match_result r
+  left join match m on m.sporttery_match_id = r.sporttery_match_id
+  where ${periodExpr()} = $1::date
+  order by r.match_num_str asc nulls last, r.sporttery_match_id asc
+  limit $2
+`
+
+/** 没指定期时取最近一期：一次查询内定位期，不先跑一遍列表。 */
+const LATEST_ITEMS_SQL = `
+  select ${COLUMNS},
+         to_char(${periodExpr()}, 'YYYY-MM-DD') as period
+  from match_result r
+  left join match m on m.sporttery_match_id = r.sporttery_match_id
+  where ${periodExpr()} = (
+    select max(${periodExpr('r2', 'm2')})
+    from match_result r2
+    left join match m2 on m2.sporttery_match_id = r2.sporttery_match_id
+  )
+  order by r.match_num_str asc nulls last, r.sporttery_match_id asc
+  limit $1
 `
 
 const BY_IDS_SQL = `
@@ -48,6 +92,8 @@ export function toResultShape(row) {
     matchDate: row.match_date instanceof Date
       ? row.match_date.toISOString().slice(0, 10)
       : String(row.match_date ?? '').slice(0, 10),
+    /** 期（销售日），形如 2026-10-31；跨零点场次归前一天 */
+    period: row.period ?? '',
     leagueId: row.league_id === null || row.league_id === undefined ? null : Number(row.league_id),
     leagueName: row.league_name ?? '',
     homeName: row.home_name ?? '',
@@ -69,22 +115,58 @@ export function toResultShape(row) {
   }
 }
 
-/** 列表：按比赛日区间，最多 500 条。 */
-export async function listResults(config, { from, to, limit = 200 }) {
-  const key = `${from}|${to}|${limit}`
+function toPeriodSummary(row) {
+  const period = String(row.period ?? '')
+  return {
+    period,
+    label: weekdayLabel(period),
+    count: Number(row.total) || 0,
+    settled: Number(row.settled) || 0,
+  }
+}
+
+function latestStamp(rows) {
+  return rows.reduce((latest, row) => {
+    const stamp = row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
+    return !latest || (stamp && stamp > latest) ? stamp : latest
+  }, null)
+}
+
+/**
+ * 列表：按期取，最多 500 条。
+ *
+ * @param {object} options
+ * @param {string} [options.period]  期（销售日）'YYYY-MM-DD'；不传 = 最近一期
+ * @param {number} [options.limit]
+ */
+export async function listResults(config, { period = '', limit = 200 } = {}) {
+  const key = `${period || 'latest'}|${limit}`
   const cached = cache.get(key)
   if (cached) {
     return { ...cached, cache: 'hit' }
   }
 
-  const { rows } = await query(config, LIST_SQL, [from, to, limit])
-  const items = rows.map(toResultShape)
-  const updatedAt = rows.reduce((latest, row) => {
-    const stamp = row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at
-    return !latest || (stamp && stamp > latest) ? stamp : latest
-  }, null)
+  // 期列表和当期明细互不依赖，并发跑；跨境库一次往返 2–4s，串行会白白多等一趟
+  const [{ rows: periodRows }, { rows: itemRows }] = await Promise.all([
+    query(config, PERIODS_SQL, [PERIOD_PAGE_SIZE]),
+    period
+      ? query(config, PERIOD_ITEMS_SQL, [period, limit])
+      : query(config, LATEST_ITEMS_SQL, [limit]),
+  ])
 
-  const result = { items, from, to, updatedAt }
+  const items = itemRows.map(toResultShape)
+  const periods = periodRows.map(toPeriodSummary)
+  const selected = period || items[0]?.period || periods[0]?.period || ''
+
+  const result = {
+    period: selected,
+    label: weekdayLabel(selected),
+    count: items.length,
+    settled: items.filter((item) => item.settled).length,
+    updatedAt: latestStamp(itemRows),
+    periods,
+    items,
+  }
   cache.set(key, result)
   return { ...result, cache: 'miss' }
 }

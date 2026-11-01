@@ -380,41 +380,48 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 赛果开奖。数据由本地爬虫 `npm run crawl -- results` 从体彩官网赛果开奖接口
 （`getUniformMatchResultV1`）写入 `match_result` 表，一次请求拿一整天，替代过去「逐场抓近期赛果」。
 
+**按期（销售日）取，不按自然日**：竞彩按「周X」分期，周六 001–0xx 从周六下午一直排到周日凌晨，
+按日期切会把同一期拆成两天（周六 021 开赛在周日 01:00，仍属于周六这一期）。
+期的计算：优先 `match.business_date`（爬虫写入的销售日）；关联不到 `match` 的老赛果，
+用 `match_num_str` 的「周X」前缀把开赛日倒推回那一期。
+
 | 参数 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `date` | `YYYY-MM-DD` | 今天（北京时间） | 结束日期；非法值回退到今天 |
-| `days` | 1–30 | 3 | 从 `date` 往前数几天（含当天） |
+| `period` | `YYYY-MM-DD` | 最近一期 | 期（销售日）；非法值回退到最近一期 |
 | `limit` | 1–500 | 200 | 最多返回条数 |
-
-按**真实开赛时间**（`match.kickoff_at`，关联不到时退回销售日）筛选与升序排列，
-所以「凌晨场次」不会因为销售日不同被分到前一天。
 
 ```json
 {
   "success": true,
   "data": {
-    "from": "2026-10-23",
-    "to": "2026-10-25",
-    "updatedAt": "2026-10-25T14:00:00.000Z",
-    "count": 52,
+    "period": "2026-10-31",
+    "label": "周六",
+    "count": 28,
+    "settled": 28,
+    "updatedAt": "2026-10-31T13:10:00.000Z",
+    "periods": [
+      { "period": "2026-10-31", "label": "周六", "count": 28, "settled": 28 },
+      { "period": "2026-10-30", "label": "周五", "count": 12, "settled": 12 }
+    ],
     "items": [
       {
-        "matchId": 2042217,
-        "matchNo": "周日005",
-        "matchDate": "2026-10-24",
-        "leagueName": "荷兰甲级联赛",
-        "homeName": "福图纳锡塔德",
-        "awayName": "SBV精英",
-        "homeScore": 1,
-        "awayScore": 0,
+        "matchId": 2042405,
+        "matchNo": "周六021",
+        "matchDate": "2026-11-01",
+        "period": "2026-10-31",
+        "leagueName": "意大利甲级联赛",
+        "homeName": "乌迪内斯",
+        "awayName": "罗马",
+        "homeScore": 2,
+        "awayScore": 5,
         "homeHalfScore": 0,
-        "awayHalfScore": 0,
-        "goalLine": -1,
-        "had": "h",
-        "hhad": "d",
-        "ttg": 1,
-        "crs": "s01s00",
-        "hafu": "dh",
+        "awayHalfScore": 4,
+        "goalLine": 1,
+        "had": "a",
+        "hhad": "a",
+        "ttg": 7,
+        "crs": "s02s05",
+        "hafu": "aa",
         "settled": true,
         "status": "2",
         "poolStatus": "Payout"
@@ -426,6 +433,8 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 字段口径：
 
+- `period`：期（销售日）；`label` 是它对应的「周X」；`periods` 是最近 24 期（倒序，带场次数）。
+- `matchDate`：**开赛日**；跨零点场次的 `matchDate` 会晚于 `period`，前端显示成「次日 01:00」。
 - `had` / `hhad`：`h` `d` `a`，**主队视角**；`hhad` 已经加过 `goalLine`。
 - `ttg`：总进球，0–7，`7` 表示 7 球及以上。
 - `crs`：比分玩法的选项 key，与前端 `optionKey` 完全一致（`s02s01`、`s1sh` 等）。
@@ -1314,6 +1323,7 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-11-01 | `/api/results` 改为按**期（销售日）**取：`?period=YYYY-MM-DD`（不传取最近一期），响应带 `period` / `label` / `periods`；跨零点场次归前一天，`matchDate` 与 `period` 可能相差一天 |
 | 2026-10-31 | `/api/bets` 增加开奖赔率对比：每条腿返回 `closingOdds` / `closingOddsAt`，单子返回 `closing { payout, diff, complete }`（按停售前最后一份官方赔率试算，只对比不改 `payout`）；`match_result` 新增 `closing_odds` 固化全玩法收盘赔率（迁移 `0012`），统计接口不再多查一趟赔率，列表与统计改为并发 |
 | 2026-10-30 | 新增 `GET /api/match-signals`：投注页「赔率接近」标注，每个玩法最低两档差 ≤8% 时标 `≈`，分析偏向由推荐引擎的融合概率决定（近况/伤停修正） |
 | 2026-10-30 | 新增 `GET /api/odds-distribution`：开奖记录 × 总进球赔率分布（最低 / 倒数第二低 / 第三低 / 中奖赔率 + 排名），不限时间；`match_result` 新增固化赔率列，赛果入库时保存停售前最后一份 TTG 赔率 |

@@ -1,6 +1,5 @@
 import { getMatchResults } from '../api/resultsApi'
 import type { SsrInitialData } from '../lib/initial-data'
-import { shanghaiToday } from '../lib/date'
 import { matchAppRoute } from '../router/manifest'
 import { matchService } from '../service/matchService'
 
@@ -23,7 +22,7 @@ export async function loadInitialData(pathname: string): Promise<SsrInitialData 
   }
 
   // 目前只给「首屏就是数据」的两个页面预取；
-  // results 的日期只能是当天（翻页在客户端做），所以服务端取当天即可。
+  // results 按期翻页在客户端做，服务端取最近一期即可（不传 period）。
   if (pathname === '/') {
     return prefetchHome(pathname)
   }
@@ -37,12 +36,18 @@ export async function loadInitialData(pathname: string): Promise<SsrInitialData 
 
 async function prefetchResults(pathname: string): Promise<SsrInitialData | null> {
   try {
-    const date = shanghaiToday()
-    const data = await withTimeout(
-      getMatchResults({ date, days: 1, limit: 500 }),
-      PREFETCH_TIMEOUT_MS,
-    )
-    return { path: pathname, results: { date, items: data.items, updatedAt: data.updatedAt } }
+    // 不传期：后端按「最近一期（销售日）」返回，比按自然日取今早更准
+    const data = await withTimeout(getMatchResults({ limit: 500 }), PREFETCH_TIMEOUT_MS)
+    return {
+      path: pathname,
+      results: {
+        period: data.period,
+        label: data.label,
+        periods: data.periods,
+        items: data.items,
+        updatedAt: data.updatedAt,
+      },
+    }
   } catch (error) {
     console.warn('[ssr] 赛果预取失败，退回客户端加载：', error instanceof Error ? error.message : error)
     return null

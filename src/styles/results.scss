@@ -68,13 +68,13 @@
   box-shadow: 0 0.4rem 1.4rem rgba(15, 23, 42, 0.05);
 }
 
-.results-date {
+.results-period {
   display: flex;
   align-items: center;
   gap: 0.35rem;
 }
 
-.results-date__step {
+.results-period__step {
   border: 0;
   width: 2rem;
   height: 2rem;
@@ -95,16 +95,27 @@
   }
 }
 
-.results-date__input {
-  border: 1px solid #e2e8f0;
-  border-radius: 0.6rem;
-  padding: 0.35rem 0.5rem;
-  color: #0f172a;
-  font-size: 0.85rem;
-  background: #fff;
+.results-period__current {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 6.2rem;
+  padding: 0 0.35rem;
+  line-height: 1.2;
+
+  strong {
+    color: #0f172a;
+    font-size: 0.95rem;
+  }
+
+  span {
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-.results-date__today {
+.results-period__latest {
   border: 0;
   border-radius: 999px;
   padding: 0.3rem 0.65rem;
@@ -112,6 +123,65 @@
   color: #1d4ed8;
   font-size: 0.78rem;
   cursor: pointer;
+}
+
+/* 按期切换条：竞彩按「周X」分期，一期可能横跨两个自然日 */
+.results-periods {
+  flex: 1 0 100%;
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: thin;
+}
+
+.results-periods__item {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  background: #fff;
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.2;
+  cursor: pointer;
+
+  strong {
+    color: #0f172a;
+    font-size: 0.78rem;
+  }
+
+  span {
+    font-variant-numeric: tabular-nums;
+  }
+
+  em {
+    color: #94a3b8;
+    font-size: 0.7rem;
+    font-style: normal;
+  }
+
+  &:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+  }
+
+  &.is-active {
+    border-color: #2563eb;
+    background: #eff6ff;
+
+    strong,
+    span {
+      color: #1d4ed8;
+    }
+
+    em {
+      color: #3b82f6;
+    }
+  }
 }
 
 .results-tabs {

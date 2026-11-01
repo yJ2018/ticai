@@ -44,7 +44,7 @@
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏；阶数 1–5 直接切快照，拖权重滑块时把权重作为 `w=` 参数发给服务端现算 | `GET /api/analysis/lottery?kind=prediction&order=N&w=34-20-22-14-10` |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | `GET /api/analysis/lottery?kind=math_trend` |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
-| `/results` | 赛果开奖 | 按比赛日翻看比分与五个玩法的开奖结果，未开奖场次明确标注 | `GET /api/results` |
+| `/results` | 赛果开奖 | 按期（销售日）翻看比分与五个玩法的开奖结果，跨零点场次归前一天并标「次日」 | `GET /api/results` |
 | `/odds-distribution` | 赔率分布 | 开奖记录 × 总进球赔率：不限时间统计最低 / 倒数第二低 / 第三低 / 中奖赔率四条分布与中奖赔率排名，逐场对照最近样本 | `GET /api/odds-distribution` |
 | `/login` | 登录 / 注册 | 邮箱 + 密码，或邮箱验证码（Resend；未注册邮箱直接建号，登录后引导设置密码）；可接微信扫码；登录态存 localStorage，请求带 Bearer | `/api/auth/*` |
 | `/auth/wechat` | 微信回调 | 用一次性 ticket 换正式会话，失败时展示原因 | `POST /api/auth/wechat/session` |
@@ -417,7 +417,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | `/` | HomePage | ✅ | 投注主流程 |
 | `/history` | HistoryPage | ✅ | 开奖历史 |
-| `/results` | ResultsPage | ❌ | 按天翻页，回来时重新拉最新开奖 |
+| `/results` | ResultsPage | ❌ | 按期翻页，回来时重新拉最近一期 |
 | `/odds-distribution` | OddsDistributionPage | ❌ | 不限时间的总进球赔率分布，进入时重新聚合 |
 | `/history-analysis` | HistoryAnalysisPage | ✅ | 本地分析 |
 | `/math-trend-analysis` | MathTrendAnalysisPage | ✅ | 本地分析 |
@@ -1181,7 +1181,7 @@ flowchart LR
 | 接口 | 数据来源 | 说明 |
 | --- | --- | --- |
 | `/api/matches` | 数据库 | 库 → 体彩 `matchInfoList` 信封；忽略 `poolType`，一次返回全部玩法 |
-| `/api/results` | 数据库 | 赛果开奖：比分 + 五个玩法结果（`had/hhad/ttg/crs/hafu`），按**真实开赛时间**筛选与升序 |
+| `/api/results` | 数据库 | 赛果开奖：比分 + 五个玩法结果（`had/hhad/ttg/crs/hafu`），按**期（销售日）**筛选、按期内场次号升序，并返回最近 24 期的切换条 |
 | `/api/odds-distribution` | 数据库 | 不限时间的总进球赔率分布：最低 / 倒数第二低 / 第三低 / 中奖赔率 + 中奖排名；优先读赛果固化的 `ttg_odds` |
 | `/api/match-signals` | 数据库 | 投注页「赔率接近」：每个玩法取最低两档，差 ≤8% 才标；融合概率决定分析偏向，复用推荐引擎的近况/伤停修正 |
 | `/api/history` | 数据库 | 库 → `{list,pageNo,pageSize,pages,total}`；金额字段同时输出上游真名与历史误用名 |
@@ -1607,6 +1607,17 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 性能 | 列表与统计串行；结算分两次查询 | 赛果 + 开奖赔率合并成一条 SQL（跨境库一次往返）；统计不查赔率；列表与统计并发 |
 | 测试 | — | `closing-odds.test.mjs` 11 个用例（五玩法取值、让球盘口校验、限额封顶、缺赔率、待开奖、全灭） |
 
+### 2026-11-01 增量：赛果开奖按期（销售日）翻页
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 筛选单位 | 自然日（`match.kickoff_at` 的北京日期）：周六 021–028 开赛在周日凌晨，被切到周日 | 期（销售日）：优先 `match.business_date`；关联不到 match 的老赛果，用 `match_num_str` 的「周X」前缀把开赛日倒推回那一期 |
+| 接口 | `GET /api/results?date=&days=` 按日期区间取 | `GET /api/results?period=`，不传取最近一期；同时返回最近 24 期（`periods`，带场次 / 已开奖数） |
+| 页面 | 日期选择器 + 前后一天 + 今天 | 期切换条（周X + 月/日 + 场次）+ 上一期 / 下一期 / 最新；跨零点场次标「次日 01:00」 |
+| 首屏 | SSR 预取「今天」，早上常常是空页 | SSR 预取「最近一期」，凌晨也能直接看到刚开完的那一期 |
+| 口径 | — | 期标签由销售日推出（`periods.mjs`），与 `match_num_str` 的周X前缀逐场校验，0 场不匹配 |
+| 测试 | — | `periods.test.mjs` 3 个用例（周X、非法输入、期标签） |
+
 ---
 
 ## 12. 关键文件索引
@@ -1618,7 +1629,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | API 认证 / 会话 | [apps/api/src/auth.mjs](../apps/api/src/auth.mjs)、[apps/api/src/session.mjs](../apps/api/src/session.mjs)、[apps/api/src/handlers/auth.mjs](../apps/api/src/handlers/auth.mjs) |
 | API 微信身份 | [apps/api/src/wechat.mjs](../apps/api/src/wechat.mjs)、[apps/api/src/handlers/wechat.mjs](../apps/api/src/handlers/wechat.mjs) |
 | API 投注 / 结算 | [apps/api/src/handlers/bets.mjs](../apps/api/src/handlers/bets.mjs)、[apps/api/src/repos/bets.mjs](../apps/api/src/repos/bets.mjs)、[apps/api/src/settlement.mjs](../apps/api/src/settlement.mjs)、[apps/api/src/closing-odds.mjs](../apps/api/src/closing-odds.mjs) |
-| API 赛果 | [apps/api/src/handlers/results.mjs](../apps/api/src/handlers/results.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs) |
+| API 赛果 | [apps/api/src/handlers/results.mjs](../apps/api/src/handlers/results.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs)、[apps/api/src/periods.mjs](../apps/api/src/periods.mjs) |
 | 赔率分布 | [apps/api/src/handlers/odds-distribution.mjs](../apps/api/src/handlers/odds-distribution.mjs)、[apps/api/src/ttg-distribution.mjs](../apps/api/src/ttg-distribution.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs)、[src/views/OddsDistributionPage.tsx](../src/views/OddsDistributionPage.tsx)、[src/api/oddsDistributionApi.ts](../src/api/oddsDistributionApi.ts)、[db/migrations/0011_match_result_ttg_odds.sql](../db/migrations/0011_match_result_ttg_odds.sql) |
 | 投注页标注 | [apps/api/src/handlers/match-signals.mjs](../apps/api/src/handlers/match-signals.mjs)、[apps/api/src/recommend/signals.mjs](../apps/api/src/recommend/signals.mjs)、[apps/api/src/recommend/engine.mjs](../apps/api/src/recommend/engine.mjs)、[src/features/betting/useMatchSignals.ts](../src/features/betting/useMatchSignals.ts)、[src/features/betting/MatchPoolList.tsx](../src/features/betting/MatchPoolList.tsx) |
 | 开发双进程脚本 | [scripts/dev.mjs](../scripts/dev.mjs) |
