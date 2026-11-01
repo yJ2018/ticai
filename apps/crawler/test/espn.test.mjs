@@ -135,6 +135,24 @@ test('位置缩写翻成中文，替补也标出来', () => {
   assert.equal(sub.position, '替补')
 })
 
+test('首发用大位置，不会被赛前的 SUB 误标成替补', () => {
+  const roster = {
+    homeAway: 'home',
+    formation: '4-3-3',
+    roster: [
+      {
+        starter: true,
+        jersey: '1',
+        position: { abbreviation: 'SUB' },
+        athlete: { displayName: '门将甲', position: { abbreviation: 'G' } },
+      },
+      ...side('home').roster.slice(1),
+    ],
+  }
+  const lineup = parseEspnLineup({ rosters: [roster, side('away')] })
+  assert.equal(lineup.home.players[0].position, '门将')
+})
+
 test('competitorOf 按主客取队伍', () => {
   const e = event('e1', '2026-11-01T16:30Z', 'LIV', 'ARS')
   assert.equal(competitorOf(e, 'home')?.team?.abbreviation, 'LIV')

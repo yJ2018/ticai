@@ -240,12 +240,24 @@ function editDistance(left, right) {
   return previous[cols - 1]
 }
 
+/**
+ * 位置：优先用球员的「大位置」（`athlete.position`：G/D/M/F），
+ * 它比阵容里的 `position` 稳定——赛前 `position` 常常只给 "SUB"，
+ * 会把首发也标成替补。只有确实没进首发时才退回「替补」。
+ */
 function positionName(entry) {
-  const abbreviation = String(entry?.position?.abbreviation ?? '').trim().toUpperCase()
-  if (POSITION_NAMES[abbreviation]) {
-    return POSITION_NAMES[abbreviation]
+  const candidates = [entry?.athlete?.position?.abbreviation, entry?.position?.abbreviation]
+  for (const candidate of candidates) {
+    const abbreviation = String(candidate ?? '').trim().toUpperCase()
+    const label = POSITION_NAMES[abbreviation]
+    if (label && label !== '替补') {
+      return label
+    }
   }
-  return String(entry?.position?.name ?? abbreviation).trim()
+  if (entry?.starter !== true) {
+    return '替补'
+  }
+  return String(entry?.athlete?.position?.name ?? entry?.position?.name ?? '').trim()
 }
 
 /**
