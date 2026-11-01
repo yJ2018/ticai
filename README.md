@@ -5,7 +5,7 @@
 > 前端 **Next.js 16**（App Router，公开页按请求 SSR），服务端拆成三个独立项目：
 > **`apps/api`**（Node）只读数据库、对外 REST + SSE，并把分析类接口反向代理到 Python；
 > **`apps/analysis`**（Python / FastAPI）计算全部分析（推荐 / 开奖 / 走势 / 大乐透 / 天气 / AI）；
-> **`apps/crawler`** 在本机抓体彩（和 500.com 的阵容）写入数据库。
+> **`apps/crawler`** 在本机抓体彩（赛程/赔率/赛果/开奖/伤停）与 ESPN 阵容写入数据库。
 > 浏览器只与自有 API 通信（同源 `/api` rewrite），第三方密钥、提示词与上游访问全部留在服务端。
 
 🔗 在线预览 <https://yujun426.online> ｜ 接口健康检查 <https://ticai-service.vercel.app/healthz>
@@ -54,7 +54,7 @@
 | 前端 | React 19、Next.js 16 App Router、Zustand 5、Sass、html2canvas |
 | 服务端 | Node ≥ 20 原生 ESM，唯一运行时依赖 `pg`；REST + SSE |
 | 分析服务 | Python 3.12 + FastAPI（Vercel Python 运行时），psycopg 连接池；与 Node 版逐字段对拍（概率差 < 5e-3） |
-| 爬虫 | Node 原生 ESM；体彩走 `fetch`，阵容走 Playwright（复用系统 Chrome） |
+| 爬虫 | Node 原生 ESM；全部走 `fetch`（体彩官方 JSON + ESPN 公开接口），不再依赖浏览器 |
 | 数据 | PostgreSQL（生产 Prisma Postgres），24 张表 + 3 个视图 |
 | 统计 | Vercel Web Analytics（`@vercel/analytics` 2.x）：生产构建自动上报 PV / 访客 / 来源 |
 
@@ -139,11 +139,11 @@ npm run deploy:analysis  # 只发 Python 分析服务（首次需先 link 项目
 ## 已知限制
 
 - 爬虫是**本机常驻进程**，机器关机就没有新数据；可用系统计划任务在 09:00 跑 `npm run crawl -- official` 兜底。
-- 阵容来自 500.com（非官方），页面结构变化会抓取失败；官方名单出现后覆盖。
+- 阵容来自 ESPN 公开接口（未公开文档、无 SLA），联赛映射不全的场次会跳过；球员名是英文。
 - 只读接口无鉴权；登录接口有频次限制、AI 接口有 IP 限流，公网暴露前建议加网关。
 - 除首页外，页面数据仍是客户端拉取；`node:test` 88 个 + Python 38 个用例，但没有 ESLint / CI。
 
 ## 声明
 
-本项目仅用于个人学习与技术实践。数据来自中国体彩、500.com 与聚合数据的公开接口，请遵守相关服务条款。
+本项目仅用于个人学习与技术实践。数据来自中国体彩、ESPN 与聚合数据的公开接口，请遵守相关服务条款。
 不构成任何投注建议，彩票有风险，请理性购彩，未满 18 周岁请勿购买彩票。

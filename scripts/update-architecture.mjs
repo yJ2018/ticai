@@ -130,7 +130,7 @@ const analysisCards = [
 
 const externalCards = [
   { title: 'webapi.sporttery.cn', subtitle: '仅本地爬虫访问 · 云 IP 被 WAF 拦截' },
-  { title: '500.com', subtitle: '阵容（有头 Playwright）· 按场次号匹配' },
+  { title: 'ESPN', subtitle: '阵容（官方首发/阵型）· 积分与赛程兜底' },
   { title: '聚合数据 juhe.cn', subtitle: '天气 · 星座 · IP 归属地' },
   { title: 'DeepSeek API', subtitle: 'chat/completions · SSE' },
   { title: 'Open-Meteo', subtitle: 'Geocoding + Forecast' },

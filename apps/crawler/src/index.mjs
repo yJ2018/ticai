@@ -8,7 +8,7 @@ import { crawlDetails } from './tasks/details.mjs'
 import { expireStartedMatches } from './tasks/expire.mjs'
 import { crawlHistory } from './tasks/history.mjs'
 import { importLineups } from './tasks/lineups.mjs'
-import { crawlLineupsBrowser, dumpLineupPage } from './tasks/lineups-browser.mjs'
+import { crawlLineupsEspn } from './tasks/lineups-espn.mjs'
 import { crawlMatches } from './tasks/matches.mjs'
 import { crawlOfficialData, describeOfficialResult } from './tasks/official.mjs'
 import { crawlMatchResults } from './tasks/results.mjs'
@@ -45,9 +45,9 @@ ticai crawler
   node src/index.mjs matches [--every=60]
   node src/index.mjs results [--days=3] [--from=YYYY-MM-DD] [--to=YYYY-MM-DD]
   node src/index.mjs history [--backfill] [--pages=N] [--game=pl5,qxc] [--delay=3000] [--every=600]
-  node src/index.mjs details [--full] [--limit=10] [--match=2042155] [--every=600]
+  node src/index.mjs details [--injury-only] [--limit=10] [--match=2042155] [--every=600]
   node src/index.mjs lineups --file=lineups.json [--dry]
-  node src/index.mjs lineups-browser --fid=1502981 [--click=阵容] [--mobile]
+  node src/index.mjs lineups-espn [--window=6] [--limit=20] [--dry]
   node src/index.mjs expire
   node src/index.mjs official
   node src/index.mjs all [--every=60]
@@ -56,9 +56,9 @@ ticai crawler
   matches   在售赛程 + 赔率，按内容 hash 去重写入快照
   results   赛果开奖：一次拿一批比赛的比分与各玩法结果
   history   四个彩种开奖；--backfill 逐页回灌
-  details   对战数据：伤停 + 赛果（--full 抓全部 7 个源）
+  details   对战数据：默认伤停 + 积分/交锋/近况/射手，--injury-only 只抓伤停
   lineups   导入阵容（JSON），--dry 只预演不落库
-  lineups-browser  用 Playwright 打开数据站，dump 页面与网络响应（探测阵容来源）
+  lineups-espn  从 ESPN 抓赛前首发（纯 HTTP，不用浏览器）
   expire    本地状态收敛：已开赛的比赛标为停售（不发请求）
   official  只刷体彩官网数据：赛程赔率 + 开奖 + 伤停赛果（不含阵容）
   all       两者都跑（不含 details，它太贵）
@@ -73,13 +73,12 @@ if (hasFlag('help') || command === 'help') {
   process.exit(0)
 }
 
-if (!['matches', 'results', 'history', 'details', 'lineups', 'lineups-browser', 'expire', 'official', 'all'].includes(command)) {
+if (!['matches', 'results', 'history', 'details', 'lineups', 'lineups-espn', 'expire', 'official', 'all'].includes(command)) {
   console.error(`未知命令：${command}\n\n${USAGE}`)
   process.exit(1)
 }
 
-// 浏览器探测模式不需要数据库
-if (!config.database.url && command !== 'lineups-browser') {
+if (!config.database.url) {
   console.error('缺少 DATABASE_URL，请在仓库根 .env 或 apps/crawler/.env 里配置')
   process.exit(1)
 }
@@ -124,7 +123,8 @@ async function runOnce() {
       pool,
       config,
       limit: Number(flagValue('limit', '10')) || 10,
-      full: hasFlag('full'),
+      // 与 daemon 保持一致：默认抓满 7 个源，只抓伤停用 --injury-only
+      full: !hasFlag('injury-only'),
       matchIds: (flagValue('match', '') || '')
         .split(',')
         .map((item) => item.trim())
@@ -135,35 +135,16 @@ async function runOnce() {
     )
   }
 
-  if (command === 'lineups-browser') {
-    if (hasFlag('run')) {
-      const summary = await crawlLineupsBrowser({
-        pool,
-        windowHours: Number(flagValue('window', '6')) || 6,
-        limit: Number(flagValue('limit', '15')) || 15,
-        dryRun: hasFlag('dry'),
-      })
-      console.log(
-        `[lineups] ${summary.matched} 场候选 · 入库 ${summary.found} · 跳过 ${summary.skipped} · 球员 ${summary.players}` +
-          (summary.dryRun ? '（预演未落库）' : ''),
-      )
-      return
-    }
-
-    const fid = flagValue('fid', '')
-    const url = flagValue('url', '') || (fid ? `https://live.500.com/detail.php?fid=${fid}` : '')
-    if (!url) {
-      throw new Error('缺少 --fid=<500.com 比赛 id> / --url=<页面地址>，或者用 --run 直接抓')
-    }
-    const result = await dumpLineupPage({
-      url,
-      outDir: flagValue('out', '.tmp/lineup-dump'),
-      waitMs: Number(flagValue('wait', '8000')) || 8000,
-      clickText: flagValue('click', ''),
-      mobile: hasFlag('mobile'),
+  if (command === 'lineups-espn') {
+    const summary = await crawlLineupsEspn({
+      pool,
+      windowHours: Number(flagValue('window', '6')) || 6,
+      limit: Number(flagValue('limit', '20')) || 20,
+      dryRun: hasFlag('dry'),
     })
     console.log(
-      `[lineups-browser] DOM ${result.textLength} 字符 · 响应 ${result.captured} 条 · 候选 ${result.candidates} 处`,
+      `[lineups-espn] ${summary.matched} 场候选 · 入库 ${summary.found} · 跳过 ${summary.skipped} · 球员 ${summary.players}` +
+        (summary.dryRun ? '（预演未落库）' : ''),
     )
   }
 

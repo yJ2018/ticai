@@ -31,7 +31,7 @@
     "crawl:history": "node apps/crawler/src/index.mjs history",
     "crawl:details": "node apps/crawler/src/index.mjs details",
     "crawl:daemon": "node apps/crawler/src/daemon.mjs",
-    "crawl:lineups": "node apps/crawler/src/index.mjs lineups-browser --run",
+    "crawl:lineups": "node apps/crawler/src/index.mjs lineups-espn",
     "crawl:test": "node --test apps/crawler/test",
     "hooks:install": "node scripts/install-git-hooks.mjs",
     "deploy": "npm run deploy:local && npm run deploy:api",
@@ -43,7 +43,6 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "playwright": "^1.64.1",
     "typescript": "~6.0.2"
   },
   "dependencies": {

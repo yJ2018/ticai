@@ -11,10 +11,10 @@ import { crawlMatchResults } from './results.mjs'
  *   matches  在售赛程 + 赔率
  *   results  赛果开奖（比分 + 各玩法结果）
  *   history  四彩种开奖
- *   details  伤停 / 交锋 / 近况 / 排名（7 个官方源，默认只取伤停）
+ *   details  伤停 / 交锋 / 近况 / 排名（7 个官方源）
  *
- * 不包含阵容——阵容来自 500.com，属于第三方数据，
- * 且只在赛前 1 小时才有意义，由 lineups 任务按窗口单独负责。
+ * 不包含阵容——阵容来自 ESPN，赛前约 1 小时才公布，
+ * 由 lineups 任务按窗口单独负责。
  *
  * 这个组合会在 09:00（开盘前两小时）跑一轮，所以**不受销售时段闸门限制**。
  */
@@ -23,7 +23,12 @@ export async function crawlOfficialData({ pool, config }) {
   const matches = await crawlMatches({ pool, config })
   const results = await crawlMatchResults({ pool, config, days: 3 })
   const history = await crawlHistory({ pool, config })
-  const details = await crawlDetails({ pool, config, limit: config.detailsLimit })
+  const details = await crawlDetails({
+    pool,
+    config,
+    limit: config.detailsLimit,
+    full: config.detailsFull,
+  })
 
   return { expire, matches, results, history, details }
 }

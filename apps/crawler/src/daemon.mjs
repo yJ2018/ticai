@@ -8,7 +8,7 @@ import { msUntilNextDaily } from './daily-schedule.mjs'
 import { crawlDetails } from './tasks/details.mjs'
 import { expireStartedMatches } from './tasks/expire.mjs'
 import { crawlHistory } from './tasks/history.mjs'
-import { crawlLineupsBrowser } from './tasks/lineups-browser.mjs'
+import { crawlLineupsEspn } from './tasks/lineups-espn.mjs'
 import { crawlMatches } from './tasks/matches.mjs'
 import { crawlOfficialData, describeOfficialResult } from './tasks/official.mjs'
 import { crawlMatchResults, hasPendingResults } from './tasks/results.mjs'
@@ -19,7 +19,7 @@ import { crawlMatchResults, hasPendingResults } from './tasks/results.mjs'
  * 几条链路的合理频率差很多，用单一 cron 会互相拖累，所以分开调度：
  *   matches  30 分钟  —— 赔率变化快，但一轮要几十秒（跨境写库）
  *   results  30 分钟  —— 赛果开奖，无待开奖比赛时自动跳过
- *   lineups  60 分钟  —— 赛前 6 小时窗口，500.com + 有头浏览器
+ *   lineups  20 分钟  —— 赛前 2.5 小时窗口，ESPN 官方阵容（纯 HTTP）
  *   history  3 小时   —— 开奖一天一次
  *   details  3 小时   —— 伤停/对战数据，7 个源，最贵
  *   expire   30 分钟  —— 纯本地停售收敛
@@ -110,7 +110,12 @@ const TASKS = [
     everyMs: EVERY_MS,
     run: async () => {
       // 覆盖全部在售比赛，而不是只抓最近 10 场：伤停越全，分析越准
-      const summary = await crawlDetails({ pool, config, limit: config.detailsLimit })
+      const summary = await crawlDetails({
+        pool,
+        config,
+        limit: config.detailsLimit,
+        full: config.detailsFull,
+      })
       return `${summary.matches} 场 · 伤停 ${summary.injuries} · 比分 ${summary.results} · 失败 ${summary.failed}`
     },
   },
@@ -119,7 +124,11 @@ const TASKS = [
     gate: config.lineupsGate,
     everyMs: LINEUPS_MS,
     run: async () => {
-      const summary = await crawlLineupsBrowser({ pool, windowHours: 6, limit: 12 })
+      const summary = await crawlLineupsEspn({
+        pool,
+        windowHours: 2.5,
+        limit: config.lineupsLimit,
+      })
       return `${summary.matched} 场候选 · 入库 ${summary.found} · 球员 ${summary.players}`
     },
   },

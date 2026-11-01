@@ -62,15 +62,19 @@ export function createConfig() {
     matchesMinutes: intEnv('CRAWL_MATCHES_MINUTES', 30),
     // 对战数据每轮覆盖多少场（默认覆盖全部在售）
     detailsLimit: intEnv('CRAWL_DETAILS_LIMIT', 40),
-    // 阵容：赛前 1 小时才公布，单独用更短的周期
-    lineupsMinutes: intEnv('CRAWL_LINEUPS_MINUTES', 60),
+    // 对战数据是否抓全部 7 个源（积分/交锋/近况/射手）；关掉只抓伤停
+    detailsFull: (process.env.CRAWL_DETAILS_FULL ?? '1') !== '0',
+    // 阵容：ESPN 赛前约 1 小时公布，20 分钟一轮才追得上
+    lineupsMinutes: intEnv('CRAWL_LINEUPS_MINUTES', 20),
+    // 每轮最多处理多少场阵容（跨境写库慢，一轮 8 场约 7 分钟）
+    lineupsLimit: intEnv('CRAWL_LINEUPS_LIMIT', 8),
     // 竞彩销售时段（北京时间），非销售时段不抓比赛相关数据
     betWindowWeekday: process.env.BET_WINDOW_WEEKDAY || '11:00-22:00',
     betWindowWeekend: process.env.BET_WINDOW_WEEKEND || '11:00-23:00',
     // 单条语句上限：跨境写库 + 49 场批量 upsert 时 60s 会撞线
     statementTimeoutMs: intEnv('CRAWL_STATEMENT_TIMEOUT_MS', 180_000),
-    // 阵容是唯一可能想脱离销售时段抓的（凌晨场次的官方名单在停售时段公布）
-    lineupsGate: (process.env.CRAWL_LINEUPS_GATE ?? '1') !== '0',
+    // 阵容走 ESPN，不发体彩请求；凌晨场次的官方名单正是在停售时段公布，所以默认不过闸门
+    lineupsGate: (process.env.CRAWL_LINEUPS_GATE ?? '0') !== '0',
     // 每日预热：北京时间几点整跑一轮「仅官方数据」（不受销售时段限制）
     dailyHour: Math.min(intEnv('CRAWL_DAILY_HOUR', 9), 23),
     retries: intEnv('CRAWL_RETRIES', 2),

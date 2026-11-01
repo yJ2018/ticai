@@ -30,7 +30,7 @@
 | 数据层 | PostgreSQL 24 张表 + 3 个视图：API 与分析服务只读（分析服务额外写 `lottery_analysis_snapshot`），爬虫只写（`db/README.md`） |
 | 构建产物 | `.next`：客户端 JS ≈ 670 KB + 143 KB CSS（gzip 后约 185 + 24 KB）+ 一个 SSR Serverless 函数 |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（Next 服务端 / API 函数）+ Python 3.12（Vercel Python 运行时） |
-| 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；Node 服务端仅 `pg`；Python：FastAPI + uvicorn + psycopg；爬虫可选 `playwright`（阵容） |
+| 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；Node 服务端仅 `pg`；Python：FastAPI + uvicorn + psycopg；爬虫零额外依赖（体彩 + ESPN 都是 `fetch`） |
 | 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 148 个（API 105 + 爬虫 43）+ Python unittest 38 个（含与 Node 的对拍） |
 | tsconfig | `strict` **未开启**；开启 `noUnusedLocals`、`noUnusedParameters`、`erasableSyntaxOnly`、`verbatimModuleSyntax` |
 
@@ -209,7 +209,7 @@ flowchart TB
   subgraph L9["⑩ 外部数据源"]
     direction LR
     E1["webapi.sporttery.cn"]
-    E2["500.com（阵容）"]
+    E2["ESPN（阵容/赛程）"]
     E3["聚合数据 juhe.cn"]
     E4["DeepSeek API"]
     E5["Open-Meteo / Resend / 微信"]
@@ -250,7 +250,7 @@ flowchart TB
 - `app/* → app-shell/AppShell → views`：页面组件只能经由外壳渲染，外壳按 `router/manifest.ts` 的 pathname 分发；`page.tsx` 不渲染页面内容（见 §4）。
 - `apps/analysis` 只读库，唯一写入是 `lottery_analysis_snapshot`（它自己的缓存表）；不依赖前端代码，也不 import Node 端逻辑。
 - `apps/api` 只读库，`apps/crawler` 只写库；两者不依赖前端代码，只通过 HTTP 契约与数据库耦合。
-- 外部上游只被「Node API（聚合数据 / 微信 / Resend）」「Python 分析服务（DeepSeek / Open-Meteo）」或「本地爬虫（体彩 / 500.com）」访问，浏览器不直连。
+- 外部上游只被「Node API（聚合数据 / 微信 / Resend）」「Python 分析服务（DeepSeek / Open-Meteo）」或「本地爬虫（体彩 / ESPN）」访问，浏览器不直连。
 
 ---
 
@@ -295,8 +295,9 @@ D:\ticai
 │     ├─ src/tasks/matches.mjs # 赛程 + 赔率快照 + 自动下架
 │     ├─ src/tasks/results.mjs # 赛果开奖：比分 + 五个玩法结果 + 固化 TTG 收盘赔率
 │     ├─ src/tasks/history.mjs # 四彩种开奖（含奖级）→ 写完后触发分析快照重算
-│     ├─ src/tasks/details.mjs # 伤停（--full 时 7 个官方接口）
-│     ├─ src/tasks/lineups*.mjs# 阵容（500.com + Playwright）
+│     ├─ src/tasks/details.mjs # 伤停 + 积分/交锋/近况/射手（7 个官方接口，默认全抓）
+│     ├─ src/tasks/lineups-espn.mjs # 阵容（ESPN 官方首发 + 阵型，纯 HTTP）
+│     ├─ src/espn.mjs          # ESPN 客户端：联赛映射 + 时间/缩写匹配 + 阵容解析
 │     ├─ src/tasks/expire.mjs  # 已开赛 → 停售（纯本地）
 │     ├─ src/tasks/official.mjs# 每日 09:00 官方数据预热
 │     ├─ src/normalize.mjs     # 上游 → 库字段，赛果 key 推导
@@ -1237,14 +1238,14 @@ flowchart LR
 | `matches` | 体彩 | `league` / `team` / `match` / `match_odds_snapshot` | 每 30 分钟（销售时段内） |
 | `results` | 体彩赛果开奖 | `match_result` + 回写 `match` 比分 + 固化总进球 / 全玩法收盘赔率 | 每 30 分钟；没有待开奖比赛时自动跳过 |
 | `history` | 体彩 | `lottery_draw` / `lottery_prize_level` | 每 3 小时 |
-| `details` | 体彩 | `injury` / `player` / `match_feed` | 每 3 小时（默认只抓伤停） |
-| `lineups` | 500.com | `match_lineup` / `match_lineup_player` / `player` | 每 60 分钟，仅赛前 6 小时窗口 |
+| `details` | 体彩 | `injury` / `player` / `match_feed` | 每 3 小时（默认抓全部 7 源） |
+| `lineups` | ESPN | `match_lineup` / `match_lineup_player` / `player` | 每 20 分钟，赛前 2.5 小时窗口 |
 | `expire` | —（纯本地） | `match.sell_status` | 每 30 分钟 |
 | `official` | 体彩 | 上面几类官方数据 | **每天 09:00**（开盘前预热） |
 
 调度规则（`daemon.mjs`）：
 
-- **销售时段闸门**：平日 11:00–22:00、周末 11:00–23:00（北京时间）。非销售时段盘口不变，`matches` / `details` / `lineups` 直接跳过；`history`、`results` 与 `expire` 不受限。
+- **销售时段闸门**：平日 11:00–22:00、周末 11:00–23:00（北京时间）。非销售时段盘口不变，`matches` / `details` 直接跳过；`lineups`（ESPN，不发体彩请求）、`history`、`results` 与 `expire` 不受限。
 - **开盘补跑**：被闸门跳过时按开盘时刻排一次性定时器，11:00 立刻抓一轮，不用等下一个 30 分钟周期。
 - **串行队列**：跨境写库延迟高，几条链路排队执行；上一轮没跑完时同一任务不会重复入队。
 - **已开赛兜底**：体彩在结算前仍会返回已开赛的比赛，`matches` 写库时按 `kickoff_at <= now()` 一律记 `closed`，否则会把 `expire` 的结果改回在售。
@@ -1257,7 +1258,7 @@ flowchart LR
 1. **体彩不需要浏览器**。不带 `Referer` 时体彩 WAF 返回 `HTTP 567`，补齐 `referer`/`origin`/浏览器 UA/`accept-language` 后即 200。爬虫把这套头写死在 `http.mjs`。
 2. **对战数据有 7 个接口**（`getInjurySuspensionV1` / `getMatchResultV1` / `getResultHistoryV1` / `getFutureMatchesV1` / `getMatchFeatureV1` / `getMatchTablesV1` / `getMatchPlayerV1`），都挂在 `webapi.sporttery.cn/gateway/uniform/football`，参数是 **`sportteryMatchId`**（不是 `matchId`，用错会静默返回空 `value`）。
 3. **比分与半场比分来自 `getMatchResultV1`** 的 `fullCourtGoal` / `halfTimeGoal`；`match.htft` 生成列据此自动产出，半全场分布可直接统计。
-4. **阵容必须用浏览器**：体彩没有阵容接口（7 个候选路径全 `E0001`），改用 500.com；它的阵容是 JS 渲染且拦截 headless，所以 `lineups` 用 Playwright + 有头 Chrome，按「场次号」匹配（体彩与 500.com 共用同一套编号）。
+4. **阵容改走 ESPN**：体彩没有阵容接口（7 个候选路径全 `E0001`），2026-11 起用 ESPN 的 `summary.rosters`——首发/替补/位置/球衣号/阵型一次拿全，赛前约 1 小时公布。匹配按「联赛 slug + 开赛时间 ±12 分钟」，同一时间多场时用体彩英文缩写对 ESPN 缩写（编辑距离）消歧，对不唯一就跳过。500.com + Playwright 有头浏览器已删除。
 
 每轮写一条 `crawl_run`，`/api/health` 的 `dataSources[].ageSeconds` 直接由它计算。
 
@@ -1382,11 +1383,11 @@ flowchart LR
 | 接口来源 | BFF 实时透传体彩 | 爬虫写库，API 只读库（`apps/api`） |
 | 数据存储 | 无 | PostgreSQL 16 张表 + 2 个视图（当时；现为 23 张表）：彩票域、足球域、对战源、可观测性 |
 | 爬虫 | 无 | `apps/crawler`：赛程/赔率、四彩种开奖、伤停、赛果、阵容 |
-| 阵容 | 无来源 | 500.com + Playwright（有头），按场次号匹配，11 首发 + 替补 |
+| 阵容 | 无来源 | 500.com + Playwright（有头）→ 2026-11 改为 ESPN 官方首发（纯 HTTP，含阵型） |
 | AI 分析 | 前端拼 messages 发 `/api/ai-chat` | `POST /api/ai-analysis` 只收 `matchId + pool`，提示词与官方数据下沉服务端 |
 | 前端请求 | 天气 + 详情 + 对话 = 3 次 | 1 次；`meta` 事件先返回天气 |
 | 部署 | Vercel 单项目 | 前端 `ticai` + 后端 `ticai-service` 两个项目，`VITE_API_BASE` 连接 |
-| 投注时段 | 无限制 | matches/details/lineups 过销售时段闸门（平日 11–22、周末 11–23），开盘瞬间补跑一次 |
+| 投注时段 | 无限制 | matches/details 过销售时段闸门（平日 11–22、周末 11–23），开盘瞬间补跑一次 |
 | 每日预热 | 无 | 每天 09:00 跑一轮「仅体彩官网数据」：停售收敛 + 赛程赔率 + 开奖 + 伤停赛果 |
 
 接口清单与契约见 [docs/api.md](api.md)；数据库与上游字段实况见 [db/README.md](../db/README.md)；爬虫调度与阵容抓取见 [apps/crawler/README.md](../apps/crawler/README.md)。
@@ -1677,7 +1678,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 爬虫入口 / 调度 | [apps/crawler/src/index.mjs](../apps/crawler/src/index.mjs)、[apps/crawler/src/daemon.mjs](../apps/crawler/src/daemon.mjs) |
 | 爬虫任务 | [apps/crawler/src/tasks/matches.mjs](../apps/crawler/src/tasks/matches.mjs)、[apps/crawler/src/tasks/results.mjs](../apps/crawler/src/tasks/results.mjs)、[apps/crawler/src/tasks/history.mjs](../apps/crawler/src/tasks/history.mjs) |
 | 上游归一化 | [apps/crawler/src/normalize.mjs](../apps/crawler/src/normalize.mjs) |
-| 对战数据任务 | [apps/crawler/src/tasks/details.mjs](../apps/crawler/src/tasks/details.mjs)、[apps/crawler/src/tasks/lineups-browser.mjs](../apps/crawler/src/tasks/lineups-browser.mjs) |
+| 对战数据任务 | [apps/crawler/src/tasks/details.mjs](../apps/crawler/src/tasks/details.mjs)、[apps/crawler/src/tasks/lineups-espn.mjs](../apps/crawler/src/tasks/lineups-espn.mjs)、[apps/crawler/src/espn.mjs](../apps/crawler/src/espn.mjs) |
 | 对战详情接口 | [apps/api/src/match-detail.mjs](../apps/api/src/match-detail.mjs)、[apps/api/src/handlers/match-detail.mjs](../apps/api/src/handlers/match-detail.mjs) |
 | 对战详情页 | [src/features/matchDetail/MatchDetailContent.tsx](../src/features/matchDetail/MatchDetailContent.tsx)、[MatchDetailDialog.tsx](../src/features/matchDetail/MatchDetailDialog.tsx)、[src/views/MatchDetailPage.tsx](../src/views/MatchDetailPage.tsx) |
 | 详情视图映射 | [src/features/matchDetail/matchDetailView.ts](../src/features/matchDetail/matchDetailView.ts) |

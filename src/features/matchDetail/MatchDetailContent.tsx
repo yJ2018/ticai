@@ -313,7 +313,7 @@ export function MatchDetailContent({ view, loading, error, fallback }: MatchDeta
         </div>
       </Section>
 
-      <p className="md-footnote">数据来自体彩公开接口与 500.com；没抓到的板块保持为空，不做推测。</p>
+      <p className="md-footnote">数据来自体彩公开接口与 ESPN；没抓到的板块保持为空，不做推测。</p>
     </div>
   )
 }

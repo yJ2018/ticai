@@ -35,10 +35,11 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 | `results` | 赛果开奖：比分 + 五个玩法结果，回写 `match` 与 `match_result`；已开奖场次固化最后一份总进球赔率与全玩法收盘赔率（`closing_odds`） | 30 min（无待开奖比赛时跳过） |
 | `history` | 四个彩种各抓最新一页（100 期） | 3 h |
 | `history --backfill` | 从第 1 页翻到最后一页 | 一次性 |
-| `details` | 伤停；`--full` 抓全部 7 个源 | 3 h |
+| `details` | 伤停 + 积分/交锋/近况/射手（全部 7 个源）；`--injury-only` 只抓伤停 | 3 h |
 | `lineups` | 导入阵容 JSON（`--dry` 预演不落库） | 有数据时手动跑 |
+| `lineups-espn` | 从 ESPN 抓赛前首发（`--window` / `--limit` / `--dry`） | 20 min |
 | `expire` | 本地状态收敛：已开赛的比赛标为停售（不发请求） | 与 matches 同频 |
-| `official` | 只刷体彩官网数据：赛程赔率 + 赛果开奖 + 开奖 + 伤停（不含阵容） | 每天 09:00 |
+| `official` | 只刷体彩官网数据：赛程赔率 + 赛果开奖 + 开奖 + 伤停/积分/交锋/近况（不含阵容） | 每天 09:00 |
 | `all` | matches + history（不含 details，它太贵） | — |
 
 `--every=N` 进入循环模式，单轮失败不会退出（网络抖动是常态）。
@@ -47,7 +48,7 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 
 `npm run crawl:daemon` 会在**北京时间每天 09:00** 跑一轮 `official`：停售收敛 → 赛程赔率 → 赛果开奖 → 开奖 → 伤停，正好赶在 11:00 开盘前把库刷成最新的。
 
-- 只取**体彩官网**的数据，阵容（500.com）不在内；
+- 只取**体彩官网**的数据，阵容（ESPN）不在内；
 - 这一轮**不受销售时段闸门限制**（它就是这个用途）；
 - `official` 也可以手动跑：`npm run crawl -- official`；
 - 改时间用 `CRAWL_DAILY_HOUR`（默认 9）。
@@ -56,7 +57,7 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 
 ## 抓什么、不抓什么
 
-**已实现**：在售赛程、五个玩法赔率、四彩种开奖（含奖级）、**伤停名单**、**赛果（全场 + 半场比分）**、**阵容**（500.com + 有头 Playwright，见下文「阵容抓取」）。
+**已实现**：在售赛程、五个玩法赔率、四彩种开奖（含奖级）、**伤停名单**、**赛果（全场 + 半场比分）**、**积分/交锋/近况/射手（体彩 7 源）**、**阵容**（ESPN 官方首发 + 替补 + 阵型，见下文「阵容抓取」）。
 
 **不抓**：体彩官方阵容（体彩公开接口里没有，`getMatchPlayerV1` 实际是射手榜，不是首发名单）。
 
@@ -97,7 +98,7 @@ user-agent: ...Chrome/131.0.0.0...
 accept-language: zh-CN,zh;q=0.9
 ```
 
-这套头写死在 `src/http.mjs` 的 `DEFAULT_HEADERS` 里。所以用 `fetch` 就够，省掉 Playwright 的 300 MB 浏览器和内存开销。
+这套头写死在 `src/http.mjs` 的 `DEFAULT_HEADERS` 里。所以用 `fetch` 就够，省掉浏览器的 300 MB 和内存开销。
 
 如果有一天真的 567（通常是出口 IP 被判定），错误信息会明确提示；那时再考虑换出口或加浏览器，而不是现在就背这个包袱。
 
@@ -122,37 +123,36 @@ accept-language: zh-CN,zh;q=0.9
 | `CRAWL_MAX_PAGES` | 200 | 回灌页数上限 |
 | `CRAWL_INTERVAL_MINUTES` | 180 | history / details 的间隔（分钟） |
 | `CRAWL_MATCHES_MINUTES` | 30 | 在售赛程、赛果与赔率的间隔（分钟） |
-| `CRAWL_LINEUPS_MINUTES` | 60 | 阵容间隔（分钟） |
+| `CRAWL_LINEUPS_MINUTES` | 20 | 阵容间隔（分钟） |
+| `CRAWL_LINEUPS_LIMIT` | 8 | 每轮最多处理多少场阵容 |
+| `CRAWL_LINEUPS_GATE` | 0 | 阵容是否也过销售时段闸门（默认不过，凌晨场次的名单在停售时段公布） |
+| `CRAWL_DETAILS_FULL` | 1 | `details` 是否抓全部 7 个源（关掉只抓伤停） |
 | `CRAWL_DAILY_HOUR` | 9 | 每天几点跑 `official` 预热（北京时间） |
 | `BET_WINDOW_WEEKDAY` / `BET_WINDOW_WEEKEND` | `11:00-22:00` / `11:00-23:00` | 竞彩销售时段闸门 |
 
-### 阵容抓取（500.com + 真实浏览器）
+### 阵容抓取（ESPN 官方首发）
 
-500.com 的阵容是 JS 渲染的，纯 HTTP 拿不到，而且 headless 会被拦，必须用**有头**浏览器。
+2026-11 起阵容改走 ESPN：`site.api.espn.com` 的 `summary.rosters` 直接给首发/替补、位置、球衣号和阵型，
+纯 HTTP 就能取（赛前约 1 小时公布），不再需要 Playwright 有头浏览器。
 
 ```bash
-npm i -D playwright        # 已在 devDependencies
-node apps/crawler/src/index.mjs lineups-browser --run
+node apps/crawler/src/index.mjs lineups-espn --window=3 --limit=15
+node apps/crawler/src/index.mjs lineups-espn --dry        # 预演，写入后回滚
 ```
 
 流程：
 
-1. 从本库选出「开赛前后 6 小时、还没有官方名单」的比赛；
-2. 打开 500.com 当日列表页，按 **场次号**（`周四006`）建立 `场次号 → fid` 映射——体彩和 500.com 共用这套编号，**不需要模糊匹配队名**；
-3. 逐场打开详情页，解析 `.box_side` 里的 `预计首发阵容` / `后备`；
-4. 写 `match_lineup` + `match_lineup_player` + `player`。
+1. 从本库选出「开赛前 20 分钟到未来 2.5 小时、还没有 ESPN 官方名单」的比赛；
+2. 体彩联赛名 → ESPN slug（`src/espn.mjs` 的 `ESPN_LEAGUES`，只收实测 200 的联赛）；
+3. 按开赛时间 ±12 分钟对 ESPN 赛事；同一时间多场时用体彩英文缩写对 ESPN 缩写（编辑距离）消歧，对不唯一就跳过；
+4. 取 `summary.rosters`，**两队都够 11 名首发**才算公布，写 `match_lineup` + `match_lineup_player` + `player`，`source='espn'`。
 
 几个细节：
 
-- 页面给的是「预计首发」，所以 `confirmed=false`；官方名单出来后再抓一次会自动覆盖（查询里排除了 `confirmed=true` 的比赛）。
-- 500.com 不提供阵型，`formation` 为 null。
-- 复用系统安装的 Chrome（Playwright `channel: 'chrome'`），不用下载 150MB Chromium；会弹出浏览器窗口，这是反爬的代价。
-
-只探测不写库：
-
-```bash
-node apps/crawler/src/index.mjs lineups-browser --fid=1502981   # dump 页面与网络响应
-```
+- ESPN 给的是官方名单，`confirmed=true`，阵型一并写入（500.com 时代 `formation` 恒为 null）。
+- 球员按「球队 + 姓名」复用，姓名是英文（ESPN 没有中文名）；旧的中文球员记录不会被删除。
+- 没有 ESPN 映射的联赛（韩国 K 联赛、日乙、日本联赛杯、巴西杯、亚冠二级）本轮直接跳过，不影响其它链路。
+- ESPN 没有伤停数据（`/injuries` 恒为空），伤停继续走体彩官方 `injury` feed。
 
 ## 调度
 
@@ -169,9 +169,9 @@ npm run crawl:daemon
 | `matches` | 每 30 分钟（`CRAWL_MATCHES_MINUTES`） | 在售赛程 + 赔率 + 自动下架，一轮约 50–60 s（跨境写库） |
 | `expire` | 每 30 分钟（同上，纯本地） | 已开赛的比赛标为停售，不发请求 |
 | `results` | 每 30 分钟（同上，无待开奖时跳过） | 赛果开奖：官网接口按日期区间一次拿一批，回写比分与各玩法结果 |
-| `lineups` | 每 60 分钟（`CRAWL_LINEUPS_MINUTES`） | 开赛前后 6 小时内的比赛，从 500.com 抓阵容 |
+| `lineups` | 每 20 分钟（`CRAWL_LINEUPS_MINUTES`） | 赛前 2.5 小时内、还没有官方名单的比赛，从 ESPN 抓首发 |
 | `history` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 四彩种各 100 期，约 3 分钟 |
-| `details` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 伤停（`--full` 时 7 个源），约 2 分钟 |
+| `details` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 伤停 + 积分/交锋/近况/射手（7 个源），约 5 分钟 |
 
 > 2026-10 起「赛果」不再逐场抓：官网赛果开奖接口
 > `getUniformMatchResultV1` 支持按日期区间分页（一次 100 条），
@@ -182,7 +182,8 @@ npm run crawl:daemon
 
 ### 只在能投注的时候抓
 
-非销售时段盘口不会变，抓了也是白跑，所以 `matches` / `details` / `lineups` 都过一道闸门：
+非销售时段盘口不会变，抓了也是白跑，所以 `matches` / `details` 过一道闸门；
+`lineups` 走 ESPN、不发体彩请求，默认**不过**闸门（凌晨场次的官方名单正是在停售时段公布）。
 
 | 限制 | 规则 | 可配置 |
 | --- | --- | --- |

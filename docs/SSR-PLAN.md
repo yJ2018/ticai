@@ -324,7 +324,7 @@ SSR 的 HTML **永远不包含用户身份**（token 在 localStorage），所�
 | `index.html` | 改 | 加 `<!--ssr-head-*-->` 标记 |
 | `vercel.json` / `package.json` / `.env.example` | 改 | 路由、脚本、环境变量 |
 
-`playwright` 依赖**不要删**——`apps/crawler` 的阵容链路还在用，只删 `prerender.mjs` 对它的引用。
+`playwright` 依赖已随 500.com 阵容链路一起删除（2026-11 阵容改走 ESPN 公开接口），删 `prerender.mjs` 时不需要再保留。
 
 ## 7. 分阶段计划
 
