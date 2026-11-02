@@ -74,7 +74,10 @@ export const DltIndicatorRail = memo(function DltIndicatorRail({ rows }: DltIndi
           {rows.map((row, index) => {
             const item = indicators[index]
             return (
-              <div key={row.issue} className="dlt-metrics__row">
+              <div
+                key={row.issue}
+                className={`dlt-metrics__row${index % 2 === 1 ? ' is-alt' : ''}`}
+              >
                 <span className="is-sum">{item ? item.sum : '--'}</span>
                 <span>{item ? item.span : '--'}</span>
                 <span>{item ? formatDltOddEven(item) : '--'}</span>

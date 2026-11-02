@@ -40,7 +40,7 @@
 | --- | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、**赔率接近标注**（最低两档 ≤8% 时标 ≈，蓝框为分析偏向）、串关注数/金额/最高奖金（按体彩单注限额封顶）/税、首屏骨架屏、单场与方案级 AI 分析、高清快照、保存投注 | `GET /api/matches`、`GET /api/match-signals`、`POST /api/bets` |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气，PC 弹框与 H5 页面共用正文 | `GET /api/match-detail`、`GET /api/venue-weather` |
-| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；**逐期参考归档**（每期开奖前的 3 个候选叠加到走势格、右侧逐期命中栏、分位/号码/漂移偏差面板）；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要；工具栏「选号投注」可直接选号并保存到我的投注 | `GET /api/history` + IndexedDB（分析结果已有服务端快照：`GET /api/analysis/lottery`）、`GET /api/analysis/lottery/track`、`POST /api/bets`（`kind=lottery`） |
+| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；**逐期参考归档**（每期开奖前的 3 个候选以 1/2/3 角标标在走势格、隔行底色、右侧逐期命中栏、分位/号码/漂移偏差面板）；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要；工具栏「选号投注」可直接选号并保存到我的投注 | `GET /api/history` + IndexedDB（分析结果已有服务端快照：`GET /api/analysis/lottery`）、`GET /api/analysis/lottery/track`、`POST /api/bets`（`kind=lottery`） |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏；阶数 1–5 直接切快照，拖权重滑块时把权重作为 `w=` 参数发给服务端现算 | `GET /api/analysis/lottery?kind=prediction&order=N&w=34-20-22-14-10` |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | `GET /api/analysis/lottery?kind=math_trend` |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
@@ -707,7 +707,7 @@ flowchart LR
   AGG --> STAT["lottery_prediction_track_stat<br/>payload（接口直出）+ state（增量续算）"]
   ROW --> API["GET /api/analysis/lottery/track<br/>?game=pl5&issues=..."]
   STAT --> API
-  API --> WEB["/history：参考框叠加<br/>逐期命中栏 + 偏差面板"]
+  API --> WEB["/history：顺位角标 + 隔行底色<br/>逐期命中栏 + 偏差面板"]
   CRAWL["crawl:history<br/>新开奖入库"] --> TRACK
   CLI["npm run track:backfill<br/>首次 / 换算法"] --> TRACK
 ```
@@ -1694,7 +1694,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | --- | --- | --- |
 | 数据 | `lottery_analysis_snapshot` 只有「基于最新一期的下一期参考」，没有逐期对应 | 迁移 `0013`：`lottery_prediction_track` 每期一行（参考 / 实际 / 逐位命中 / 6 注组合对上几位）+ `lottery_prediction_track_stat`（累计 + 最近 1000 期命中） |
 | 口径 | 只能看全量回测汇总 | walk-forward：第 N 期只用 1..N-1 期，`through_issue` 单独记录；命中率、分位偏差、号码偏差、滚动曲线都来自同一份逐期记录 |
-| 页面 | 走势只画实际号码，顶部一行「参考」是下一期 | 走势格内叠加当期 3 个候选（粗框 = 首选、金框 = 参考命中），右侧新增逐期命中栏；下方新增「分位命中 / 号码偏差矩阵 / 偏差结论」面板；移动端卡片显示参考串与命中位数 |
+| 页面 | 走势只画实际号码，顶部一行「参考」是下一期 | 走势格内用角标 1/2/3 标出参考顺位（红底命中时角标变白），每行隔行底色；右侧新增逐期命中栏；下方新增「分位命中 / 号码偏差矩阵 / 偏差结论」面板；移动端卡片显示参考串、命中位数和球上的顺位角标 |
 | 接口 | 无 | `GET /api/analysis/lottery/track?game=pl5&issues=…`：当前页 items + 全量 summary；已到最新时只读 stat + 一页 items |
 | 触发 | — | 爬虫开奖入库后 `ensurePredictionTrack` 增量补 1 期；首次 `npm run track:backfill`（排列五 7 736 期：计算约 1 s，含远库写入约 15 s）；API 缺失/落后时兜底现算 |
 | 计算 | — | 直接复用冻结的 `rankNextDigits`，不复制打分；单测断言归档累计与 `runBacktest` 的 top1Hits/top3Hits 完全一致（实测排列五 7 736 期：Top1 10.07% / Top3 30.21%，与快照 10.1% / 30.2% 对齐） |

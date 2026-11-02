@@ -2374,22 +2374,34 @@ button:focus-visible,
     white-space: nowrap;
   }
 
-  i {
-    display: inline-block;
-    width: 0.72rem;
-    height: 0.72rem;
+  i.is-rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0.78rem;
+    height: 0.78rem;
+    padding: 0 0.12rem;
     border-radius: 0.2rem;
-    background: #eef2ff;
-    box-shadow: inset 0 0 0 1px #a5b4fc;
+    background: #4338ca;
+    color: #fff;
+    font-size: 0.52rem;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 1;
   }
 
-  i.is-top1 {
-    box-shadow: inset 0 0 0 2px #4f46e5;
+  i.is-rank-hit {
+    background: #fff;
+    color: #4338ca;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.28);
   }
 
   i.is-hit {
+    display: inline-block;
+    width: 0.78rem;
+    height: 0.78rem;
+    border-radius: 0.2rem;
     background: linear-gradient(180deg, #ef4444, #dc2626);
-    box-shadow: inset 0 0 0 2px #fbbf24;
   }
 }
 
@@ -2795,6 +2807,7 @@ button:focus-visible,
 }
 
 .history-card__ball {
+  position: relative;
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 999px;
@@ -2911,15 +2924,44 @@ button:focus-visible,
   color: #047857;
 }
 
-/* 开奖球叠加参考命中：金环 = 该位参考命中 */
-.history-card__ball.is-predicted {
-  outline: 2px solid #a5b4fc;
-  outline-offset: 2px;
+/* 开奖球上的参考顺位角标：白底 + 顺位色，红/蓝球上都够对比 */
+.history-card__rank {
+  position: absolute;
+  top: -0.26rem;
+  right: -0.26rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0.95rem;
+  height: 0.95rem;
+  padding: 0 0.12rem;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.56rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.16),
+    0 0.15rem 0.35rem rgba(15, 23, 42, 0.2);
+}
+
+.history-card__rank.is-rank-1 {
+  color: #4338ca;
+}
+
+.history-card__rank.is-rank-2 {
+  color: #1d4ed8;
+}
+
+.history-card__rank.is-rank-3 {
+  color: #475569;
 }
 
 .history-card__ball.is-predicted-hit {
-  outline-color: #fbbf24;
-  outline-width: 3px;
+  outline: 3px solid #fbbf24;
+  outline-offset: 2px;
 }
 
 .trend-panel {
@@ -3097,16 +3139,45 @@ button:focus-visible,
 }
 
 .trend-panel__cell {
+  position: relative;
   height: 1.875rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #475569;
   font-size: 0.74rem;
   line-height: 1;
   border-bottom: 1px solid #edf2f7;
   border-left: 1px solid #edf2f7;
-  background: rgba(255, 255, 255, 0.78);
+  background: transparent;
+}
+
+/* 隔行底色：横跨期号轴 / 五个走势 / 命中栏，视觉上把同一期连成一条。
+   位次彩种的走势格用下面的 .trend-panel__bands（垫在折线 SVG 下面），
+   大乐透没有折线，直接用行背景。 */
+.trend-axis__row.is-alt,
+.hit-rail__row.is-alt,
+.dlt-metrics__row.is-alt,
+.history-page__desktop.is-dlt .trend-panel__grid-row.is-alt {
+  background: #e9eef6;
+}
+
+.trend-panel__bands {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.trend-panel__bands span {
+  flex: 0 0 1.875rem;
+  height: 1.875rem;
+}
+
+.trend-panel__bands span.is-alt {
+  background: #e9eef6;
 }
 
 .trend-panel__cell.is-hit {
@@ -3172,26 +3243,67 @@ button:focus-visible,
   }
 }
 
-/* ── 参考候选叠加：蓝框 = 当期 3 个候选，粗框 = 首选，金框 = 参考命中 ── */
+/* ── 参考顺位角标：1 = 首选，2/3 = 候选；红底命中时变白底，保证对比度 ── */
 .trend-panel__cell.is-pick {
-  background: #eef2ff;
-  color: #4338ca;
+  color: #0f172a;
   font-weight: 700;
-  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.5);
+  padding-right: 0.32rem;
 }
 
-.trend-panel__cell.is-pick.is-top1 {
-  box-shadow: inset 0 0 0 2px #4f46e5;
-}
-
-.trend-panel__cell.is-hit.is-pick {
-  background: linear-gradient(180deg, #ef4444, #dc2626);
+.trend-panel__rank {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  z-index: 3;
+  min-width: 0.68rem;
+  padding: 0.04rem 0.08rem;
+  border-radius: 0.18rem;
   color: #fff;
-  box-shadow: inset 0 0 0 2px #fbbf24;
+  font-size: 0.5rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
 }
 
-.trend-panel.is-special .trend-panel__cell.is-hit.is-pick {
-  background: linear-gradient(180deg, #3b82f6, #2563eb);
+.trend-panel__rank.is-rank-1 {
+  background: #4338ca;
+}
+
+.trend-panel__rank.is-rank-2 {
+  background: #2563eb;
+}
+
+.trend-panel__rank.is-rank-3 {
+  background: #94a3b8;
+  color: #0f172a;
+}
+
+.trend-panel__cell.is-hit .trend-panel__rank {
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.18);
+}
+
+.trend-panel__cell.is-hit .trend-panel__rank.is-rank-1 {
+  color: #4338ca;
+}
+
+.trend-panel__cell.is-hit .trend-panel__rank.is-rank-2 {
+  color: #1d4ed8;
+}
+
+.trend-panel__cell.is-hit .trend-panel__rank.is-rank-3 {
+  color: #475569;
+}
+
+.trend-panel.is-wide .trend-panel__rank {
+  top: 0;
+  right: 0;
+  min-width: 0.56rem;
+  padding: 0.02rem 0.05rem;
+  font-size: 0.42rem;
 }
 
 /* 逐期命中栏：2 列窄栏，行高与走势矩阵一致 */
@@ -3252,7 +3364,7 @@ button:focus-visible,
 }
 
 .hit-rail__cell.is-zero {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 /* ── 大乐透右栏：和值 / 跨度 / 奇偶比 / 大小比 / 三区比 ───────
@@ -3335,7 +3447,7 @@ button:focus-visible,
     justify-content: center;
     border-left: 1px solid #edf2f7;
     border-bottom: 1px solid #edf2f7;
-    background: rgba(255, 255, 255, 0.78);
+    background: transparent;
     color: #334155;
     font-size: 0.64rem;
     font-variant-numeric: tabular-nums;
@@ -3545,7 +3657,7 @@ button:focus-visible,
   }
 
   span {
-    color: #64748b;
+    color: #475569;
     font-size: 0.64rem;
     line-height: 1.05;
   }

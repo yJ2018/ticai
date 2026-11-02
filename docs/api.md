@@ -314,7 +314,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 ### 2.2.3 `GET /api/analysis/lottery/track`
 
 逐期参考归档：把每一期开奖前给出的参考号码、开奖后的逐位命中、组合命中落库，
-同时返回全量命中率与偏差统计。走势页用它把「参考框 / 命中」叠加到每一行，并在下方展示偏差面板。
+同时返回全量命中率与偏差统计。走势页用它把「顺位角标 / 命中」叠加到每一行，并在下方展示偏差面板。
 
 > 归档是 **walk-forward** 的：第 N 期只用第 1..N-1 期数据算参考（`throughIssue` 单独带出，
 > 可自证没有用到当期开奖）；数据来源 `lottery_prediction_track`，由爬虫开奖入库后增量补，

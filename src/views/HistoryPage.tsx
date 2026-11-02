@@ -364,21 +364,21 @@ export function HistoryPage() {
               <div className="history-hit">
                 <div className="history-hit__legend" aria-label="走势图标记说明">
                   <span>
-                    <i className="is-pick" />
-                    参考候选
-                  </span>
-                  <span>
-                    <i className="is-top1" />
-                    首选
+                    <i className="is-rank">1</i>
+                    角标 1/2/3 = 参考顺位
                   </span>
                   <span>
                     <i className="is-hit" />
-                    参考命中
+                    红底 = 该位命中
+                  </span>
+                  <span>
+                    <i className="is-rank is-rank-hit">1</i>
+                    白角标 = 参考命中
                   </span>
                 </div>
                 <span className="history-hit__meta">
                   {trackSummary
-                    ? `每期已归档 · ${formatCount(trackSummary.overall.samples)} 期 · ${trackSummary.sample.fromIssue ?? '--'} → ${trackSummary.sample.toIssue ?? '--'} · 格内蓝框=开奖前参考`
+                    ? `每期已归档 · ${formatCount(trackSummary.overall.samples)} 期 · ${trackSummary.sample.fromIssue ?? '--'} → ${trackSummary.sample.toIssue ?? '--'} · 走势角标=开奖前参考`
                     : trackState.loading
                       ? '逐期归档加载中…'
                       : trackState.error
@@ -435,8 +435,11 @@ export function HistoryPage() {
                   </div>
                 )}
                 <div className="trend-axis__body">
-                  {trendRows.map((row) => (
-                    <div key={`desktop-meta-${row.item.issue}`} className="trend-axis__row">
+                  {trendRows.map((row, rowIndex) => (
+                    <div
+                      key={`desktop-meta-${row.item.issue}`}
+                      className={`trend-axis__row${rowIndex % 2 === 1 ? ' is-alt' : ''}`}
+                    >
                       <strong>{row.item.issue}</strong>
                       <span>{row.item.drawDate}</span>
                     </div>
@@ -557,20 +560,27 @@ export function HistoryPage() {
                           const isExtra = index >= meta.mainCount
                           const isSpecial = meta.specialLast && index === meta.mainCount - 1
                           const positionTrack = trackItem?.positions[index]
-                          const isPredicted = Boolean(
-                            positionTrack && positionTrack.picks.includes(Number(num)),
-                          )
-                          const isPredictedHit = isPredicted && Boolean(positionTrack?.hitTop3)
+                          const pickIndex = positionTrack
+                            ? positionTrack.picks.indexOf(Number(num))
+                            : -1
+                          const rank = pickIndex >= 0 ? pickIndex + 1 : 0
+                          const isPredictedHit = rank > 0 && Boolean(positionTrack?.hitTop3)
                           return (
                             <span
                               key={`${item.issue}-${index}-${num}`}
                               className={`history-card__ball${isExtra ? ' is-extra' : ''}${
                                 isSpecial ? ' is-special' : ''
-                              }${isPredicted ? ' is-predicted' : ''}${
-                                isPredictedHit ? ' is-predicted-hit' : ''
-                              }`}
+                              }${isPredictedHit ? ' is-predicted-hit' : ''}`}
                             >
                               {num}
+                              {rank > 0 && (
+                                <em
+                                  className={`history-card__rank is-rank-${rank}`}
+                                  aria-hidden="true"
+                                >
+                                  {rank}
+                                </em>
+                              )}
                             </span>
                           )
                         })}
@@ -713,7 +723,7 @@ type TrendPanelProps = {
   showStats?: boolean
   /** 第几位（0 起）：用来从逐期归档里取这一位的参考与命中 */
   position?: number
-  /** 与 rows 对齐的逐期归档记录；没有归档时整列不显示参考框 */
+  /** 与 rows 对齐的逐期归档记录；没有归档时不显示顺位角标 */
   trackItems?: Array<PredictionTrackItem | null>
 }
 
@@ -868,6 +878,18 @@ const TrendGrid = memo(function TrendGrid({
             } as CSSProperties
           }
         >
+          {/* 隔行底色放在折线 SVG 下面：单元格透明，折线仍然完整可见 */}
+          {showLines && (
+            <div className="trend-panel__bands" aria-hidden="true">
+              {rows.map((row, index) => (
+                <span
+                  key={`${label}-band-${row.issue}`}
+                  className={index % 2 === 1 ? 'is-alt' : ''}
+                />
+              ))}
+            </div>
+          )}
+
           {showLines && (
             <>
               <svg
@@ -928,31 +950,39 @@ const TrendGrid = memo(function TrendGrid({
               const positionTrack =
                 position === undefined ? null : (trackItems?.[rowIndex]?.positions[position] ?? null)
               return (
-                <div key={`${label}-${row.issue}-row`} className="trend-panel__grid-row">
+                <div
+                  key={`${label}-${row.issue}-row`}
+                  className={`trend-panel__grid-row${rowIndex % 2 === 1 ? ' is-alt' : ''}`}
+                >
                   {axis.map((value) => {
                     const hits = series.filter((item) => item.values[rowIndex] === value)
                     const back = hits.some((item) => item.tone === 'back')
                     const pickIndex = positionTrack ? positionTrack.picks.indexOf(value) : -1
-                    const isPick = pickIndex >= 0
-                    const isTop1 = pickIndex === 0
+                    const rank = pickIndex >= 0 ? pickIndex + 1 : 0
                     const isHit = hits.length > 0
                     return (
                       <span
                         key={`${label}-${row.issue}-${value}`}
                         className={`trend-panel__cell${isHit ? ' is-hit' : ''}${
                           isHit && back ? ' is-back' : ''
-                        }${isPick ? ' is-pick' : ''}${isTop1 ? ' is-top1' : ''}${
-                          isHit && isPick ? ' is-pick-hit' : ''
-                        }`}
+                        }${rank > 0 ? ' is-pick' : ''}`}
                         title={
                           positionTrack
                             ? `第 ${row.issue} 期参考 ${positionTrack.picks.join(' / ')}${
-                                isHit && isPick ? ' · 本期命中' : ''
+                                isHit && rank > 0 ? ' · 本期命中' : ''
                               }`
                             : undefined
                         }
                       >
                         {value}
+                        {rank > 0 && (
+                          <em
+                            className={`trend-panel__rank is-rank-${rank}`}
+                            aria-hidden="true"
+                          >
+                            {rank}
+                          </em>
+                        )}
                       </span>
                     )
                   })}
@@ -1009,7 +1039,7 @@ function HitRail({
               return (
                 <div
                   key={`hit-${row.issue}`}
-                  className="hit-rail__row"
+                  className={`hit-rail__row${index % 2 === 1 ? ' is-alt' : ''}`}
                   title={
                     item
                       ? `第 ${row.issue} 期：Top1 命中 ${item.top1Hits}/${positionCount}，Top3 命中 ${item.top3Hits}/${positionCount}，组合最好 ${item.bestComboMatch} 位`
@@ -1112,7 +1142,7 @@ function formatPositionCaption(positionAnalysis: { backtest: { top1Rate: number;
   return `回测 Top1 ${formatRate(positionAnalysis.backtest.top1Rate)}，Top3 ${formatRate(positionAnalysis.backtest.top3Rate)}`
 }
 
-/** 有逐期归档时优先显示归档命中率（它和走势上的参考框是同一份数据） */
+/** 有逐期归档时优先显示归档命中率（它和走势上的顺位角标是同一份数据） */
 function positionTrackCaption(
   stat: PredictionTrackPositionStat | undefined,
   positionAnalysis: { backtest: { top1Rate: number; top3Rate: number; samples: number } } | undefined,
