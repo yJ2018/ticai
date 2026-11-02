@@ -5727,8 +5727,36 @@ span.analysis-skeleton__pill--light {
     min-height: 0;
     display: grid;
     grid-template-columns: 5.1rem repeat(5, minmax(0, 1fr));
-    gap: 0.2rem;
+    /* 列之间不留缝：隔行底色要跨过五个走势面板连成一条 */
+    gap: 0;
     align-items: stretch;
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 0.35rem 1rem rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+
+  /* 五列拼成一张连续走势表：面板不再各自做卡片，只保留 1px 列分隔线 */
+  .history-page__desktop .trend-panel {
+    padding: 0.5rem 0;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .history-page__desktop .trend-panel__header {
+    padding: 0 0.4rem;
+  }
+
+  .history-page__desktop .trend-panel__table,
+  .history-page__desktop .dlt-metrics__table {
+    border-radius: 0;
+  }
+
+  .history-page__desktop .trend-axis__header,
+  .history-page__desktop .trend-axis__body {
+    border-radius: 0;
+    border-right: none;
   }
 
   .history-page__mobile {
