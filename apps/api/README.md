@@ -1,6 +1,6 @@
 # @ticai/api
 
-独立服务端：零框架、零构建，只有 `pg` 一个运行时依赖。提供 32 个接口路径（34 个处理方法），
+独立服务端：零框架、零构建，只有 `pg` 一个运行时依赖。提供 33 个接口路径（35 个处理方法），
 其中赛事 / 开奖 / 赛果 / 详情 / 天气从数据库与上游读取，账号与投注读写数据库，AI 分析走 SSE，
 投注推荐在服务端算概率与方案。
 
@@ -42,6 +42,7 @@ node --test apps/api/test        # 或 npm run api:test（105 个用例）
 | `POST /api/ai-analysis` | **数据库 + DeepSeek** | 只收 `matchId` + `pool`；提示词/官方数据/天气全部服务端装配，SSE 返回 |
 | `GET /api/recommendations?pool=&scope=` | **数据库** | 推荐：幂法去水 → 伤停/近况有界修正 → 单关/2串1/3串1 风控 → 同口径回测（前端不再算概率） |
 | `POST /api/ai-parlay` | **数据库 + DeepSeek** | 只收选中的场次与选项，服务端补赔率/伤停并复用单场缓存 |
+| `GET /api/analysis/lottery/track?game=&issues=` | **数据库** | 逐期参考归档：每期开奖前的 3 个候选 / 逐位命中 / 组合命中 + 全量命中率与偏差 summary（不走 Python 代理） |
 
 > **分析服务代理**：配置 `ANALYSIS_API_BASE` 后，`/api/recommendations`、
 > `/api/analysis/lottery`（prediction / math_trend / dlt）、`/api/venue-weather`、

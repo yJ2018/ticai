@@ -1,3 +1,5 @@
+import { predictionConfigKey } from '../../../api/src/analysis/configs.mjs'
+import { ensurePredictionTrack } from '../../../api/src/repos/prediction-track.mjs'
 import { refreshSnapshots } from '../../../api/src/analysis/compute.mjs'
 import { finishRun, loadGames, startRun, withTransaction } from '../db.mjs'
 import { sleep } from '../http.mjs'
@@ -168,7 +170,25 @@ export async function refreshAnalysis({ pool, game, saved, runId, log }) {
       `  ${game.gameKey} 分析快照：重算 ${computed} 条 · 已最新 ${skipped} 条 · ${elapsed}ms` +
         (result.latest ? ` · 基准 ${result.latest.issue}（${result.latest.drawDate}）` : ''),
     )
-    return { computed, skipped }
+
+    // 逐期归档跟着开奖一起补：只会算「还没归档的那几期」，失败不影响开奖与分析快照
+    let track = null
+    try {
+      track = await ensurePredictionTrack({
+        runQuery: (text, params) => pool.query(text, params),
+        game: result.game,
+        configKey: predictionConfigKey({ markovOrder: 2 }),
+        source: 'crawler',
+        log,
+      })
+      if (track.status === 'empty') {
+        log(`  ${game.gameKey} 逐期参考归档：样本不足，暂不生成`)
+      }
+    } catch (error) {
+      log(`  ! ${game.gameKey} 逐期参考归档失败：${error.message}（不影响开奖入库）`)
+    }
+
+    return { computed, skipped, track }
   } catch (error) {
     log(`  ! ${game.gameKey} 分析快照失败：${error.message}（不影响开奖入库）`)
     return { computed: 0, skipped: 0, error: error.message }

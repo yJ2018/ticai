@@ -30,7 +30,7 @@
 | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、**赔率接近标注**（最低两档 ≤8% 时标 ≈，蓝框为分析偏向）、**一键串关**（赔率→λ→泊松→EV）、奖金按体彩单注限额封顶、方案截图、单场与方案两级 AI 分析（SSE）、登录后可保存投注 |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气；PC 弹框与 H5 页面共用正文 |
-| `/history` | 开奖历史 | 三种彩种走势；大乐透号码矩阵 + 逐期指标 + 下期 5+2 号码参考 |
+| `/history` | 开奖历史 | 三种彩种走势；每期参考号码叠加到走势格 + 逐期命中栏 + 分位/号码/漂移偏差面板；大乐透号码矩阵 + 逐期指标 + 下期 5+2 号码参考 |
 | `/history-analysis` | 分析页面 | 频次 / 遗漏 / 马尔可夫 / 滚动回测 / 组合推荐，权重与阶数可调 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测 |
 | `/results` | 赛果开奖 | 按期（销售日）翻看比分与五个玩法的开奖结果，跨零点场次归前一天 |
@@ -55,7 +55,7 @@
 | 服务端 | Node ≥ 20 原生 ESM，唯一运行时依赖 `pg`；REST + SSE |
 | 分析服务 | Python 3.12 + FastAPI（Vercel Python 运行时），psycopg 连接池；与 Node 版逐字段对拍（概率差 < 5e-3） |
 | 爬虫 | Node 原生 ESM；全部走 `fetch`（体彩官方 JSON + ESPN 公开接口），不再依赖浏览器 |
-| 数据 | PostgreSQL（生产 Prisma Postgres），24 张表 + 3 个视图 |
+| 数据 | PostgreSQL（生产 Prisma Postgres），26 张表 + 4 个视图 |
 | 统计 | Vercel Web Analytics（`@vercel/analytics` 2.x）：生产构建自动上报 PV / 访客 / 来源 |
 
 ## 快速开始
@@ -92,6 +92,7 @@ npm run crawl:history     # 抓四个彩种最新一页
 | `npm run analysis:dev` / `analysis:test` | 本地起 Python 分析服务（:3012）/ 跑 Python 单测与对拍 |
 | `npm run analysis:fixtures` | 重新导出对拍夹具（推荐 / 开奖 / AI 提示词） |
 | `npm run db:migrate` / `db:status` / `db:verify` | 迁移、状态、结构与约束自检 |
+| `npm run track:backfill` | 回填 / 巡检逐期参考归档（首次上线跑一次，之后爬虫开奖后增量补） |
 | `npm run crawl` / `crawl:daemon` | 爬虫入口 / 常驻调度（受销售时段闸门约束） |
 | `npm run deploy` | 前端 + API 一起发（`deploy:local` / `deploy:api` 可单发） |
 | `npm run deploy:analysis` | 发布 Python 分析服务（Vercel 项目 `ticai-analysis`） |
@@ -128,7 +129,7 @@ npm run deploy:analysis  # 只发 Python 分析服务（首次需先 link 项目
 | 文档 | 内容 |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | 分层、路由、数据流、设计取舍、技术债 |
-| [docs/api.md](docs/api.md) | 34 个接口的契约、SSE 协议、错误码 |
+| [docs/api.md](docs/api.md) | 35 个接口的契约、SSE 协议、错误码 |
 | [docs/SEO.md](docs/SEO.md) | 收录现状、meta / robots / sitemap、上线清单 |
 | [apps/api/README.md](apps/api/README.md) | 服务端结构、配置、部署 |
 | [apps/analysis/README.md](apps/analysis/README.md) | Python 分析服务：目录、对拍、部署与路径还原 |

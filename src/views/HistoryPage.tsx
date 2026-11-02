@@ -13,6 +13,9 @@ import { type LotteryGameKey } from '../api/betApi'
 import { DltIndicatorRail } from '../components/DltIndicatorRail'
 import { DltRecommendationPanel } from '../components/DltRecommendationPanel'
 import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
+import { PredictionDeviationPanel } from '../components/PredictionDeviationPanel'
+import { usePredictionTrack } from '../features/analysis/usePredictionTrack'
+import { type PredictionTrackItem, type PredictionTrackPositionStat, type PredictionTrackSummary } from '../domain/predictionTrack'
 
 /** 服务端快照到达前先渲染空分析，避免布局跳动 */
 const EMPTY_PREDICTION: HistoryPredictionAnalysis = EMPTY_PREDICTION_ANALYSIS
@@ -110,6 +113,33 @@ export function HistoryPage() {
   const prediction = predictionSnapshot.snapshot?.analysis ?? EMPTY_PREDICTION
   const predictionLoading = meta.positional && predictionSnapshot.loading
 
+  // 逐期归档：按当前页的 30 个期号取参考与命中，只用于走势叠加与偏差分析
+  const trackIssues = useMemo(() => state.items.map((item) => item.issue), [state.items])
+  const trackState = usePredictionTrack(
+    activeGame,
+    trackIssues,
+    meta.positional && state.items.length > 0,
+  )
+  const trackSummary: PredictionTrackSummary | null =
+    trackState.data?.ready && trackState.data.game.gameKey === activeGame
+      ? trackState.data.summary
+      : null
+  const trackByIssue = useMemo(() => {
+    const map = new Map<string, PredictionTrackItem>()
+    if (trackState.data?.game.gameKey !== activeGame) {
+      return map
+    }
+    for (const item of trackState.data?.items ?? []) {
+      map.set(item.issue, item)
+    }
+    return map
+  }, [trackState.data, activeGame])
+  const trackItems = useMemo(
+    () => state.items.map((item) => trackByIssue.get(item.issue) ?? null),
+    [state.items, trackByIssue],
+  )
+  const deviationRef = useRef<HTMLDivElement | null>(null)
+
   const loadHistory = useCallback(
     async (pageNo = 1, action: PagerAction = 'next') => {
       const token = requestTokenRef.current + 1
@@ -203,6 +233,15 @@ export function HistoryPage() {
     [prediction.positions],
   )
 
+  const window100 = trackSummary?.windows.find((item) => item.window === 100) ?? null
+  const insightTop1 = trackSummary?.overall.top1Rate ?? prediction.averageTop1Rate
+  const insightTop3 = trackSummary?.overall.top3Rate ?? prediction.averageTop3Rate
+  const insightTop1Deviation =
+    trackSummary?.overall.top1Deviation ?? insightTop1 - 0.1
+  const insightTop3Deviation =
+    trackSummary?.overall.top3Deviation ?? insightTop3 - 0.3
+  const insightSamples = trackSummary?.overall.samples ?? null
+
   const isInitialLoading =
     (state.loading && state.items.length === 0) ||
     (state.items.length > 0 && meta.positional && predictionLoading)
@@ -282,23 +321,80 @@ export function HistoryPage() {
                   <h3>基于全量 {prediction.sampleSize} 期开奖数据</h3>
                 </div>
                 <p className="history-insight__desc">
-                  综合频次分布、近期热度、遗漏值、相邻转移关系评分，并用滚动回测验证参考效果。
+                  综合频次分布、近期热度、遗漏值、相邻转移关系评分；每期参考已归档，
+                  开奖后逐位核对命中与偏差。
                 </p>
               </div>
 
               <div className="history-insight__metrics">
                 <article className="history-insight__metric">
                   <span>平均 Top1 命中</span>
-                  <strong>{formatRate(prediction.averageTop1Rate)}</strong>
+                  <strong>{formatRate(insightTop1)}</strong>
+                  <em>基线 10.0% · {formatPp(insightTop1Deviation)}</em>
                 </article>
                 <article className="history-insight__metric">
                   <span>平均 Top3 命中</span>
-                  <strong>{formatRate(prediction.averageTop3Rate)}</strong>
+                  <strong>{formatRate(insightTop3)}</strong>
+                  <em>基线 30.0% · {formatPp(insightTop3Deviation)}</em>
                 </article>
                 <article className="history-insight__metric">
-                  <span>回测样本</span>
-                  <strong>{formatBacktestSamples(prediction.positions)}</strong>
+                  <span>近 100 期 Top3</span>
+                  <strong>{window100 ? formatRate(window100.top3Rate) : '--'}</strong>
+                  <em>
+                    {window100
+                      ? `较全量 ${formatPp(window100.top3Rate - insightTop3)}`
+                      : trackState.loading
+                        ? '逐期归档加载中'
+                        : '暂无逐期归档'}
+                  </em>
                 </article>
+                <article className="history-insight__metric">
+                  <span>{insightSamples ? '归档样本' : '回测样本'}</span>
+                  <strong>
+                    {insightSamples ? `${formatCount(insightSamples)} 期` : formatBacktestSamples(prediction.positions)}
+                  </strong>
+                  <em>
+                    {trackSummary?.sample.toIssue
+                      ? `核对至 ${trackSummary.sample.toIssue}`
+                      : '滚动回测'}
+                  </em>
+                </article>
+              </div>
+
+              <div className="history-hit">
+                <div className="history-hit__legend" aria-label="走势图标记说明">
+                  <span>
+                    <i className="is-pick" />
+                    参考候选
+                  </span>
+                  <span>
+                    <i className="is-top1" />
+                    首选
+                  </span>
+                  <span>
+                    <i className="is-hit" />
+                    参考命中
+                  </span>
+                </div>
+                <span className="history-hit__meta">
+                  {trackSummary
+                    ? `每期已归档 · ${formatCount(trackSummary.overall.samples)} 期 · ${trackSummary.sample.fromIssue ?? '--'} → ${trackSummary.sample.toIssue ?? '--'} · 格内蓝框=开奖前参考`
+                    : trackState.loading
+                      ? '逐期归档加载中…'
+                      : trackState.error
+                        ? '逐期归档暂不可用'
+                        : ''}
+                </span>
+                {trackSummary && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      deviationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
+                  >
+                    查看偏差分析 ↓
+                  </button>
+                )}
               </div>
 
               <div className="history-insight__numbers">
@@ -325,7 +421,7 @@ export function HistoryPage() {
               className={`history-page__desktop ${pageAnimClass}${meta.positional ? '' : ' is-dlt'}`}
               style={{
                 gridTemplateColumns: meta.positional
-                  ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr))`
+                  ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr)) 3.9rem`
                   : '5.1rem minmax(0, 35fr) minmax(0, 12fr) 12.8rem',
               }}
             >
@@ -348,8 +444,9 @@ export function HistoryPage() {
                 </div>
               </section>
 
-              {meta.positional
-                ? positionLabels.map((label, position) => {
+              {meta.positional ? (
+                <>
+                  {positionLabels.map((label, position) => {
                     const special = meta.specialLast && position === positionLabels.length - 1
                     return (
                       <TrendPanel
@@ -367,57 +464,74 @@ export function HistoryPage() {
                           },
                         ]}
                         badge={special ? '末位 0–14' : undefined}
-                        caption={special ? '末位 0–14，共 15 个号码' : formatPositionCaption(prediction.positions[position])}
+                        caption={
+                          special
+                            ? '末位 0–14，共 15 个号码'
+                            : positionTrackCaption(
+                                trackSummary?.positions[position],
+                                prediction.positions[position],
+                              )
+                        }
                         forecast={special ? undefined : formatPredictionText(trendPredictions[position])}
+                        position={position}
+                        trackItems={trackItems}
                       />
                     )
-                  })
-                : (
-                    <>
-                      {[
-                        {
-                          key: 'front',
-                          label: '前区',
-                          axis: FRONT_AXIS,
-                          caption: '前区 1–35 选 5',
-                          series: FRONT_COLORS.map((color, index) => ({
-                            key: `front-${index}`,
-                            label: `第 ${index + 1} 球`,
-                            color,
-                            tone: 'front' as const,
-                            values: state.items.map((item) => toBallValue(item.numbers[index])),
-                          })),
-                        },
-                        {
-                          key: 'back',
-                          label: '后区',
-                          axis: BACK_AXIS,
-                          caption: '后区 1–12 选 2',
-                          series: BACK_COLORS.map((color, index) => ({
-                            key: `back-${index}`,
-                            label: `第 ${index + 1} 球`,
-                            color,
-                            tone: 'back' as const,
-                            values: state.items.map((item) =>
-                              toBallValue(item.numbers[meta.mainCount + index]),
-                            ),
-                          })),
-                        },
-                      ].map((panel) => (
-                        <TrendPanel
-                          key={`${activeGame}-${panel.key}`}
-                          label={panel.label}
-                          axis={panel.axis}
-                          rows={state.items}
-                          series={panel.series}
-                          caption={panel.caption}
-                          showLines={false}
-                          showStats
-                        />
-                      ))}
-                      <DltIndicatorRail rows={state.items} />
-                    </>
-                  )}
+                  })}
+                  <HitRail
+                    rows={state.items}
+                    items={trackItems}
+                    summary={trackSummary}
+                    loading={trackState.loading}
+                    positionCount={meta.mainCount}
+                  />
+                </>
+              ) : (
+                <>
+                  {[
+                    {
+                      key: 'front',
+                      label: '前区',
+                      axis: FRONT_AXIS,
+                      caption: '前区 1–35 选 5',
+                      series: FRONT_COLORS.map((color, index) => ({
+                        key: `front-${index}`,
+                        label: `第 ${index + 1} 球`,
+                        color,
+                        tone: 'front' as const,
+                        values: state.items.map((item) => toBallValue(item.numbers[index])),
+                      })),
+                    },
+                    {
+                      key: 'back',
+                      label: '后区',
+                      axis: BACK_AXIS,
+                      caption: '后区 1–12 选 2',
+                      series: BACK_COLORS.map((color, index) => ({
+                        key: `back-${index}`,
+                        label: `第 ${index + 1} 球`,
+                        color,
+                        tone: 'back' as const,
+                        values: state.items.map((item) =>
+                          toBallValue(item.numbers[meta.mainCount + index]),
+                        ),
+                      })),
+                    },
+                  ].map((panel) => (
+                    <TrendPanel
+                      key={`${activeGame}-${panel.key}`}
+                      label={panel.label}
+                      axis={panel.axis}
+                      rows={state.items}
+                      series={panel.series}
+                      caption={panel.caption}
+                      showLines={false}
+                      showStats
+                    />
+                  ))}
+                  <DltIndicatorRail rows={state.items} />
+                </>
+              )}
             </div>
 
             <div
@@ -425,8 +539,9 @@ export function HistoryPage() {
               className={`history-page__mobile ${pageAnimClass}`}
             >
               <ul className="history-page__list">
-                {state.items.map((item) => {
+                {state.items.map((item, rowIndex) => {
                   const indicators = meta.positional ? null : getDltFrontIndicators(item.numbers)
+                  const trackItem = trackItems[rowIndex]
                   return (
                     <li key={item.issue} className="history-card">
                       <div className="history-card__head">
@@ -441,11 +556,18 @@ export function HistoryPage() {
                         {item.numbers.map((num, index) => {
                           const isExtra = index >= meta.mainCount
                           const isSpecial = meta.specialLast && index === meta.mainCount - 1
+                          const positionTrack = trackItem?.positions[index]
+                          const isPredicted = Boolean(
+                            positionTrack && positionTrack.picks.includes(Number(num)),
+                          )
+                          const isPredictedHit = isPredicted && Boolean(positionTrack?.hitTop3)
                           return (
                             <span
                               key={`${item.issue}-${index}-${num}`}
                               className={`history-card__ball${isExtra ? ' is-extra' : ''}${
                                 isSpecial ? ' is-special' : ''
+                              }${isPredicted ? ' is-predicted' : ''}${
+                                isPredictedHit ? ' is-predicted-hit' : ''
                               }`}
                             >
                               {num}
@@ -453,6 +575,21 @@ export function HistoryPage() {
                           )
                         })}
                       </div>
+
+                      {trackItem && (
+                        <div className="history-card__track">
+                          <span className="history-card__track-picks">
+                            参考 {trackItem.positions.map((position) => position.picks.join('')).join(' ')}
+                          </span>
+                          <span
+                            className={`history-card__track-hits${
+                              trackItem.top3Hits >= Math.ceil(meta.mainCount / 2) ? ' is-good' : ''
+                            }`}
+                          >
+                            命中 {trackItem.top3Hits}/{meta.mainCount}
+                          </span>
+                        </div>
+                      )}
 
                       {indicators && (
                         <div className="history-card__indicators" aria-label="前区逐期指标">
@@ -502,6 +639,18 @@ export function HistoryPage() {
                 })}
               </ul>
             </div>
+
+            {meta.positional && (
+              <div ref={deviationRef} className="history-page__deviation">
+                <PredictionDeviationPanel
+                  gameLabel={meta.label}
+                  positionLabels={positionLabels}
+                  summary={trackSummary}
+                  loading={trackState.loading}
+                  error={trackState.error}
+                />
+              </div>
+            )}
           </>
         )}
       </div>
@@ -562,6 +711,10 @@ type TrendPanelProps = {
   showLines?: boolean
   /** 底部追加「出现次数 / 当前遗漏」两行统计 */
   showStats?: boolean
+  /** 第几位（0 起）：用来从逐期归档里取这一位的参考与命中 */
+  position?: number
+  /** 与 rows 对齐的逐期归档记录；没有归档时整列不显示参考框 */
+  trackItems?: Array<PredictionTrackItem | null>
 }
 
 const TrendPanel = memo(function TrendPanel({
@@ -575,6 +728,8 @@ const TrendPanel = memo(function TrendPanel({
   showLegend = false,
   showLines = true,
   showStats = false,
+  position,
+  trackItems,
 }: TrendPanelProps) {
   return (
     <section
@@ -612,6 +767,8 @@ const TrendPanel = memo(function TrendPanel({
         series={series}
         showLines={showLines}
         showStats={showStats}
+        position={position}
+        trackItems={trackItems}
       />
     </section>
   )
@@ -628,6 +785,8 @@ const TrendGrid = memo(function TrendGrid({
   series,
   showLines = true,
   showStats = false,
+  position,
+  trackItems,
 }: {
   label: string
   axis: number[]
@@ -635,6 +794,8 @@ const TrendGrid = memo(function TrendGrid({
   series: TrendSeries[]
   showLines?: boolean
   showStats?: boolean
+  position?: number
+  trackItems?: Array<PredictionTrackItem | null>
 }) {
   const lines = series.map((item) => ({
     ...item,
@@ -763,30 +924,123 @@ const TrendGrid = memo(function TrendGrid({
                 </div>
               ))}
 
-            {rows.map((row, rowIndex) => (
-              <div key={`${label}-${row.issue}-row`} className="trend-panel__grid-row">
-                {axis.map((value) => {
-                  const hits = series.filter((item) => item.values[rowIndex] === value)
-                  const back = hits.some((item) => item.tone === 'back')
-                  return (
-                    <span
-                      key={`${label}-${row.issue}-${value}`}
-                      className={`trend-panel__cell${hits.length > 0 ? ' is-hit' : ''}${
-                        hits.length > 0 && back ? ' is-back' : ''
-                      }`}
-                    >
-                      {value}
-                    </span>
-                  )
-                })}
-              </div>
-            ))}
+            {rows.map((row, rowIndex) => {
+              const positionTrack =
+                position === undefined ? null : (trackItems?.[rowIndex]?.positions[position] ?? null)
+              return (
+                <div key={`${label}-${row.issue}-row`} className="trend-panel__grid-row">
+                  {axis.map((value) => {
+                    const hits = series.filter((item) => item.values[rowIndex] === value)
+                    const back = hits.some((item) => item.tone === 'back')
+                    const pickIndex = positionTrack ? positionTrack.picks.indexOf(value) : -1
+                    const isPick = pickIndex >= 0
+                    const isTop1 = pickIndex === 0
+                    const isHit = hits.length > 0
+                    return (
+                      <span
+                        key={`${label}-${row.issue}-${value}`}
+                        className={`trend-panel__cell${isHit ? ' is-hit' : ''}${
+                          isHit && back ? ' is-back' : ''
+                        }${isPick ? ' is-pick' : ''}${isTop1 ? ' is-top1' : ''}${
+                          isHit && isPick ? ' is-pick-hit' : ''
+                        }`}
+                        title={
+                          positionTrack
+                            ? `第 ${row.issue} 期参考 ${positionTrack.picks.join(' / ')}${
+                                isHit && isPick ? ' · 本期命中' : ''
+                              }`
+                            : undefined
+                        }
+                      >
+                        {value}
+                      </span>
+                    )
+                  })}
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
     </div>
   )
 })
+
+/**
+ * 逐期命中栏：和五个走势面板共享行高，一眼看出每期命中了几位。
+ * 只做展示，不参与计算；归档没到（刚开奖/加载中）时显示 ·。
+ */
+function HitRail({
+  rows,
+  items,
+  summary,
+  loading,
+  positionCount,
+}: {
+  rows: LotteryHistoryEntry[]
+  items: Array<PredictionTrackItem | null>
+  summary: PredictionTrackSummary | null
+  loading: boolean
+  positionCount: number
+}) {
+  return (
+    <section className="trend-panel hit-rail" aria-label="逐期命中位数">
+      <div className="trend-panel__header">
+        <div>
+          <span className="trend-panel__eyebrow">逐期命中</span>
+          <h3>命中位</h3>
+        </div>
+        <span className="trend-panel__caption">
+          {summary ? `Top3 ${formatRate(summary.overall.top3Rate)}` : loading ? '加载中' : '--'}
+        </span>
+      </div>
+
+      <div className="trend-panel__table">
+        <div className="trend-panel__table-head">
+          <div className="hit-rail__head">
+            <span title="Top1 命中位数">T1</span>
+            <span title="Top3 命中位数">T3</span>
+          </div>
+        </div>
+        <div className="trend-panel__table-body">
+          <div className="trend-panel__grid">
+            {rows.map((row, index) => {
+              const item = items[index]
+              return (
+                <div
+                  key={`hit-${row.issue}`}
+                  className="hit-rail__row"
+                  title={
+                    item
+                      ? `第 ${row.issue} 期：Top1 命中 ${item.top1Hits}/${positionCount}，Top3 命中 ${item.top3Hits}/${positionCount}，组合最好 ${item.bestComboMatch} 位`
+                      : `第 ${row.issue} 期：暂无逐期归档`
+                  }
+                >
+                  <span className={`hit-rail__cell${item && item.top1Hits > 0 ? ' is-hit' : ''}`}>
+                    {item ? item.top1Hits : '·'}
+                  </span>
+                  <span
+                    className={`hit-rail__cell${
+                      item
+                        ? item.top3Hits >= Math.ceil(positionCount / 2)
+                          ? ' is-good'
+                          : item.top3Hits > 0
+                            ? ' is-mid'
+                            : ' is-zero'
+                        : ''
+                    }`}
+                  >
+                    {item ? item.top3Hits : '·'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 function parseDigitValue(item: LotteryHistoryEntry, position: number) {
   const value = item.numbers[position]
@@ -856,6 +1110,28 @@ function formatPositionCaption(positionAnalysis: { backtest: { top1Rate: number;
     return '本地样本不足，暂不输出回测结果'
   }
   return `回测 Top1 ${formatRate(positionAnalysis.backtest.top1Rate)}，Top3 ${formatRate(positionAnalysis.backtest.top3Rate)}`
+}
+
+/** 有逐期归档时优先显示归档命中率（它和走势上的参考框是同一份数据） */
+function positionTrackCaption(
+  stat: PredictionTrackPositionStat | undefined,
+  positionAnalysis: { backtest: { top1Rate: number; top3Rate: number; samples: number } } | undefined,
+) {
+  if (!stat || stat.samples <= 0) {
+    return formatPositionCaption(positionAnalysis)
+  }
+  return `归档 Top1 ${formatRate(stat.top1Rate)} · Top3 ${formatRate(stat.top3Rate)}`
+}
+
+function formatPp(value: number) {
+  if (!Number.isFinite(value)) {
+    return '--'
+  }
+  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}pp`
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat('zh-CN').format(value)
 }
 
 function formatPredictionText(digits: number[] | undefined) {

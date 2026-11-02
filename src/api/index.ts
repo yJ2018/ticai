@@ -16,6 +16,8 @@ export {
 } from './sportteryApi'
 export type { LotteryHistoryBulkValue } from './sportteryApi'
 export { getLotteryAnalysis, getLotteryAnalysisVersions } from './lotteryAnalysisApi'
+export { getPredictionTrack } from './predictionTrackApi'
+export type { PredictionTrackQuery } from './predictionTrackApi'
 export type {
   AnalysisSnapshotKindMap,
   LotteryAnalysisEngine,

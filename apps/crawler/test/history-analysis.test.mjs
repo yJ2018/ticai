@@ -81,5 +81,9 @@ test('refreshAnalysis: 样本不足（没有开奖行）时不写快照', async 
 
   const result = await refreshAnalysis({ pool, game, saved: 1, runId: 9, log })
 
-  assert.deepEqual(result, { computed: 0, skipped: 0 })
+  assert.equal(result.computed, 0)
+  assert.equal(result.skipped, 0)
+  // 逐期归档也拿不到样本：只返回 empty，不写 track/stat
+  assert.equal(result.track?.status, 'empty')
+  assert.equal(result.track?.written, 0)
 })

@@ -21,6 +21,7 @@ npm install                      # 首次需要，pg 依赖
 npm run db:migrate               # 建表 + 种子彩种
 npm run db:status                # 看已应用迁移、各表行数、抓取新鲜度
 npm run db:verify                # 结构与约束自检（用事务夹具，跑完回滚）
+npm run track:backfill           # 首次上线：回填逐期参考归档（爬虫之后会增量补）
 ```
 
 日常维护（建议由爬虫收尾时或每日 cron 执行）：
@@ -43,6 +44,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/maintenance.sql
 | `db/migrations/0010_lottery_complex.sql` | 彩票复式：位次型号码改为「每位一个数组」，旧单式数据原地转换；注数按位乘积/组合数计算 |
 | `db/migrations/0011_match_result_ttg_odds.sql` | `match_result` 增加 `ttg_odds` / `ttg_odds_captured_at`：赛果入库时固化最后一份总进球赔率，赔率快照裁剪后仍可做不限时间的历史分布 |
 | `db/migrations/0012_match_result_closing_odds.sql` | `match_result` 增加 `closing_odds` / `closing_odds_captured_at`：赛果入库时把五个玩法的收盘赔率整包固化，给「票面赔率 vs 开奖赔率」的奖金对比用；旧行从保留期内快照回填 |
+| `db/migrations/0013_prediction_track.sql` | 逐期参考归档 `lottery_prediction_track`（每期一行：参考 / 实际 / 逐位命中 / 组合对上几位）+ `lottery_prediction_track_stat`（累计与最近 1000 期命中）+ `lottery_prediction_track_latest` 视图 |
 | `db/migrations/0005_identities_wechat.sql` | 第三方身份（`user_identity`）+ 一次性登录票据（`auth_ticket`）；`app_user.email` 允许为空 |
 | `db/migrations/0006_wechat_password_nullable.sql` | 微信建的账号没有密码，`password_hash` 允许为空 |
 | `db/migrations/0007_analysis_snapshot.sql` | 开奖分析快照 `lottery_analysis_snapshot` + `lottery_analysis_latest` 视图 |
@@ -156,6 +158,8 @@ on conflict (sporttery_match_id) do update set
 | `injury` | 未愈 + 近 1 年 | 历史伤病仅用于球员耐用度标签 |
 | `lottery_draw` | 永久 | 四个彩种合计约 1.7 万期，毫无压力 |
 | `lottery_analysis_snapshot` | 永久 | 每期 × 每参数一条（约 11 KB），一年 ~80 MB；留着可以回看「当时模型怎么推的」 |
+| `lottery_prediction_track` | 永久 | 三彩种合计 18 851 行、约 30 MB（含索引）；每行 JSON 约 1.2 KB（逐位候选 + 组合 + 命中） |
+| `lottery_prediction_track_stat` | 永久（每彩种/参数 1 行） | 累计计数 + 最近 1000 期命中；每彩种 payload 约 5 KB + state 约 14 KB |
 
 全部在 `db/maintenance.sql`，已实测：3 条阵容 + 3 条明细 → 清理后各剩 1 条，明细随外键级联删除。
 
@@ -176,6 +180,11 @@ grant select, insert, update, delete on all tables in schema public to ticai_cra
 grant usage, select on all sequences in schema public to ticai_crawler;
 ```
 
+> `lottery_prediction_track*` 由爬虫写（开奖后增量补）。API 只在归档缺失/落后时兜底补算；
+> 用上面的只读角色部署时，这次补算会失败并降级读旧归档（接口不会 500），
+> 首次上线请用爬虫/管理员连接执行 `npm run track:backfill`。
+
+
 ---
 
 ## 已验证 / 未验证
@@ -190,7 +199,7 @@ grant usage, select on all sequences in schema public to ticai_crawler;
 - `db/maintenance.sql` 全量执行、阵容裁剪与级联删除
 - `npm run db:verify` 9 项自检全绿
 
-**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0012_match_result_closing_odds`，`npm run db:verify` 9 项自检全绿。数据库当前共 24 张表 + 3 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest`）。
+**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0013_prediction_track`，`npm run db:verify` 9 项自检全绿。数据库当前共 26 张表 + 4 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest` / `lottery_prediction_track_latest`）。
 
 账号链路的三条新约定（`0008`）：
 

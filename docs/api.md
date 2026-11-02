@@ -311,6 +311,86 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 }
 ```
 
+### 2.2.3 `GET /api/analysis/lottery/track`
+
+逐期参考归档：把每一期开奖前给出的参考号码、开奖后的逐位命中、组合命中落库，
+同时返回全量命中率与偏差统计。走势页用它把「参考框 / 命中」叠加到每一行，并在下方展示偏差面板。
+
+> 归档是 **walk-forward** 的：第 N 期只用第 1..N-1 期数据算参考（`throughIssue` 单独带出，
+> 可自证没有用到当期开奖）；数据来源 `lottery_prediction_track`，由爬虫开奖入库后增量补，
+> 首次部署执行一次 `npm run track:backfill`。
+
+**查询参数**
+
+| 参数 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `game` | string | `pl5` | `pl5` / `pl3` / `qxc`，或体彩 `gameNo`；大乐透不是位次彩种，返回 `400` |
+| `issues` | string | 空 | 当前页的期号，逗号分隔（最多 60 个）。不传则返回最近 `limit` 期 |
+| `limit` | int | `30` | 不传 `issues` 时返回的期数，1–120 |
+| `refresh` | string | 空 | `1` = 强制重算并覆盖归档（排障用，平时不要带） |
+
+**响应（节选）**
+
+```json
+{
+  "success": true,
+  "data": {
+    "game": { "gameKey": "pl5", "gameNo": "350133", "name": "排列5", "positional": true, "mainCount": 5 },
+    "configKey": "markov=2",
+    "ready": true,
+    "sample": {
+      "fromIssue": "04031",
+      "toIssue": "26291",
+      "toDrawDate": "2026-11-01",
+      "drawCount": 7736
+    },
+    "summary": {
+      "overall": { "samples": 7736, "top1Rate": 0.1007, "top3Rate": 0.3021, "top3Deviation": 0.0021, "avgRank": 5.49 },
+      "positions": [{ "position": 0, "top3Rate": 0.3, "recentTop3Rate": 0.34 }],
+      "windows": [{ "window": 100, "top3Rate": 0.332 }],
+      "digits": [[{ "digit": 0, "pickedRate": 0.1, "actualRate": 0.102, "deviation": -0.002 }]],
+      "combinations": { "samples": 46416, "exactHits": 0, "best": 4, "avgMatched": 0.5 },
+      "rolling": [{ "issue": "26291", "top1": 0, "top3": 1 }]
+    },
+    "items": [
+      {
+        "issue": "26291",
+        "issueSeq": 26291,
+        "drawDate": "2026-11-01",
+        "throughIssue": "26290",
+        "throughIssueSeq": 26290,
+        "actual": [2, 7, 6, 2, 4],
+        "positions": [
+          { "position": 0, "picks": [3, 7, 6], "actual": 2, "rank": 7, "hitTop1": false, "hitTop3": false }
+        ],
+        "combinations": [{ "value": "32097", "score": 115.3, "matched": 0 }],
+        "top1Hits": 0,
+        "top3Hits": 1,
+        "bestComboMatch": 0
+      }
+    ],
+    "missing": [],
+    "stale": false,
+    "triggered": false
+  }
+}
+```
+
+**统计口径**
+
+- `summary.overall.top1Rate / top3Rate`：全量归档里每位 Top1 / Top3 的平均命中率；随机基线分别是 10% / 30%。
+- `summary.positions[].avgRank`：实际号码在 0–9 排名中的平均名次（1–10，随机期望 5.5）。
+- `summary.digits[p][d]`：数字 `d` 在位置 `p` 的「选中占比 − 实际出现占比」；正数 = 模型高估。
+- `summary.combinations`：每期 6 注组合的 5 位全中次数、最好成绩、平均对上几位。
+- `summary.windows`：最近 30 / 100 / 300 / 1000 期的命中率（归档不足时为实际可用期数）。
+- `items[].positions[].rank` 为 `null` 表示实际号码是七星彩末位 10–14（参考只覆盖 0–9，按未命中计）。
+
+**响应头**：`x-track-source`（`stored` / `computed-on-read`）、`x-track-stale`、`x-track-through-issue`、`x-track-samples`、`server-timing`。
+
+**缓存**：归档已到最新 → `public, max-age=60, s-maxage=300, stale-while-revalidate=120`；落后于最新开奖 → 降到 30/60s；本次触发补算 → `private, no-store`。
+
+**错误**：彩种未知 `404`；大乐透等非位次彩种 `400`；`issues` 含非法期号 `400`。
+
 ### 2.3 `GET /api/match-detail`
 
 单场对战详情，对应 `m.sporttery.cn/zqlszl/bssj` 页面的 7 个板块。
@@ -1323,6 +1403,7 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-11-02 | 新增 `GET /api/analysis/lottery/track`：逐期参考归档（walk-forward）+ 命中率 / 分位偏差 / 号码偏差 / 滚动命中，走势页据此叠加参考框与逐期命中；新增表 `lottery_prediction_track` / `lottery_prediction_track_stat`（迁移 `0013`），爬虫开奖后增量补，首次执行 `npm run track:backfill` |
 | 2026-11-01 | `/api/results` 改为按**期（销售日）**取：`?period=YYYY-MM-DD`（不传取最近一期），响应带 `period` / `label` / `periods`；跨零点场次归前一天，`matchDate` 与 `period` 可能相差一天 |
 | 2026-10-31 | `/api/bets` 增加开奖赔率对比：每条腿返回 `closingOdds` / `closingOddsAt`，单子返回 `closing { payout, diff, complete }`（按停售前最后一份官方赔率试算，只对比不改 `payout`）；`match_result` 新增 `closing_odds` 固化全玩法收盘赔率（迁移 `0012`），统计接口不再多查一趟赔率，列表与统计改为并发 |
 | 2026-10-30 | 新增 `GET /api/match-signals`：投注页「赔率接近」标注，每个玩法最低两档差 ≤8% 时标 `≈`，分析偏向由推荐引擎的融合概率决定（近况/伤停修正） |

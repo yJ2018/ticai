@@ -101,7 +101,7 @@ function analyzeMathTrendPosition(entries, position, config) {
         volatility: snapshot.volatility,
     };
 }
-function rankNextDigits(historyDigits, config) {
+export function rankNextDigits(historyDigits, config) {
     if (historyDigits.length === 0) {
         return DIGITS.map((digit) => ({
             digit,
@@ -351,7 +351,7 @@ function runMathTrendBacktest(historyDigits, config) {
         top3Rate: samples > 0 ? top3Hits / samples : 0,
     };
 }
-function buildCombinationCandidates(positions, config) {
+export function buildCombinationCandidates(positions, config) {
     const candidatePools = positions.map((item) => item.candidates.slice(0, config.combinationPoolSize));
     if (candidatePools.some((pool) => pool.length === 0)) {
         return [];
@@ -470,7 +470,7 @@ function buildParitySizeStats(validDraws, config) {
         bigSmallPatterns: buildTopBuckets(bigSmallPatterns, recentDraws.length, 3),
     };
 }
-function resolvePredictionConfig(options) {
+export function resolvePredictionConfig(options) {
     return {
         recentWindow: toBoundedInteger(options.recentWindow, RECENT_WINDOW, 5, 60),
         longWindow: toBoundedInteger(options.longWindow, LONG_WINDOW, 20, 180),
@@ -492,7 +492,7 @@ function resolveMathTrendConfig(options) {
         candidateCount: toBoundedInteger(options.candidateCount, MATH_CANDIDATE_COUNT, 1, 5),
     };
 }
-function sortChronological(entries) {
+export function sortChronological(entries) {
     const list = [...entries];
     const canSortByIssue = list.every((entry) => entry.issue && Number.isFinite(Number(entry.issue)));
     if (canSortByIssue) {
@@ -500,7 +500,7 @@ function sortChronological(entries) {
     }
     return list.reverse();
 }
-function parseDigitValue(value) {
+export function parseDigitValue(value) {
     if (!value || !/^\d$/.test(value)) {
         return null;
     }

@@ -25,9 +25,9 @@
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | Next.js（Vercel `ticai` 项目，静态 + Serverless 函数）+ Node API（Vercel `ticai-service`）+ Python 分析服务（Vercel `ticai-analysis`）；生产用同源 `/api` rewrite 代理 |
-| 前端规模 | 14 个页面（`src/views`）；`src` 下 108 个 TS/TSX 文件；`global.scss` + 7 个按域拆分样式 |
-| 服务端规模 | `apps/api`：15 个 handler 模块、34 个接口路径（36 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
-| 数据层 | PostgreSQL 24 张表 + 3 个视图：API 与分析服务只读（分析服务额外写 `lottery_analysis_snapshot`），爬虫只写（`db/README.md`） |
+| 前端规模 | 14 个页面（`src/views`）；`src` 下 112 个 TS/TSX 文件；`global.scss` + 7 个按域拆分样式 |
+| 服务端规模 | `apps/api`：16 个 handler 模块、35 个接口路径（37 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
+| 数据层 | PostgreSQL 26 张表 + 4 个视图：API 与分析服务以读为主（分析服务写 `lottery_analysis_snapshot`；API 仅在归档缺失时兜底写 `lottery_prediction_track*`，只读账号下会降级读旧归档），爬虫写业务表与逐期归档（`db/README.md`） |
 | 构建产物 | `.next`：客户端 JS ≈ 670 KB + 143 KB CSS（gzip 后约 185 + 24 KB）+ 一个 SSR Serverless 函数 |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（Next 服务端 / API 函数）+ Python 3.12（Vercel Python 运行时） |
 | 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；Node 服务端仅 `pg`；Python：FastAPI + uvicorn + psycopg；爬虫零额外依赖（体彩 + ESPN 都是 `fetch`） |
@@ -40,7 +40,7 @@
 | --- | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、**赔率接近标注**（最低两档 ≤8% 时标 ≈，蓝框为分析偏向）、串关注数/金额/最高奖金（按体彩单注限额封顶）/税、首屏骨架屏、单场与方案级 AI 分析、高清快照、保存投注 | `GET /api/matches`、`GET /api/match-signals`、`POST /api/bets` |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气，PC 弹框与 H5 页面共用正文 | `GET /api/match-detail`、`GET /api/venue-weather` |
-| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要；工具栏「选号投注」可直接选号并保存到我的投注 | `GET /api/history` + IndexedDB（分析结果已有服务端快照：`GET /api/analysis/lottery`）、`POST /api/bets`（`kind=lottery`） |
+| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；**逐期参考归档**（每期开奖前的 3 个候选叠加到走势格、右侧逐期命中栏、分位/号码/漂移偏差面板）；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要；工具栏「选号投注」可直接选号并保存到我的投注 | `GET /api/history` + IndexedDB（分析结果已有服务端快照：`GET /api/analysis/lottery`）、`GET /api/analysis/lottery/track`、`POST /api/bets`（`kind=lottery`） |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏；阶数 1–5 直接切快照，拖权重滑块时把权重作为 `w=` 参数发给服务端现算 | `GET /api/analysis/lottery?kind=prediction&order=N&w=34-20-22-14-10` |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | `GET /api/analysis/lottery?kind=math_trend` |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
@@ -265,18 +265,18 @@ D:\ticai
 ├─ .env / .env.example         # 数据库、AI、聚合数据、Resend、微信（.env 已被 gitignore）
 ├─ public/                     # favicon / apple-touch / PWA 图标、robots.txt、sitemap.xml、og-cover.png
 ├─ apps/
-│  ├─ api/                     # ★ 独立 Node 服务端：只读库，34 个接口路径
+│  ├─ api/                     # ★ 独立 Node 服务端：只读库，35 个接口路径
 │  │  ├─ api/index.js          # Vercel 函数入口（全路径 rewrite 到这里）
 │  │  ├─ src/app.mjs           # 路由表、CORS、错误信封、/healthz
 │  │  ├─ src/index.mjs         # 本地 / VPS node:http 入口
 │  │  ├─ src/config.mjs        # 环境变量 → 配置对象（.env 查找顺序）
 │  │  ├─ src/db.mjs            # pg 连接池（懒加载 / 保活）
 │  │  ├─ src/proxy.mjs         # ★ 分析接口 → Python（ANALYSIS_API_BASE；失败回退）
-│  │  ├─ src/handlers/         # sporttery | results | odds-distribution | match-signals | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis | recommendations
-│  │  ├─ src/repos/            # matches | lottery | results（含 TTG 样本）| bets 读库 SQL
+│  │  ├─ src/handlers/         # sporttery | results | odds-distribution | match-signals | match-detail | ai | parlay | auth | wechat | bets | upstream | health | lottery-analysis | prediction-track | recommendations
+│  │  ├─ src/repos/            # matches | lottery | prediction-track（逐期归档读写）| results（含 TTG 样本）| bets 读库 SQL
 │  │  ├─ src/ttg-distribution.mjs # 总进球赔率分布纯函数（排序 / 排名 / 区间 / 汇总）
 │  │  ├─ src/recommend/        # 推荐引擎的 Node 版（对拍基准 + 回退）；signals.mjs = 赔率接近标注
-│  │  ├─ src/analysis/         # 开奖分析：configs（参数指纹/预设）+ compute + 冻结的算法（回退）
+│  │  ├─ src/analysis/         # 开奖分析：configs（参数指纹/预设）+ compute + prediction-track + 冻结的算法（回退）
 │  │  ├─ src/ai/               # prompt / parlay-prompt / context / parlay-context
 │  │  ├─ src/auth.mjs / session.mjs / mail.mjs / wechat.mjs
 │  │  ├─ src/settlement.mjs    # 逐腿判定、复式注数、单注限额、奖金连乘
@@ -294,7 +294,7 @@ D:\ticai
 │  └─ crawler/                 # ★ 本地爬虫：只写库
 │     ├─ src/tasks/matches.mjs # 赛程 + 赔率快照 + 自动下架
 │     ├─ src/tasks/results.mjs # 赛果开奖：比分 + 五个玩法结果 + 固化 TTG 收盘赔率
-│     ├─ src/tasks/history.mjs # 四彩种开奖（含奖级）→ 写完后触发分析快照重算
+│     ├─ src/tasks/history.mjs # 四彩种开奖（含奖级）→ 写完后触发分析快照 + 逐期归档增量
 │     ├─ src/tasks/details.mjs # 伤停 + 积分/交锋/近况/射手（7 个官方接口，默认全抓）
 │     ├─ src/tasks/lineups-espn.mjs # 阵容（ESPN 官方首发 + 阵型，纯 HTTP）
 │     ├─ src/espn.mjs          # ESPN 客户端：联赛映射 + 时间/缩写匹配 + 阵容解析
@@ -304,13 +304,14 @@ D:\ticai
 │     ├─ src/bet-window.mjs    # 竞彩销售时段闸门
 │     └─ src/daemon.mjs        # 常驻调度器：串行队列 + 开盘补跑
 ├─ db/
-│  ├─ migrations/              # 0001_init → 0012_match_result_closing_odds
+│  ├─ migrations/              # 0001_init → 0013_prediction_track
 │  ├─ seed/                    # 四彩种字典
 │  └─ maintenance.sql          # 阵容/赔率/抓取记录保留策略
 ├─ scripts/
 │  ├─ dev.mjs                  # 并行拉起 API + Next dev，任一退出则联动关闭
 │  ├─ db-migrate.mjs           # 迁移执行器（up|seed|status|verify）
 │  ├─ analyze-snapshot.mjs     # 分析快照回填 / --force 重算 / --status 巡检
+│  ├─ backfill-prediction-track.mjs # 逐期参考归档回填 / --force / --status
 │  ├─ analysis-dev.mjs         # 本地起 Python 分析服务（uvicorn，默认 3012）
 │  ├─ analysis-test.mjs        # 跑 Python 单测 + 与 Node 的对拍（npm run analysis:test）
 │  ├─ export-*-fixtures.mjs    # 三家对拍夹具：推荐 / 开奖分析 / AI 提示词
@@ -336,7 +337,7 @@ D:\ticai
    ├─ proxy.ts                 # 写 x-pathname 请求头，layout 靠它知道当前页面
    ├─ views                    # 14 个页面（见 §4 路由表）
    │  ├─ HomePage.tsx          # 803 行：状态编排 + 组合子组件 + 方案弹层
-   │  ├─ HistoryPage.tsx       # 920 行：走势矩阵 + 大乐透号码推演 + 右栏指标
+   │  ├─ HistoryPage.tsx       # 1017 行：走势矩阵 + 逐期参考/命中 + 大乐透号码推演 + 右栏指标
    │  ├─ HistoryAnalysisPage   # 723 行（仍未拆分）
    │  ├─ MathTrendAnalysisPage # 444 行（仍未拆分）
    │  ├─ ResultsPage.tsx       # 258 行：比赛日翻页 + 五个玩法结果
@@ -357,6 +358,7 @@ D:\ticai
    │  │  └─ betPayload.ts      # 投注单请求体（登录后保存）
    │  ├─ bets                  # 投注详情弹层 + 金额格式
    │  ├─ account               # 微信接入步骤弹层
+   │  ├─ analysis              # useAnalysisSnapshot（快照）+ usePredictionTrack（逐期归档，页级缓存）
    │  ├─ matchDetail           # 正文 / 弹框 / 视图映射 / 移动端判断
    │  ├─ seo                   # 路由级 title / description / canonical / robots
    │  └─ disclaimer            # 娱乐提示弹层与按路由记忆
@@ -683,6 +685,63 @@ GET /api/analysis/lottery?game=pl5&kind=prediction&order=3&w=34-20-22-14-10   # 
 **算法源只有一份**：Python 分析服务 `apps/analysis/app/analysis/`（`prediction.py` / `dlt.py` / `dlt_indicators.py`）。
 前端只保留 `domain/analysisTypes.ts`（类型与空态）与 `domain/dltIndicators.ts`（走势图右栏的展示计算）；
 `apps/api/src/analysis/*.mjs` 是冻结的 Node 内联回退实现，不再从任何 TS 生成。
+
+### 5.3.2 逐期参考归档：命中率与偏差
+
+**问题**：`lottery_analysis_snapshot` 每次只保留「基于最新一期算出的下一期参考」。开奖后旧快照虽然还在，
+但没有「这期参考 ← 这期开奖」的对应关系，页面只能看到全量回测的一个汇总命中率；
+看不到哪一期差一点、哪一位在漂移、哪个数字被高估。
+
+**做法**：把回测过程本身展开成逐期记录，walk-forward 归档：
+
+- 第 N 期的参考 = 只用第 1..N-1 期算出来的排名，和当期线上预测调用同一个 `rankNextDigits`；
+- `through_issue` 记录截点（第 N-1 期），可以自证没有偷看当期开奖；
+- 开奖后逐位核对 Top1 / Top3、6 注组合各对了几位，连同实际号码一起入库；
+- 汇总表只存累计计数 + 最近 1000 期命中，增量补一期时从 `state` 续算，不重跑全量。
+
+```mermaid
+flowchart LR
+  DRAW["lottery_draw<br/>全量开奖"] --> TRACK["buildPredictionTrack<br/>walk-forward：第 N 期只用 1..N-1 期"]
+  TRACK --> ROW["lottery_prediction_track<br/>每期一行：picks / 命中 / 组合"]
+  TRACK --> AGG["累计计数 + 最近 1000 期命中"]
+  AGG --> STAT["lottery_prediction_track_stat<br/>payload（接口直出）+ state（增量续算）"]
+  ROW --> API["GET /api/analysis/lottery/track<br/>?game=pl5&issues=..."]
+  STAT --> API
+  API --> WEB["/history：参考框叠加<br/>逐期命中栏 + 偏差面板"]
+  CRAWL["crawl:history<br/>新开奖入库"] --> TRACK
+  CLI["npm run track:backfill<br/>首次 / 换算法"] --> TRACK
+```
+
+**表结构**（迁移 `0013_prediction_track.sql`）：
+
+| 表 / 列 | 含义 |
+| --- | --- |
+| `lottery_prediction_track` | 一期一行，主键 `(game_no, config_key, issue)`；`positions` 存每位 3 个候选、实际号码、名次、Top1/Top3 命中；`combinations` 存 6 注 beam 组合与对上几位 |
+| `through_issue` / `through_issue_seq` | 这期参考只吃到了哪一期（= 上一期），证明 walk-forward |
+| `lottery_prediction_track_stat.payload` | 接口直出的 `summary`：全量/分位命中、30/100/300/1000 窗口、号码偏差矩阵、滚动命中 |
+| `...stat.state` | 增量续算用的累计计数 + 最近 1000 期命中（不发给浏览器） |
+| `lottery_prediction_track_latest`（视图） | 每个彩种/参数归档到哪一期、多少期、命中率，供 `track:backfill --status` 巡检 |
+
+**触发与回填**：
+
+- 爬虫 `crawl:history` 写完开奖、重算快照后调用 `ensurePredictionTrack`：只算「还没归档的期」，
+  正常一次开奖补 1 行；同一期重复抓取是 upsert。
+- 首次部署 / 换算法指纹：`npm run track:backfill`（排列五 7 736 期，计算约 1 s，含远库写入约 15 s）。
+- API 兜底：`track` 接口发现归档缺失或落后最新开奖时现算一次并落库；归档已到最新时只读一行 stat + 一页 items。
+
+**偏差口径**：
+
+- `Top1/Top3` 随机基线 10% / 30%；`deviation` = 实际命中率 − 基线。
+- 号码矩阵：`选中占比 − 实际出现占比`（两者都是 10 个数字上的分布，整行合计为 0）；正数 = 模型高估。
+- `avgRank`：实际号码在 0–9 排序里的平均名次（1–10，随机 5.5），比命中率更细粒度。
+- 组合：每期 6 注、5 位全中即一等；`best` / `avgMatched` 描述差几位。
+- 全部是历史复盘，**不构成下一期概率**；页面文案明确写「与随机基线基本重合时没有稳定优势」。
+
+**为什么写在 Node**：写入方是爬虫（Node），读接口是 `apps/api`；把归档放在 Node 侧不需要给
+Python 服务增加一条写库链路，也不依赖 `ANALYSIS_API_BASE` 可达。打分没有复制公式——
+`apps/api/src/analysis/prediction-track.mjs` 直接调用冻结的 `rankNextDigits`，
+单测断言归档累计与既有 `runBacktest` 的 top1Hits/top3Hits 完全一致（排列五 7 736 期实测一致）；
+Python 仍是打分算法的唯一真源，改打分时先改 Python，再同步 Node 回退并跑对拍。
 
 ### 5.4 比赛 AI 分析（SSE）
 
@@ -1085,6 +1144,7 @@ flowchart LR
 | 赛事 | `GET /api/matches` | 数据库（爬虫写） | 15 s |
 | 开奖 | `GET /api/history` | 数据库 | 60 s |
 | 开奖分析 | `GET /api/analysis/lottery`、`GET /api/analysis/lottery/snapshots`（Python） | 数据库（爬虫开奖后预算的快照） | 同一期不变：`s-maxage=900`；落后开奖时 60 s |
+| 逐期归档 | `GET /api/analysis/lottery/track`（Node，读归档表） | 数据库（`lottery_prediction_track`，爬虫开奖后增量补/首次回填） | 已到最新 5 min；落后开奖 60 s；本次补算不缓存 |
 | 赛果 | `GET /api/results` | 数据库 | 30 s |
 | 赔率分布 | `GET /api/odds-distribution` | 数据库（`match_result.ttg_odds`，回退赔率快照） | 5 min |
 | 赔率接近 | `GET /api/match-signals` | 数据库（赔率 + 近况 + 伤停，复用推荐引擎） | 60 s |
@@ -1159,6 +1219,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 彩票 | `lottery_game` / `lottery_draw` / `lottery_prize_level` | 开奖爬虫（4 个彩种） | 永久 |
 | 分析 | `lottery_analysis_snapshot` | 开奖后由爬虫算（API 缺失时兜底现算） | 永久（每期 × 每参数一条，单条 ~11 KB） |
+| 逐期归档 | `lottery_prediction_track` / `lottery_prediction_track_stat` | 开奖后由爬虫增量补（首次 `npm run track:backfill`） | 永久（三彩种合计 18 851 行 ≈ 30 MB 含索引；每行 JSON 约 1.2 KB；stat 每彩种约 19 KB） |
 | 足球 | `league` / `team` / `team_alias` / `match` / `match_odds_snapshot` | 赛程爬虫 + 赛果爬虫 | 赔率快照 120 天 |
 | 赛果 | `match_result`（含固化的 `ttg_odds` / `closing_odds`） | 赛果开奖爬虫 | 永久（按 sporttery_match_id 幂等覆盖；TTG / 全玩法收盘赔率首写不覆盖） |
 | 补充 | `player` / `injury` / `match_lineup` / `match_lineup_player` | 自建爬虫 | 阵容每队只留最近 1 场 |
@@ -1168,7 +1229,7 @@ flowchart LR
 | 投注 | `bet` / `bet_leg` | API（登录用户） | 永久（用户删除即级联删除） |
 | 可观测 | `crawl_run` | 每条爬虫链路 | 30 天 |
 
-共 24 张表 + 3 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest`）。
+共 26 张表 + 4 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest` / `lottery_prediction_track_latest`）。
 
 关键设计：
 
@@ -1217,6 +1278,10 @@ flowchart LR
 | `GET /api/venue-weather` | DeepSeek 解析主队城市 + Open-Meteo 天气（按 IP 限流 20 次/分） |
 | `POST /api/ai-analysis`、`POST /api/ai-parlay` | 单场 / 串关 AI 分析，SSE：`meta → reasoning/content → done / error` |
 | `GET /healthz` | 健康检查（`service` / `uptimeSeconds` / `envLoaded` / `databaseConfigured`） |
+
+> `GET /api/analysis/lottery/track`（逐期归档）**不在 Python 侧**：写入方是爬虫（Node），
+> 读接口由 `apps/api` 直接查 `lottery_prediction_track`，避免给 Python 服务增加一条写库链路；
+> 打分仍复用冻结的 Node 回退（与 Python 对拍），只做 walk-forward 展开，不新增算法。
 
 - 入口 `api/index.py` 只暴露 ASGI；`app/main.py` 挂 `RewritePathMiddleware` 还原 Vercel rewrite 丢掉的原始路径。
 - 部署：`npm run deploy:analysis`（`apps/analysis/vercel.json`：函数 1024 MB / 60s，rewrite `?__path=/$1`）；
@@ -1623,6 +1688,18 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 口径 | — | 期标签由销售日推出（`periods.mjs`），与 `match_num_str` 的周X前缀逐场校验，0 场不匹配 |
 | 测试 | — | `periods.test.mjs` 3 个用例（周X、非法输入、期标签） |
 
+### 2026-11-02 增量：逐期参考归档（命中率 / 偏差）
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 数据 | `lottery_analysis_snapshot` 只有「基于最新一期的下一期参考」，没有逐期对应 | 迁移 `0013`：`lottery_prediction_track` 每期一行（参考 / 实际 / 逐位命中 / 6 注组合对上几位）+ `lottery_prediction_track_stat`（累计 + 最近 1000 期命中） |
+| 口径 | 只能看全量回测汇总 | walk-forward：第 N 期只用 1..N-1 期，`through_issue` 单独记录；命中率、分位偏差、号码偏差、滚动曲线都来自同一份逐期记录 |
+| 页面 | 走势只画实际号码，顶部一行「参考」是下一期 | 走势格内叠加当期 3 个候选（粗框 = 首选、金框 = 参考命中），右侧新增逐期命中栏；下方新增「分位命中 / 号码偏差矩阵 / 偏差结论」面板；移动端卡片显示参考串与命中位数 |
+| 接口 | 无 | `GET /api/analysis/lottery/track?game=pl5&issues=…`：当前页 items + 全量 summary；已到最新时只读 stat + 一页 items |
+| 触发 | — | 爬虫开奖入库后 `ensurePredictionTrack` 增量补 1 期；首次 `npm run track:backfill`（排列五 7 736 期：计算约 1 s，含远库写入约 15 s）；API 缺失/落后时兜底现算 |
+| 计算 | — | 直接复用冻结的 `rankNextDigits`，不复制打分；单测断言归档累计与 `runBacktest` 的 top1Hits/top3Hits 完全一致（实测排列五 7 736 期：Top1 10.07% / Top3 30.21%，与快照 10.1% / 30.2% 对齐） |
+| 测试 | — | `prediction-track.test.mjs` 6 个用例：累计对拍、增量==全量、七星彩 10–14、短样本自适应、统计口径自洽 |
+
 ---
 
 ## 12. 关键文件索引
@@ -1637,6 +1714,8 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | API 赛果 | [apps/api/src/handlers/results.mjs](../apps/api/src/handlers/results.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs)、[apps/api/src/periods.mjs](../apps/api/src/periods.mjs) |
 | 赔率分布 | [apps/api/src/handlers/odds-distribution.mjs](../apps/api/src/handlers/odds-distribution.mjs)、[apps/api/src/ttg-distribution.mjs](../apps/api/src/ttg-distribution.mjs)、[apps/api/src/repos/results.mjs](../apps/api/src/repos/results.mjs)、[src/views/OddsDistributionPage.tsx](../src/views/OddsDistributionPage.tsx)、[src/api/oddsDistributionApi.ts](../src/api/oddsDistributionApi.ts)、[db/migrations/0011_match_result_ttg_odds.sql](../db/migrations/0011_match_result_ttg_odds.sql) |
 | 投注页标注 | [apps/api/src/handlers/match-signals.mjs](../apps/api/src/handlers/match-signals.mjs)、[apps/api/src/recommend/signals.mjs](../apps/api/src/recommend/signals.mjs)、[apps/api/src/recommend/engine.mjs](../apps/api/src/recommend/engine.mjs)、[src/features/betting/useMatchSignals.ts](../src/features/betting/useMatchSignals.ts)、[src/features/betting/MatchPoolList.tsx](../src/features/betting/MatchPoolList.tsx) |
+| 逐期归档（服务端） | [apps/api/src/analysis/prediction-track.mjs](../apps/api/src/analysis/prediction-track.mjs)、[apps/api/src/repos/prediction-track.mjs](../apps/api/src/repos/prediction-track.mjs)、[apps/api/src/handlers/prediction-track.mjs](../apps/api/src/handlers/prediction-track.mjs)、[db/migrations/0013_prediction_track.sql](../db/migrations/0013_prediction_track.sql)、[scripts/backfill-prediction-track.mjs](../scripts/backfill-prediction-track.mjs) |
+| 逐期归档（前端） | [src/features/analysis/usePredictionTrack.ts](../src/features/analysis/usePredictionTrack.ts)、[src/api/predictionTrackApi.ts](../src/api/predictionTrackApi.ts)、[src/domain/predictionTrack.ts](../src/domain/predictionTrack.ts)、[src/components/PredictionDeviationPanel.tsx](../src/components/PredictionDeviationPanel.tsx)、[src/views/HistoryPage.tsx](../src/views/HistoryPage.tsx) |
 | 开发双进程脚本 | [scripts/dev.mjs](../scripts/dev.mjs) |
 | 环境变量样例 | [.env.example](../.env.example) |
 | 构建 / 代理 / 部署 | [next.config.ts](../next.config.ts)、[vercel.json](../vercel.json)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs) |
