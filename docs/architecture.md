@@ -25,7 +25,7 @@
 | --- | --- |
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | Next.js（Vercel `ticai` 项目，静态 + Serverless 函数）+ Node API（Vercel `ticai-service`）+ Python 分析服务（Vercel `ticai-analysis`）；生产用同源 `/api` rewrite 代理 |
-| 前端规模 | 14 个页面（`src/views`）；`src` 下 112 个 TS/TSX 文件；`global.scss` + 7 个按域拆分样式 |
+| 前端规模 | 14 个页面（`src/views`）；`src` 下 115 个 TS/TSX 文件；`global.scss` + 7 个按域拆分样式 |
 | 服务端规模 | `apps/api`：16 个 handler 模块、35 个接口路径（37 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
 | 数据层 | PostgreSQL 26 张表 + 4 个视图：API 与分析服务以读为主（分析服务写 `lottery_analysis_snapshot`；API 仅在归档缺失时兜底写 `lottery_prediction_track*`，只读账号下会降级读旧归档），爬虫写业务表与逐期归档（`db/README.md`） |
 | 构建产物 | `.next`：客户端 JS ≈ 670 KB + 143 KB CSS（gzip 后约 185 + 24 KB）+ 一个 SSR Serverless 函数 |
@@ -49,7 +49,7 @@
 | `/login` | 登录 / 注册 | 邮箱 + 密码，或邮箱验证码（Resend；未注册邮箱直接建号，登录后引导设置密码）；可接微信扫码；登录态存 localStorage，请求带 Bearer | `/api/auth/*` |
 | `/auth/wechat` | 微信回调 | 用一次性 ticket 换正式会话，失败时展示原因 | `POST /api/auth/wechat/session` |
 | `/account` | 账号 | 账号资料与登录方式；「邮箱与密码」卡片（绑定邮箱 / 设置密码 / 修改密码）、绑定 / 解绑微信 | `/api/auth/identities`、`/api/auth/password`、`/api/auth/email`、`/api/auth/wechat/*` |
-| `/my-bets` | 我的投注 | 保存的投注方案，按玩法分类、按赛果自动判中奖与奖金；首帧骨架屏、单注详情弹层（截图 / 回填到投注页） | `/api/bets`、`/api/bets/stats` + `/api/results` |
+| `/my-bets` | 我的投注 | 保存的投注方案，按玩法分类、按赛果自动判中奖与奖金；**彩票单按彩种 + 开奖批次合并**（同批多张合成一张，可整卡截图 / 删除），足球单独立；首帧骨架屏、单注详情弹层 | `/api/bets`、`/api/bets/stats` + `/api/results` |
 | `/about` | 关于页 | Keep-Alive 演示（输入框保留） | 无 |
 | `/profile` | 个人页 | 不缓存演示，**不在导航中** | 无 |
 
@@ -343,7 +343,7 @@ D:\ticai
    │  ├─ ResultsPage.tsx       # 258 行：比赛日翻页 + 五个玩法结果
    │  ├─ OddsDistributionPage.tsx # 总进球赔率分布：SVG 四线分布 + 排名图 + 逐场样本
    │  ├─ AuthPage / WechatCallbackPage / AccountPage
-   │  ├─ MyBetsPage.tsx        # 492 行：骨架屏 + 统计 + 筛选 + 详情弹层
+   │  ├─ MyBetsPage.tsx        # 600 行：骨架屏 + 统计 + 筛选 + 彩票批次合并/截图 + 详情弹层
    │  └─ MatchDetailPage / HoroscopePage / AboutPage / ProfilePage
    ├─ features
    │  ├─ betting               # 21 个文件：选号、串关、两级 AI、方案快照
@@ -356,7 +356,7 @@ D:\ticai
    │  │  ├─ useMatchSignals.ts # 赔率接近标注（最低两档 ≤8%，模型偏向）
    │  │  ├─ MatchPoolList.tsx / BetSlipFooter.tsx / PlanModal.tsx / SnapshotOverlay.tsx
    │  │  └─ betPayload.ts      # 投注单请求体（登录后保存）
-   │  ├─ bets                  # 投注详情弹层 + 金额格式
+   │  ├─ bets                  # 投注详情弹层 + 金额格式 + 彩票合并卡/批次分组
    │  ├─ account               # 微信接入步骤弹层
    │  ├─ analysis              # useAnalysisSnapshot（快照）+ usePredictionTrack（逐期归档，页级缓存）
    │  ├─ matchDetail           # 正文 / 弹框 / 视图映射 / 移动端判断
@@ -373,6 +373,7 @@ D:\ticai
    ├─ domain
    │  ├─ analysisTypes.ts      # 分析结果的类型与空态占位（算法在 Python，前端不再计算）
    │  ├─ lotteryHistory.ts     # ★ 开奖记录 / 缓存元数据类型
+   │  ├─ lotterySchedule.ts    # 彩票开奖日 / 下一开奖日估算（我的投注合并展示用）
    │  ├─ dltIndicators.ts      # 大乐透前区/后区逐期指标的展示用计算（走势图右栏）
    │  └─ sporttery.ts / constellation.ts / weather.ts / counter.ts
    ├─ api
@@ -1125,6 +1126,18 @@ flowchart LR
 超过上限禁用保存。「我的投注」里复式按位次分组渲染（`1,2 | 5 | 4 | 4 | 8`），
 命中位置/号码标绿，中奖时显示中奖注数与奖级。
 
+**同类同期合并 + 合并卡截图（2026-11-02）**：
+
+- 合并键 = `彩种 + 状态 + 开奖批次`；开奖批次已开奖用真实 `draw.issue`，待开奖用
+  `src/domain/lotterySchedule.ts` 按彩种开奖日估算的目标日期（排列五每日、七星彩周二/五/日、
+  大乐透周一/三/六，21:00 截止）。同一批次的票即使夹着别的彩票单也归到同一张卡；足球单不参与合并。
+- 合并只影响展示：顶部统计、删除、`/api/bets` 仍按单张 `bet` 计数；合并卡的「删除」会逐张删除本批。
+- 每张合并卡有「截图」：`html2canvas` 截整张卡（隐藏操作按钮、保留合计与落款），
+  右下角复用 `SnapshotOverlay` 预览/保存；不改变原方案截图链路。
+- 读单性能：`hydrate` 原来每张彩票单一次 `loadNextDraw`（10 来张就是 10 来次跨境往返，实测 ~9.5s）；
+  现在一次取「涉及的彩种、最早投注之后」的全部开奖，再在内存里为每张票找下一期（实测 ~3s）。
+  同时把 `draw_date` 在 SQL 里 `to_char` 成 `YYYY-MM-DD`，修掉前端显示 `Sat Oct 31` 的问题。
+
 **已知限制**：不支持胆拖；七星彩部分命中、大乐透浮动奖金金额都不在这里计算，避免给出错误的钱数。
 
 ---
@@ -1700,6 +1713,17 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 计算 | — | 直接复用冻结的 `rankNextDigits`，不复制打分；单测断言归档累计与 `runBacktest` 的 top1Hits/top3Hits 完全一致（实测排列五 7 736 期：Top1 10.07% / Top3 30.21%，与快照 10.1% / 30.2% 对齐） |
 | 测试 | — | `prediction-track.test.mjs` 6 个用例：累计对拍、增量==全量、七星彩 10–14、短样本自适应、统计口径自洽 |
 
+### 2026-11-02 增量：我的投注同类同期合并 + 整卡截图
+
+| 项 | 改造前 | 改造后 |
+| --- | --- | --- |
+| 列表 | 每张彩票单一张卡；7 张 1 注 2 元的排列五就是 7 张卡 | `src/features/bets/lotteryGroups.ts` 按「彩种 + 状态 + 开奖批次」合并；待开奖批次用 `domain/lotterySchedule.ts` 按彩种开奖日估算（排列五每日 / 七星彩周二三五日 / 大乐透周一三六，21:00 截止），同批次即使夹着别的彩票单也归到同一张卡；足球单不合并 |
+| 合并卡 | — | 头部显示彩种、批次、合计注数/金额、状态；逐张列号码与投注时间/倍数/注数/金额；已开奖显示开奖号码、逐张中奖与命中位；页脚合计 + 删除整批 |
+| 截图 | 只有首页方案弹层能截图 | 每张合并卡有「截图」：`html2canvas` 截整张卡，隐藏截图/删除按钮、保留合计与「体彩助手 · 仅作娱乐参考」落款；右下角复用 `SnapshotOverlay` 预览/保存，桌面导出宽度收窄到 680px，手机按卡宽 |
+| 读单性能 | 每张彩票单一次 `loadNextDraw`（10 来张 = 10 来次跨境往返，实测 ~9.5s） | `hydrate` 一次取「涉及彩种、最早投注之后」的全部开奖，再在内存里为每张票找下一期（实测 ~3s） |
+| 日期 | `draw_date` 是 Date，`String(...).slice(0,10)` 显示成 `Sat Oct 31` | `loadDrawsAfter` 的 SQL 直接 `to_char(draw_date,'YYYY-MM-DD')`，前端显示 `2026-10-31` |
+| 删除 | 单张删除 | 合并卡按批删除（逐张 `DELETE`，每成功一张同步列表/统计/offset）；单张卡仍是原来的单张删除 |
+
 ---
 
 ## 12. 关键文件索引
@@ -1731,7 +1755,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 单场 AI | [AiAnalysisPanel.tsx](../src/features/betting/AiAnalysisPanel.tsx)、[useMatchAiAnalysis.ts](../src/features/betting/useMatchAiAnalysis.ts)、[aiAnalysis.ts](../src/features/betting/aiAnalysis.ts) |
 | 方案 AI | [ParlayAiAnalysisPanel.tsx](../src/features/betting/ParlayAiAnalysisPanel.tsx)、[useParlayAiAnalysis.ts](../src/features/betting/useParlayAiAnalysis.ts)、[parlayAiAnalysis.ts](../src/features/betting/parlayAiAnalysis.ts) |
 | AI 本地缓存 | [aiAnalysisCache.ts](../src/features/betting/aiAnalysisCache.ts)（`localStorage`，3 小时 TTL） |
-| 我的投注 | [src/views/MyBetsPage.tsx](../src/views/MyBetsPage.tsx)、[src/features/bets/BetDetailModal.tsx](../src/features/bets/BetDetailModal.tsx)、[src/api/betApi.ts](../src/api/betApi.ts) |
+| 我的投注 | [src/views/MyBetsPage.tsx](../src/views/MyBetsPage.tsx)、[src/features/bets/LotteryBetGroup.tsx](../src/features/bets/LotteryBetGroup.tsx)、[lotteryGroups.ts](../src/features/bets/lotteryGroups.ts)、[src/domain/lotterySchedule.ts](../src/domain/lotterySchedule.ts)、[src/features/bets/BetDetailModal.tsx](../src/features/bets/BetDetailModal.tsx)、[src/api/betApi.ts](../src/api/betApi.ts) |
 | 账号 / 微信 | [src/views/AuthPage.tsx](../src/views/AuthPage.tsx)、[src/views/AccountPage.tsx](../src/views/AccountPage.tsx)、[src/views/WechatCallbackPage.tsx](../src/views/WechatCallbackPage.tsx)、[src/features/account/PasswordCard.tsx](../src/features/account/PasswordCard.tsx)、[src/store/authStore.ts](../src/store/authStore.ts) |
 | 自动交付 | [scripts/update-architecture.mjs](../scripts/update-architecture.mjs)、[scripts/deploy-local.mjs](../scripts/deploy-local.mjs)、[scripts/deploy-api.mjs](../scripts/deploy-api.mjs)、[scripts/check-secrets.mjs](../scripts/check-secrets.mjs)、[scripts/git-hooks](../scripts/git-hooks)、[AGENTS.md](../AGENTS.md) |
 | 开奖缓存 | [src/service/historyService.ts](../src/service/historyService.ts) |

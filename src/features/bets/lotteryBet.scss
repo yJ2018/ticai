@@ -359,7 +359,219 @@
   font-size: 0.8rem;
 }
 
+/* ── 我的投注：同类同期的合并卡 + 截图 ─────────────────── */
+.bets-merge-note {
+  margin: 0 0 0.2rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.55rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.lottery-group {
+  cursor: default;
+
+  &:hover {
+    box-shadow: 0 0.4rem 1.2rem rgba(15, 23, 42, 0.06);
+  }
+
+  &:active {
+    transform: none;
+  }
+
+  h3 {
+    font-size: 1rem;
+  }
+}
+
+.lottery-group__eyebrow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.15rem;
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.lottery-group__merged {
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.lottery-group__draw {
+  margin: 0;
+}
+
+.lottery-group__pending {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #fef3c7;
+  border-radius: 0.55rem;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.lottery-group__tickets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.lottery-group__ticket {
+  display: grid;
+  grid-template-columns: 1.35rem minmax(0, 1fr) minmax(10rem, auto);
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid #eef2f7;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 0.15rem;
+  }
+
+  .lottery-bet__balls {
+    margin: 0;
+  }
+}
+
+.lottery-group__index {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lottery-group__ticket-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.lottery-group__ticket-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.12rem 0.55rem;
+  color: #94a3b8;
+  font-size: 0.69rem;
+  line-height: 1.45;
+  text-align: right;
+
+  em {
+    font-style: normal;
+    font-weight: 700;
+  }
+
+  .is-won {
+    color: #047857;
+  }
+
+  .is-lost {
+    color: #b45309;
+  }
+}
+
+.lottery-group__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  padding-top: 0.1rem;
+}
+
+.lottery-group__total {
+  color: #475569;
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lottery-group__buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.lottery-group__capture {
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  padding: 0.32rem 0.72rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: #dbeafe;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.lottery-group__error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.72rem;
+}
+
+/* 只在截图副本里显示：给导出的图片一个来源落款 */
+.lottery-group__snapshot-foot {
+  display: none;
+  margin: 0.2rem 0 0;
+  color: #94a3b8;
+  font-size: 0.66rem;
+  text-align: right;
+}
+
 @media (max-width: 47.99rem) {
+  .lottery-group__ticket {
+    grid-template-columns: 1.35rem minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .lottery-group__ticket-meta {
+    grid-column: 2;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .lottery-group__actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lottery-group__buttons {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
   .lottery-pick {
     align-items: flex-end;
     padding: 0.8rem 0.6rem calc(0.8rem + env(safe-area-inset-bottom));

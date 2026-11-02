@@ -1403,7 +1403,8 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
-| 2026-11-02 | 新增 `GET /api/analysis/lottery/track`：逐期参考归档（walk-forward）+ 命中率 / 分位偏差 / 号码偏差 / 滚动命中，走势页据此叠加参考框与逐期命中；新增表 `lottery_prediction_track` / `lottery_prediction_track_stat`（迁移 `0013`），爬虫开奖后增量补，首次执行 `npm run track:backfill` |
+| 2026-11-02 | `/api/bets` 彩票单的 `lottery.draw.drawDate` 统一为 `YYYY-MM-DD`（原 Date 字符串 slice 会变成 `Sat Oct 31`）；读单改为一次批量取「涉及彩种、最早投注之后」的开奖再在内存找下一期，10 来张彩票单 ~9.5s → ~3s；前端按彩种 + 开奖批次合并展示，合并卡可整卡截图 |
+| 2026-11-02 | 新增 `GET /api/analysis/lottery/track`：逐期参考归档（walk-forward）+ 命中率 / 分位偏差 / 号码偏差 / 滚动命中，走势页据此显示顺位角标与逐期命中；新增表 `lottery_prediction_track` / `lottery_prediction_track_stat`（迁移 `0013`），爬虫开奖后增量补，首次执行 `npm run track:backfill` |
 | 2026-11-01 | `/api/results` 改为按**期（销售日）**取：`?period=YYYY-MM-DD`（不传取最近一期），响应带 `period` / `label` / `periods`；跨零点场次归前一天，`matchDate` 与 `period` 可能相差一天 |
 | 2026-10-31 | `/api/bets` 增加开奖赔率对比：每条腿返回 `closingOdds` / `closingOddsAt`，单子返回 `closing { payout, diff, complete }`（按停售前最后一份官方赔率试算，只对比不改 `payout`）；`match_result` 新增 `closing_odds` 固化全玩法收盘赔率（迁移 `0012`），统计接口不再多查一趟赔率，列表与统计改为并发 |
 | 2026-10-30 | 新增 `GET /api/match-signals`：投注页「赔率接近」标注，每个玩法最低两档差 ≤8% 时标 `≈`，分析偏向由推荐引擎的融合概率决定（近况/伤停修正） |

@@ -12,6 +12,9 @@ import {
 import { ApiError } from '../api/httpClient'
 import { useConfirm } from '../components/ConfirmDialog'
 import { BetDetailModal } from '../features/bets/BetDetailModal'
+import { LotteryBetGroup } from '../features/bets/LotteryBetGroup'
+import { buildBetListEntries, type LotteryGroup } from '../features/bets/lotteryGroups'
+import { SnapshotOverlay } from '../features/betting/SnapshotOverlay'
 import {
   OUTCOME_LABELS,
   POOL_FILTER_OPTIONS,
@@ -77,128 +80,7 @@ type BetCardProps = {
   onOpen: (bet: Bet) => void
 }
 
-function pad2(value: number) {
-  return String(value).padStart(2, '0')
-}
-
-function LotteryBalls({ main, extra, matched }: { main: number[]; extra: number[]; matched?: boolean[] }) {
-  return (
-    <p className="lottery-bet__balls">
-      {main.map((value, index) => (
-        <span key={`main-${index}`} className={`lottery-bet__ball${matched?.[index] ? ' is-hit' : ''}`}>
-          {pad2(value)}
-        </span>
-      ))}
-      {extra.length > 0 && <span className="lottery-bet__plus">+</span>}
-      {extra.map((value, index) => (
-        <span key={`extra-${index}`} className="lottery-bet__ball is-back">
-          {pad2(value)}
-        </span>
-      ))}
-    </p>
-  )
-}
-
-/** 复式：按位次分组渲染（每位多选），命中位次标绿。 */
-function LotteryGroups({ groups, matched }: { groups: number[][]; matched?: boolean[] }) {
-  return (
-    <p className="lottery-bet__balls is-groups">
-      {groups.map((digits, index) => (
-        <span className="lottery-bet__group" key={`group-${index}`}>
-          {digits.map((value) => (
-            <span key={`${index}-${value}`} className={`lottery-bet__ball${matched?.[index] ? ' is-hit' : ''}`}>
-              {value}
-            </span>
-          ))}
-          {index < groups.length - 1 && <span className="lottery-bet__plus">|</span>}
-        </span>
-      ))}
-    </p>
-  )
-}
-
-/** 彩票注单：号码 + 开奖对比；不打开足球的详情弹层。 */
-function LotteryBetCard({ bet, deleting, onDelete }: Omit<BetCardProps, 'onOpen'>) {
-  const lottery = bet.lottery
-  if (!lottery) {
-    return null
-  }
-  const drawn = lottery.draw
-  const main = lottery.numbers.main
-  const nested = Array.isArray(main) && Array.isArray((main as number[][])[0])
-  const front = nested ? [] : (main as number[])
-  const hitText = lottery.positional
-    ? `命中 ${lottery.hits.main}/${nested ? (main as number[][]).length : front.length} 位`
-    : `命中 前区 ${lottery.hits.main}/${front.length} · 后区 ${lottery.hits.extra}/${lottery.numbers.extra.length}`
-  const tierText = lottery.tiers.map((item) => `${item.tier} ${item.units} 注`).join(' / ')
-
-  return (
-    <article className={`bet-card bet-card--lottery bet-card--${bet.status}`}>
-      <header className="bet-card__head">
-        <div className="bet-card__title">
-          <h3>{bet.title}</h3>
-          <p className="bet-card__meta">
-            <span>{formatDateTime(bet.placedAt)}</span>
-            <span>{bet.multiple} 倍</span>
-            <span>{bet.units} 注</span>
-            <span>{formatMoney(bet.amount)} 元</span>
-            <span>{lottery.name}</span>
-            {lottery.mode === 'multiple' && <span>复式</span>}
-          </p>
-          {bet.note && <p className="bet-card__note">{bet.note}</p>}
-        </div>
-        <span className={`bet-badge bet-badge--${bet.status}`}>{STATUS_LABELS[bet.status]}</span>
-      </header>
-
-      {nested ? (
-        <LotteryGroups groups={main as number[][]} matched={drawn ? lottery.matchedMain : undefined} />
-      ) : (
-        <LotteryBalls main={front} extra={lottery.numbers.extra} matched={drawn ? lottery.matchedMain : undefined} />
-      )}
-
-      <div className="lottery-bet__draw">
-        {drawn ? (
-          <>
-            <span>
-              第 {drawn.issue} 期 · {drawn.drawDate} 开奖
-            </span>
-            <LotteryBalls main={drawn.main} extra={drawn.extra} />
-            <span className="lottery-bet__hits">
-              <em className={bet.status === 'won' ? 'is-won' : 'is-lost'}>
-                {bet.status === 'won' ? `中奖 ${lottery.winningUnits} 注${tierText ? `：${tierText}` : ''}` : '未中奖'}
-              </em>
-              <span>{hitText}</span>
-            </span>
-            <span>奖金以体彩官方公告为准</span>
-          </>
-        ) : (
-          <span>待开奖 · 开奖后按官方号码自动判定（奖金以官方公告为准）</span>
-        )}
-      </div>
-
-      <footer className="bet-card__foot">
-        <div className="bet-card__passes" />
-        <div className="bet-card__money">
-          <button
-            type="button"
-            className="bet-card__delete"
-            aria-label={`删除投注 ${bet.title}`}
-            disabled={deleting}
-            onClick={() => onDelete(bet)}
-          >
-            {deleting ? '删除中…' : '删除'}
-          </button>
-        </div>
-      </footer>
-    </article>
-  )
-}
-
 function BetCard({ bet, deleting, onDelete, onOpen }: BetCardProps) {
-  if (bet.kind === 'lottery') {
-    return <LotteryBetCard bet={bet} deleting={deleting} onDelete={onDelete} />
-  }
-
   // 票面奖金 vs 按开奖赔率试算：只在有奖金可对比时才展示，未开完奖 / 缺赔率不猜
   const closing = bet.closing
   const closingPayout = closing?.payout ?? null
@@ -354,7 +236,11 @@ export function MyBetsPage() {
   const [poolFilter, setPoolFilter] = useState<PoolFilter>('')
   const [hasMore, setHasMore] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletingGroupKey, setDeletingGroupKey] = useState<string | null>(null)
   const [detailBet, setDetailBet] = useState<Bet | null>(null)
+  const [snapshotUrl, setSnapshotUrl] = useState('')
+  const [snapshotFileName, setSnapshotFileName] = useState('投注快照')
+  const [snapshotViewerOpen, setSnapshotViewerOpen] = useState(false)
 
   const requestRef = useRef(0)
   const nextOffsetRef = useRef(0)
@@ -430,6 +316,7 @@ export function MyBetsPage() {
     () => (statusFilter === 'all' ? items : items.filter((bet) => bet.status === statusFilter)),
     [items, statusFilter],
   )
+  const listEntries = useMemo(() => buildBetListEntries(visibleItems), [visibleItems])
 
   const hasFilters = statusFilter !== 'all' || poolFilter !== ''
 
@@ -457,6 +344,67 @@ export function MyBetsPage() {
         }
       },
     })
+  }
+
+  async function handleDeleteGroup(group: LotteryGroup) {
+    if (!token || deletingGroupKey) {
+      return
+    }
+    const authToken = token
+    await confirm({
+      title: '删除合并投注',
+      description: `确定删除「${group.gameName} ${group.periodLabel}」的 ${group.bets.length} 张投注（合计 ${formatMoney(group.totalAmount)} 元）？删除后无法恢复。`,
+      confirmText: '删除',
+      pendingText: '删除中…',
+      tone: 'danger',
+      onConfirm: async () => {
+        setDeletingGroupKey(group.key)
+        try {
+          for (const bet of group.bets) {
+            await deleteBet(authToken, bet.id)
+            setItems((prev) => prev.filter((item) => item.id !== bet.id))
+            setStats((prev) => removeBetFromStats(prev, bet))
+            nextOffsetRef.current = Math.max(0, nextOffsetRef.current - 1)
+          }
+          setDetailBet((current) =>
+            current && group.bets.some((bet) => bet.id === current.id) ? null : current,
+          )
+        } finally {
+          setDeletingGroupKey(null)
+        }
+      },
+    })
+  }
+
+  function handleSnapshot(dataUrl: string, fileName: string) {
+    setSnapshotUrl(dataUrl)
+    setSnapshotFileName(fileName)
+    setSnapshotViewerOpen(false)
+  }
+
+  function openSnapshotViewer() {
+    if (snapshotUrl) {
+      setSnapshotViewerOpen(true)
+    }
+  }
+
+  function closeSnapshotViewer() {
+    setSnapshotViewerOpen(false)
+  }
+
+  function downloadSnapshot() {
+    if (!snapshotUrl || typeof document === 'undefined') {
+      return
+    }
+    const link = document.createElement('a')
+    link.href = snapshotUrl
+    link.download = `${snapshotFileName.replace(/\.png$/i, '')}-${Date.now()}.png`
+    link.click()
+  }
+
+  function removeSnapshot() {
+    setSnapshotUrl('')
+    setSnapshotViewerOpen(false)
   }
 
   function handleSignOut() {
@@ -563,6 +511,12 @@ export function MyBetsPage() {
         </div>
       </div>
 
+      {listEntries.some((entry) => entry.kind === 'lottery' && entry.group.bets.length > 1) && (
+        <p className="bets-merge-note">
+          彩票单已按「彩种 + 开奖批次」合并；点合并卡底部「截图」可导出整组号码。
+        </p>
+      )}
+
       {error && items.length > 0 && (
         <p className="bets-alert" role="alert">
           {error}
@@ -616,16 +570,25 @@ export function MyBetsPage() {
         </div>
       )}
 
-      {visibleItems.length > 0 && (
+      {listEntries.length > 0 && (
         <ul className="bets-list">
-          {visibleItems.map((bet) => (
-            <li key={bet.id}>
-              <BetCard
-                bet={bet}
-                deleting={deletingId === bet.id}
-                onDelete={(item) => void handleDelete(item)}
-                onOpen={(item) => setDetailBet(item)}
-              />
+          {listEntries.map((entry, index) => (
+            <li key={entry.kind === 'bet' ? entry.bet.id : `${entry.group.key}-${index}`}>
+              {entry.kind === 'bet' ? (
+                <BetCard
+                  bet={entry.bet}
+                  deleting={deletingId === entry.bet.id}
+                  onDelete={(item) => void handleDelete(item)}
+                  onOpen={(item) => setDetailBet(item)}
+                />
+              ) : (
+                <LotteryBetGroup
+                  group={entry.group}
+                  deleting={deletingGroupKey === entry.group.key}
+                  onDelete={(group) => void handleDeleteGroup(group)}
+                  onSnapshot={handleSnapshot}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -654,6 +617,15 @@ export function MyBetsPage() {
         deleting={Boolean(detailBet && deletingId === detailBet.id)}
         onClose={() => setDetailBet(null)}
         onDelete={(bet) => void handleDelete(bet)}
+      />
+
+      <SnapshotOverlay
+        url={snapshotUrl}
+        viewerOpen={snapshotViewerOpen}
+        onOpenViewer={openSnapshotViewer}
+        onCloseViewer={closeSnapshotViewer}
+        onDownload={downloadSnapshot}
+        onRemove={removeSnapshot}
       />
     </div>
   )

@@ -288,18 +288,53 @@ function toLegShape(row) {
   }
 }
 
-async function loadNextDraw(config, gameNo, placedAt) {
+async function loadDrawsAfter(config, gameNos, placedAt) {
+  if (gameNos.length === 0) {
+    return new Map()
+  }
   const { rows } = await query(
     config,
-    `select issue, draw_date, main_numbers, extra_numbers
+    `select
+       game_no,
+       issue,
+       to_char(draw_date, 'YYYY-MM-DD') as draw_date,
+       main_numbers,
+       extra_numbers,
+       coalesce(draw_at, draw_date::timestamptz + interval '21 hours') as draw_time
      from lottery_draw
-     where game_no = $1
+     where game_no = any($1::text[])
        and coalesce(draw_at, draw_date::timestamptz + interval '21 hours') > $2::timestamptz
-     order by coalesce(draw_at, draw_date::timestamptz + interval '21 hours') asc
-     limit 1`,
-    [gameNo, placedAt],
+     order by game_no, draw_time asc`,
+    [gameNos, placedAt],
   )
-  return rows[0] ?? null
+
+  const byGame = new Map()
+  for (const row of rows) {
+    const list = byGame.get(row.game_no)
+    if (list) {
+      list.push(row)
+    } else {
+      byGame.set(row.game_no, [row])
+    }
+  }
+  return byGame
+}
+
+function findNextDraw(draws, placedAt) {
+  if (!draws || draws.length === 0) {
+    return null
+  }
+  const at = new Date(placedAt).getTime()
+  for (const draw of draws) {
+    const drawTime =
+      draw.draw_time instanceof Date
+        ? draw.draw_time.getTime()
+        : new Date(draw.draw_time).getTime()
+    if (drawTime > at) {
+      return draw
+    }
+  }
+  return null
 }
 
 function gameByNo(gameNo) {
@@ -317,16 +352,29 @@ async function hydrate(config, betRows, legsByBet, { withClosing = true } = {}) 
     ? await getSettlementContextByIds(config, matchIds)
     : { results: await getResultsByIds(config, matchIds), closing: new Map() }
 
+  const lotteryRows = betRows.filter(
+    (row) => row.kind === 'lottery' && gameByNo(row.lottery_game_no),
+  )
+  // 一次把涉及的彩种在最早投注之后的全部开奖取回来，再在内存里为每张票找下一期。
+  // 原来每张彩票单一条 loadNextDraw，一页 10 来张就是 10 来次跨境往返（实测 ~9s）。
+  const lotteryGameNos = Array.from(new Set(lotteryRows.map((row) => row.lottery_game_no)))
+  const earliestPlacedAt =
+    lotteryRows.length > 0
+      ? new Date(
+          Math.min(...lotteryRows.map((row) => new Date(row.placed_at).getTime())),
+        ).toISOString()
+      : null
+  const drawsByGame = earliestPlacedAt
+    ? await loadDrawsAfter(config, lotteryGameNos, earliestPlacedAt)
+    : new Map()
+
   const lotteryByBet = new Map()
-  for (const row of betRows) {
-    if (row.kind !== 'lottery') {
-      continue
-    }
+  for (const row of lotteryRows) {
     const game = gameByNo(row.lottery_game_no)
     if (!game) {
       continue
     }
-    const draw = await loadNextDraw(config, row.lottery_game_no, row.placed_at)
+    const draw = findNextDraw(drawsByGame.get(row.lottery_game_no), row.placed_at)
     const numbers = row.lottery_numbers ?? { main: [], extra: [] }
     const judged = judgeLotteryBet(game.key, numbers, draw)
     lotteryByBet.set(String(row.id), { game, numbers, judged })
