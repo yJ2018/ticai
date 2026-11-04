@@ -550,7 +550,72 @@
   text-align: right;
 }
 
+/* 组合参考行右侧的「一键加注」：点一次把当前展示的各组单式一起存单 */
+.history-insight__numbers .history-auto-bet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+
+.history-auto-bet__button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.42rem 0.95rem;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 0.2rem 0.6rem rgba(37, 99, 235, 0.24);
+  transition: filter 0.15s ease, transform 0.15s ease;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.62;
+    cursor: default;
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+.history-auto-bet__meta {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.history-auto-bet__link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #2563eb;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.history-auto-bet__error {
+  flex-basis: 100%;
+  color: #b91c1c;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 47.99rem) {
+  .history-insight__numbers .history-auto-bet {
+    margin-left: 0;
+  }
+
   .lottery-group__ticket {
     grid-template-columns: 1.35rem minmax(0, 1fr);
     align-items: start;

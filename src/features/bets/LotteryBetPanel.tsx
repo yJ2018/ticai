@@ -3,34 +3,12 @@ import { createPortal } from 'react-dom'
 
 import { createLotteryBet, type Bet, type LotteryGameKey } from '../../api/betApi'
 import { ApiError } from '../../api/httpClient'
+import { LOTTERY_GAME_META } from '../../domain/lotteryMeta'
 import { useNavigate } from '../../lib/navigation'
 import { useAuthStore } from '../../store/authStore'
 import './lotteryBet.scss'
 
-type GameMeta = {
-  name: string
-  positional: boolean
-  mainCount: number
-  mainMax: number
-  /** 位次型：每位最大号码（七星彩末位 0–14，其余 0–9） */
-  positionMax?: number[]
-  extraCount: number
-  extraMax: number
-}
-
-const GAMES: Record<LotteryGameKey, GameMeta> = {
-  pl5: { name: '排列5', positional: true, mainCount: 5, mainMax: 9, extraCount: 0, extraMax: 0 },
-  qxc: {
-    name: '七星彩',
-    positional: true,
-    mainCount: 7,
-    mainMax: 14,
-    positionMax: [9, 9, 9, 9, 9, 9, 14],
-    extraCount: 0,
-    extraMax: 0,
-  },
-  dlt: { name: '超级大乐透', positional: false, mainCount: 5, mainMax: 35, extraCount: 2, extraMax: 12 },
-}
+const GAMES = LOTTERY_GAME_META
 
 const POSITIONS: Array<{ key: LotteryGameKey; labels: string[] }> = [
   { key: 'pl5', labels: ['第一位', '第二位', '第三位', '第四位', '第五位'] },

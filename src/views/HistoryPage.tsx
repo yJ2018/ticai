@@ -7,6 +7,7 @@ import {
   getDltFrontIndicators,
 } from '../domain/dltIndicators'
 import { useAnalysisSnapshot } from '../features/analysis/useAnalysisSnapshot'
+import { LotteryAutoBetButton } from '../features/bets/LotteryAutoBetButton'
 import { LotteryBetPanel } from '../features/bets/LotteryBetPanel'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
 import { type LotteryGameKey } from '../api/betApi'
@@ -410,6 +411,11 @@ export function HistoryPage() {
                     <span className="history-insight__number-empty">样本不足，暂不生成组合参考</span>
                   )}
                 </div>
+                <LotteryAutoBetButton
+                  key={activeGame}
+                  game={activeGame}
+                  combinations={prediction.combinations}
+                />
               </div>
             </section>
             )}
