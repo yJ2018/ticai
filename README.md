@@ -93,7 +93,7 @@ npm run crawl:history     # 抓四个彩种最新一页
 | `npm run analysis:fixtures` | 重新导出对拍夹具（推荐 / 开奖 / AI 提示词） |
 | `npm run db:migrate` / `db:status` / `db:verify` | 迁移、状态、结构与约束自检 |
 | `npm run track:backfill` | 回填 / 巡检逐期参考归档（首次上线跑一次，之后爬虫开奖后增量补） |
-| `npm run crawl` / `crawl:daemon` | 爬虫入口 / 常驻调度（受销售时段闸门约束） |
+| `npm run crawl` / `crawl:daemon` / `crawl:supervised` | 爬虫入口 / 裸跑常驻 / 带守护的常驻（进程退出自动重启，无人值守用这个） |
 | `npm run deploy` | 前端 + API 一起发（`deploy:local` / `deploy:api` 可单发） |
 | `npm run deploy:analysis` | 发布 Python 分析服务（Vercel 项目 `ticai-analysis`） |
 | `npm run check:secrets` | 扫描暂存区密钥 |

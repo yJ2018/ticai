@@ -38,7 +38,8 @@
 - `apps/api`：独立服务端（只读库，REST + SSE），部署在 Vercel 项目 `ticai-service`。
 - `apps/analysis`：Python 分析服务（FastAPI），部署在 Vercel 项目 `ticai-analysis`；入口 `api/index.py`，
   推荐逻辑在 `app/recommend/`，通过 `npm run analysis:fixtures` 生成的对拍夹具与 Node 版保持一致。
-- `apps/crawler`：本地爬虫（只写库），`npm run crawl:daemon` 常驻；受竞彩销售时段闸门约束。
+- `apps/crawler`：本地爬虫（只写库），`npm run crawl:daemon` 常驻；无人值守用 `npm run crawl:supervised`
+  （`scripts/crawl-supervisor.mjs` 在 daemon 退出后自动重启，2026-11-03 曾因未捕获的 `ECONNRESET` 停更一天）；受竞彩销售时段闸门约束。
 - `db/`：迁移与保留策略，`npm run db:migrate` 执行。
 - 前端是 **Next.js 16 App Router**（`src/app`），部署在 Vercel 项目 `ticai`；页面外壳在根 layout（Keep-Alive 依赖它跨路由不卸载），路由清单在 `src/router/manifest.ts`。
 - 前端与 API 同源：`next.config.ts` 的 rewrite 把 `/api/**` 转到 `ticai-service`（本地转到 3001），浏览器 bundle 里不写死域名。

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 
 import { formatClock, isBettingOpen, msUntilWindowOpen } from './bet-window.mjs'
 import { createConfig, loadEnv } from './config.mjs'
-import { createPool } from './db.mjs'
+import { createPool, failOrphanRuns } from './db.mjs'
 import { msUntilNextDaily } from './daily-schedule.mjs'
 import { crawlDetails } from './tasks/details.mjs'
 import { expireStartedMatches } from './tasks/expire.mjs'
@@ -38,6 +38,18 @@ if (!config.database.url) {
 }
 
 const pool = createPool(config.database)
+
+// 上一轮如果是崩溃收场，crawl_run 会留下永远 running 的记录；开机先收尾再调度
+failOrphanRuns(pool)
+  .then((count) => {
+    if (count > 0) {
+      console.log(`[crawler] 清理 ${count} 条上次中断留下的 running 记账`)
+    }
+  })
+  .catch((error) => {
+    console.error('[crawler] 清理中断记账失败：', error.message)
+  })
+
 const queued = new Set()
 const busy = new Set()
 let stopping = false
@@ -297,4 +309,10 @@ process.on('SIGTERM', () => shutdown('SIGTERM'))
 // 常驻进程不能因为一次未捕获的拒绝就静默退出：记录后继续跑，下一轮照常调度。
 process.on('unhandledRejection', (reason) => {
   console.error('[crawler] 未处理的 Promise 拒绝：', reason instanceof Error ? reason.message : reason)
+})
+
+// 真正的未捕获异常无法安全续跑：留下栈再退出，交给 supervisor 拉起。
+process.on('uncaughtException', (error) => {
+  console.error('[crawler] 未捕获异常，进程退出（supervisor 会自动重启）：', error)
+  process.exit(1)
 })

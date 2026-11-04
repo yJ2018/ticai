@@ -32,6 +32,7 @@
     "crawl:history": "node apps/crawler/src/index.mjs history",
     "crawl:details": "node apps/crawler/src/index.mjs details",
     "crawl:daemon": "node apps/crawler/src/daemon.mjs",
+    "crawl:supervised": "node scripts/crawl-supervisor.mjs",
     "crawl:lineups": "node apps/crawler/src/index.mjs lineups-espn",
     "crawl:test": "node --test apps/crawler/test",
     "hooks:install": "node scripts/install-git-hooks.mjs",

@@ -8,7 +8,7 @@ import { HttpError } from './lib.mjs'
  * 健康检查都不会被拖死。
  */
 
-const state = (globalThis.__ticaiDb ??= { pool: null, pending: null })
+const state = (globalThis.__ticaiDb ??= { pool: null, pending: null, guarded: new WeakSet() })
 
 export async function getPool(config) {
   if (state.pool) {
@@ -72,16 +72,35 @@ export async function query(config, text, params = []) {
 export async function withTransaction(config, handler) {
   const pool = await getPool(config)
   const client = await pool.connect()
+
+  // 借出的连接被上游断开时，pg 会在这个 Client 上 emit('error')；
+  // 没有监听器时 Node 按未捕获异常处理，整个函数实例会挂掉。
+  // 监听器只记日志，失败仍由本次 query 的 reject 返回。
+  if (!state.guarded.has(client)) {
+    state.guarded.add(client)
+    client.on('error', (error) => {
+      console.error('[db] 借出连接异常（已交给本次查询处理）：', error.message)
+    })
+  }
+
+  let broken = null
   try {
     await client.query('begin')
     const result = await handler(client)
     await client.query('commit')
     return result
   } catch (error) {
-    await client.query('rollback').catch(() => {})
+    // 回滚都失败说明连接已经断了，别把死连接还回池里
+    const rolledBack = await client.query('rollback').then(
+      () => true,
+      () => false,
+    )
+    if (!rolledBack) {
+      broken = error
+    }
     throw error
   } finally {
-    client.release()
+    client.release(broken ?? undefined)
   }
 }
 

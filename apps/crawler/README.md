@@ -159,8 +159,15 @@ node apps/crawler/src/index.mjs lineups-espn --dry        # 预演，写入后�
 **本地常驻（推荐）**：抓取在本机完成，直接写云端数据库。
 
 ```bash
-npm run crawl:daemon
+npm run crawl:supervised   # 带守护：进程退出按 5s→60s 退避自动重启（无人值守用这个）
+npm run crawl:daemon       # 裸跑：调试时用，挂掉不会自己起来
 ```
+
+> **2026-11-03 停更事故**：裸跑的 `crawl:daemon` 在 `matches` 跨境写库时撞上 `write ECONNRESET`，
+> 借出中的 `pg` 连接没有 `error` 监听器，Node 按未捕获异常直接退出；外层没人重启，数据停更一天。
+> 现在 `db.mjs` 给每个借出的 Client 挂一次监听器（只记日志，本轮失败仍由 query 的 reject 上报），
+> 回滚也失败时用 `release(error)` 销毁坏连接；`scripts/crawl-supervisor.mjs` 再兜一层重启；
+> 启动时还会把 10 分钟前残留的 `running` 记账收尾成 `failed`，避免半条记录污染新鲜度判断。
 
 内置六条独立任务（`expire` 纯本地，不发请求），各自频率不同、串行执行（跨境写库延迟高，并发只会互相抢连接）：
 
@@ -209,7 +216,17 @@ npm run crawl:daemon
 Windows 开机自启：
 
 ```powershell
-schtasks /create /tn ticai-crawler /tr "cmd /c cd /d D:\ticai && npm run crawl:daemon" /sc onlogon /rl highest
+schtasks /create /tn ticai-crawler /tr "cmd /c cd /d D:\ticai && npm run crawl:supervised" /sc onlogon /rl highest
+```
+
+不想留着终端窗口时，直接后台起守护（守护会自己看住 daemon）：
+
+```powershell
+Start-Process -FilePath node -ArgumentList "scripts/crawl-supervisor.mjs" `
+  -WorkingDirectory D:\ticai -WindowStyle Hidden `
+  -RedirectStandardOutput D:\ticai\.tmp\crawler.log `
+  -RedirectStandardError  D:\ticai\.tmp\crawler.err.log
+Get-Content D:\ticai\.tmp\crawler.log -Encoding utf8 -Tail 20   # 日志是 UTF-8，PowerShell 记得带 -Encoding
 ```
 
 单机也可以改用 systemd timer：

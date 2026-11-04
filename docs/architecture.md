@@ -84,6 +84,7 @@ npm run dev:web             # 只起 Next
 npm run analysis:dev        # Python 分析服务 :3012（改分析逻辑时才需要）
 npm run analysis:test       # Python 单测 + 与 Node 的对拍
 npm run crawl:daemon        # 本地爬虫（抓上游、写云端库）
+npm run crawl:supervised    # 同上 + 守护：进程退出自动重启（无人值守用这个）
 
 npm run build               # next build → .next（静态 + SSR 函数）
 npm run web:start           # 本地跑生产产物（:3000）
@@ -317,6 +318,7 @@ D:\ticai
 │  ├─ export-*-fixtures.mjs    # 三家对拍夹具：推荐 / 开奖分析 / AI 提示词
 │  ├─ deploy-analysis.mjs      # 发布 Python 分析服务（Vercel 项目 ticai-analysis）
 │  ├─ ai-smoke.mjs             # npm run ai:check 密钥连通性自检
+│  ├─ crawl-supervisor.mjs     # 爬虫守护：子进程退出按 5s→60s 退避重启（npm run crawl:supervised）
 │  ├─ check-secrets.mjs        # 暂存区密钥扫描
 │  ├─ update-architecture.mjs  # 按文件清单生成 architecture.svg/.png
 │  ├─ install-git-hooks.mjs    # 安装 pre-commit / pre-push hooks
@@ -1328,6 +1330,9 @@ flowchart LR
 - **串行队列**：跨境写库延迟高，几条链路排队执行；上一轮没跑完时同一任务不会重复入队。
 - **已开赛兜底**：体彩在结算前仍会返回已开赛的比赛，`matches` 写库时按 `kickoff_at <= now()` 一律记 `closed`，否则会把 `expire` 的结果改回在售。
 - **跨零点日期**：`businessDate` 是销售日，凌晨场次的真实比赛日在元素 `matchDate` 上；`kickoff_at` 用 `resolveMatchDate` 拼日期。只按销售日拼会把凌晨场次提前 24 小时，上面那条兜底会连带把在售状态和阵容一起藏掉。
+- **崩溃自愈**：`scripts/crawl-supervisor.mjs`（`npm run crawl:supervised`）包一层子进程，`daemon.mjs` 任何原因退出都按 5s→60s 退避重启，日志仍写同一份 stdout。2026-11-03 的停更就是没有这层：`matches` 跨境写库时连接被上游重置（`write ECONNRESET`），借出中的 `pg` Client 在无监听器的情况下 `emit('error')`，Node 按未捕获异常直接退出，之后一整天无人写库。
+- **借出连接必须挂 error 监听**：连接池只兜住「空闲连接」的 `error`；`pool.connect()` 借出的 Client 一旦被断开，没有监听器就会带走整个进程。`db.mjs` 给每个借出 Client 挂一次监听（只记日志，失败仍由本次 query 的 reject 返回），并在回滚也失败时用 `release(error)` 销毁坏连接而不是放回池里。
+- **中断记账收尾**：启动时把 10 分钟前还停在 `running` 的 `crawl_run` 标成 `failed`（`failOrphanRuns`），否则崩溃留下的半条记录会一直污染排障与新鲜度判断。
 
 单测覆盖：`normalize`（赛程/开奖/伤停）、`results`（赛果推导：比分 key、半全场、让球、总进球封顶、日期切块）、`daily-schedule`（09:00 倒计时）、`bet-window`（开盘边界与补跑倒计时），共 40 个；API 侧 52 个，覆盖 `reshape`、`prompt`、`parlay-prompt`、`match-detail`、`settlement`、`request-security`、`wechat`。
 
