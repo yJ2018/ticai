@@ -159,6 +159,18 @@
     color: #fff;
     font-weight: 700;
   }
+
+  &.is-main.is-active {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+  }
+
+  &.is-back.is-active {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+  }
+
+  &.is-kl8.is-active {
+    background: linear-gradient(135deg, #059669, #10b981);
+  }
 }
 
 .lottery-pick__summary {
@@ -346,6 +358,16 @@
   &.is-back {
     background: #fdf2f8;
     color: #be185d;
+  }
+
+  &.is-red {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  &.is-kl8 {
+    background: #ecfdf5;
+    color: #047857;
   }
 
   &.is-hit {

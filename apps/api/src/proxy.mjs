@@ -23,7 +23,7 @@ const LOTTERY_ANALYSIS_PATH = '/api/analysis/lottery'
 /**
  * 哪些分析请求走 Python。
  *
- * 目前 `/api/recommendations`、`/api/analysis/lottery`（prediction / math_trend / dlt）、
+ * 目前 `/api/recommendations`、`/api/analysis/lottery`（prediction / math_trend / dlt / ssq / kl8）、
  * `/api/venue-weather`（DeepSeek 城市解析 + Open-Meteo）都已由 Python 计算；
  * 任一路径不可达时 Node 自动回退内联实现。
  */
@@ -83,6 +83,20 @@ export async function proxyAnalysis(ctx, config) {
     })
   } catch (error) {
     console.warn(`[api] 分析服务不可达（${base}），回退 Node 内联实现：${error?.message ?? error}`)
+    return false
+  }
+
+  // 版本错位兜底：Python 服务还没发布新 kind（ssq / kl8）时会返回 400；
+  // 这不是“上游不可达”，但 Node 内联实现能算，降级比把 400 抛给用户好。
+  // 400/404 在 Node 侧同样会重新校验（未知彩种 / 样本不足），不会伪造结果。
+  if (
+    ctx.url.pathname === LOTTERY_ANALYSIS_PATH &&
+    (response.status === 400 || response.status === 404)
+  ) {
+    const body = await response.text().catch(() => '')
+    console.warn(
+      `[api] 分析服务返回 ${response.status}，回退 Node 内联实现：${body.slice(0, 200)}`,
+    )
     return false
   }
 

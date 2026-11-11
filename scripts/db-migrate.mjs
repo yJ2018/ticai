@@ -267,9 +267,10 @@ async function commandVerify(client) {
     'league', 'team', 'team_alias', 'match', 'match_odds_snapshot',
     'player', 'injury', 'match_lineup', 'match_lineup_player',
     'external_ref', 'crawl_run',
+    'lottery_prediction_track', 'lottery_recommendation_track',
   ]
 
-  await check('14 张核心表存在', async () => {
+  await check('16 张核心表存在', async () => {
     const { rows } = await client.query(
       `select table_name from information_schema.tables
        where table_schema = 'public' and table_name = any($1::text[])`,
@@ -279,18 +280,19 @@ async function commandVerify(client) {
     if (missing.length > 0) {
       throw new Error(`缺少：${missing.join(', ')}`)
     }
-    return `${rows.length}/14`
+    return `${rows.length}/16`
   })
 
-  await check('两个视图存在', async () => {
+  await check('三个视图存在', async () => {
     const { rows } = await client.query(
       `select table_name from information_schema.views
-       where table_schema = 'public' and table_name in ('match_side','match_odds_latest')`,
+       where table_schema = 'public'
+         and table_name in ('match_side','match_odds_latest','lottery_recommendation_track_latest')`,
     )
-    if (rows.length !== 2) {
+    if (rows.length !== 3) {
       throw new Error(`只找到 ${rows.length} 个视图`)
     }
-    return 'match_side, match_odds_latest'
+    return 'match_side, match_odds_latest, lottery_recommendation_track_latest'
   })
 
   await check('match_result 已固化总进球赔率列', async () => {
@@ -305,12 +307,12 @@ async function commandVerify(client) {
     return 'ttg_odds, ttg_odds_captured_at'
   })
 
-  await check('四个彩种已种子化', async () => {
+  await check('六个彩种已种子化', async () => {
     const { rows } = await client.query(
       `select game_key from lottery_game where game_key = any($1::text[]) order by game_key`,
-      [['pl3', 'pl5', 'dlt', 'qxc']],
+      [['pl3', 'pl5', 'dlt', 'qxc', 'ssq', 'kl8']],
     )
-    if (rows.length !== 4) {
+    if (rows.length !== 6) {
       throw new Error(`只有 ${rows.length} 个，先跑 npm run db:seed`)
     }
     return rows.map((row) => row.game_key).join(', ')

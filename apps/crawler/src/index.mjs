@@ -17,7 +17,7 @@ import { crawlMatchResults } from './tasks/results.mjs'
  * 爬虫入口。
  *
  *   node src/index.mjs matches                 抓一次在售赛程与赔率
- *   node src/index.mjs history                 抓四个彩种的最新一页
+ *   node src/index.mjs history                 抓六个彩种的最新一页
  *   node src/index.mjs history --backfill      逐页回灌全部历史
  *   node src/index.mjs all --every=60          循环执行（默认只跑一次）
  *
@@ -55,7 +55,7 @@ ticai crawler
 命令：
   matches   在售赛程 + 赔率，按内容 hash 去重写入快照
   results   赛果开奖：一次拿一批比赛的比分与各玩法结果
-  history   四个彩种开奖；--backfill 逐页回灌
+  history   六个彩种开奖（体彩 + 福彩）；--backfill 逐页回灌
   details   对战数据：默认伤停 + 积分/交锋/近况/射手，--injury-only 只抓伤停
   lineups   导入阵容（JSON），--dry 只预演不落库
   lineups-espn  从 ESPN 抓赛前首发（纯 HTTP，不用浏览器）

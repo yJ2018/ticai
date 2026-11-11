@@ -5,7 +5,7 @@ import { request } from './httpClient'
 
 export type MarketPool = 'had' | 'hhad' | 'ttg' | 'crs' | 'hafu'
 
-export type LotteryGameKey = 'pl5' | 'qxc' | 'dlt'
+export type LotteryGameKey = 'pl5' | 'qxc' | 'dlt' | 'ssq' | 'kl8'
 
 export type LotteryNumbers = {
   /** 位次型：number[][]（每位可多选）；大乐透：number[]（前区池） */

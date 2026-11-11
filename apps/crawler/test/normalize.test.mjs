@@ -5,9 +5,11 @@ import {
   hashOdds,
   normalizeDraw,
   normalizeMatch,
+  normalizeWelfareDraw,
   parseKickoff,
   parseMoney,
   parseNumbers,
+  parseWelfareNumbers,
   resolveMatchDate,
   stableStringify,
 } from '../src/normalize.mjs'
@@ -175,6 +177,110 @@ test('normalizeDraw: 期号或日期异常时抛错，交给上层跳过', () =>
   assert.throws(
     () => normalizeDraw({ lotteryDrawNum: '1', lotteryDrawResult: '1 2 3' }, game),
     /开奖日期非法/,
+  )
+})
+
+/* ── 福彩：双色球 / 快乐8 ─────────────────────────────── */
+
+test('parseWelfareNumbers: 双色球 6 红 + 1 蓝，按逗号拆两位数号码', () => {
+  const result = parseWelfareNumbers('03,09,16,20,25,30', '05', {
+    mainCount: 6,
+    extraCount: 1,
+    mainMax: 33,
+    extraMax: 16,
+  })
+  assert.deepEqual(result.main, [3, 9, 16, 20, 25, 30])
+  assert.deepEqual(result.extra, [5])
+})
+
+test('parseWelfareNumbers: 快乐8 只有 20 个主号码', () => {
+  const red = '08,12,17,23,28,30,31,33,35,39,43,45,47,51,52,58,63,66,69,75'
+  const result = parseWelfareNumbers(red, '', {
+    mainCount: 20,
+    extraCount: 0,
+    mainMax: 80,
+  })
+  assert.equal(result.main.length, 20)
+  assert.deepEqual(result.main.slice(0, 3), [8, 12, 17])
+})
+
+test('parseWelfareNumbers: 个数或范围不对必须报错', () => {
+  assert.throws(
+    () => parseWelfareNumbers('01,02,03', '05', { mainCount: 6, extraCount: 1, mainMax: 33, extraMax: 16 }),
+    /红球/,
+  )
+  assert.throws(
+    () =>
+      parseWelfareNumbers('01,02,03,04,05,34', '05', {
+        mainCount: 6,
+        extraCount: 1,
+        mainMax: 33,
+        extraMax: 16,
+      }),
+    /超出范围/,
+  )
+})
+
+test('normalizeWelfareDraw: 双色球写入号码、金额与 1–6 等奖', () => {
+  const row = normalizeWelfareDraw(
+    {
+      code: '2026129',
+      date: '2026-11-10(二)',
+      red: '03,09,16,20,25,30',
+      blue: '05',
+      sales: '409899552',
+      poolmoney: '1134076885',
+      prizegrades: [
+        { type: 1, typenum: '47', typemoney: '2127659' },
+        { type: 2, typenum: '304', typemoney: '65451' },
+        { type: 7, typenum: '', typemoney: '' },
+      ],
+    },
+    { gameNo: 'ssq', gameKey: 'ssq', mainCount: 6, mainMax: 33, extraCount: 1, extraMax: 16 },
+  )
+
+  assert.equal(row.issue, '2026129')
+  assert.equal(row.issueSeq, 2026129)
+  assert.equal(row.drawDate, '2026-11-10')
+  assert.deepEqual(row.mainNumbers, [3, 9, 16, 20, 25, 30])
+  assert.deepEqual(row.extraNumbers, [5])
+  assert.equal(row.numbersText, '03 09 16 20 25 30 05')
+  assert.equal(row.salesAmount, '409899552')
+  assert.equal(row.poolBalance, '1134076885')
+  assert.deepEqual(
+    row.prizes.map((prize) => [prize.prizeKey, prize.sortNo, prize.stakeCount, prize.prizeAmount]),
+    [
+      ['一等奖', 1, '47', '2127659'],
+      ['二等奖', 2, '304', '65451'],
+    ],
+  )
+})
+
+test('normalizeWelfareDraw: 快乐8 奖级映射成「选十中十」并按选号/命中排序', () => {
+  const row = normalizeWelfareDraw(
+    {
+      code: '2026300',
+      date: '2026-11-10(二)',
+      red: '08,12,17,23,28,30,31,33,35,39,43,45,47,51,52,58,63,66,69,75',
+      blue: '',
+      sales: '102967106',
+      poolmoney: '71482684.76',
+      prizegrades: [
+        { type: 'x10z9', typenum: '66', typemoney: '8000' },
+        { type: 'x10z10', typenum: '3', typemoney: '5000000' },
+        { type: 'x1z1', typenum: '40197', typemoney: '4.5' },
+      ],
+    },
+    { gameNo: 'kl8', gameKey: 'kl8', mainCount: 20, mainMax: 80, extraCount: 0 },
+  )
+
+  assert.deepEqual(
+    row.prizes.map((prize) => [prize.prizeKey, prize.sortNo]),
+    [
+      ['选十中十', 0],
+      ['选十中九', 1],
+      ['选一中一', 909],
+    ],
   )
 })
 import { parseGoalPair, parseResultEntries, parseInjuryEntries } from '../src/normalize.mjs'

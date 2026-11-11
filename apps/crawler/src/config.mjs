@@ -53,6 +53,8 @@ export function createConfig() {
       statementTimeoutMs: intEnv('CRAWL_STATEMENT_TIMEOUT_MS', 180_000),
     },
     sportteryBase: (process.env.SPORTTERY_BASE || 'https://webapi.sporttery.cn').replace(/\/$/, ''),
+    // 福彩开奖公告（双色球 / 快乐8）
+    cwlBase: (process.env.CWL_BASE || 'https://www.cwl.gov.cn').replace(/\/$/, ''),
     // 两个请求之间至少隔这么久，别把体彩当自家接口打
     delayMs: intEnv('CRAWL_DELAY_MS', 1_200),
     timeoutMs: intEnv('CRAWL_TIMEOUT_MS', 20_000),
@@ -80,7 +82,7 @@ export function createConfig() {
     retries: intEnv('CRAWL_RETRIES', 2),
     historyPageSize: intEnv('CRAWL_HISTORY_PAGE_SIZE', 100),
     maxPages: intEnv('CRAWL_MAX_PAGES', 200),
-    gameNos: (process.env.CRAWL_GAMES || '350133,35,85,04')
+    gameNos: (process.env.CRAWL_GAMES || '350133,35,85,04,ssq,kl8')
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean),

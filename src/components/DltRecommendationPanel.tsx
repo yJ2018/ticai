@@ -1,10 +1,12 @@
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import { type DltRecommendation } from '../domain/analysisTypes'
 import { formatDltBigSmall, formatDltOddEven, formatDltZones } from '../domain/dltIndicators'
 
 type DltRecommendationPanelProps = {
   /** 服务端算好的推演快照；为空时展示空态 */
   recommendation?: DltRecommendation | null
+  /** 推荐卡右上角的一键投注按钮 */
+  quickBet?: ReactNode
 }
 
 /**
@@ -18,6 +20,7 @@ type DltRecommendationPanelProps = {
  */
 export const DltRecommendationPanel = memo(function DltRecommendationPanel({
   recommendation,
+  quickBet,
 }: DltRecommendationPanelProps) {
   if (!recommendation) {
     return (
@@ -45,9 +48,12 @@ export const DltRecommendationPanel = memo(function DltRecommendationPanel({
             近 {windowLabel} 期 · 前区 5 + 后区 2
           </h3>
         </div>
-        <p className="dlt-recommend__desc">
-          综合频次、遗漏与和值 / 跨度 / 奇偶 / 大小 / 三区形态筛选，仅作娱乐参考。
-        </p>
+        <div className="dlt-recommend__header-side">
+          <p className="dlt-recommend__desc">
+            综合频次、遗漏与和值 / 跨度 / 奇偶 / 大小 / 三区形态筛选，仅作娱乐参考。
+          </p>
+          {quickBet && <div className="dlt-recommend__quick">{quickBet}</div>}
+        </div>
       </header>
 
       <div className="dlt-recommend__body">

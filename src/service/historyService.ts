@@ -23,6 +23,15 @@ const HISTORY_GAME_CONFIG: Record<LotteryHistoryGameType, { gameNo: string; labe
     gameNo: '85',
     label: '大乐透',
   },
+  ssq: {
+    // 福彩接口的 game_no 就是 ssq
+    gameNo: 'ssq',
+    label: '双色球',
+  },
+  kl8: {
+    gameNo: 'kl8',
+    label: '快乐8',
+  },
 }
 
 /** 上一版用的是 localStorage，这里保留 key 仅用于一次性迁移 */
@@ -32,7 +41,6 @@ const HISTORY_ARCHIVE_PAGE_SIZE = 100
 const HISTORY_INCREMENTAL_SYNC_INTERVAL_MS = 10 * 60 * 1000
 /** IndexedDB 内的条目上限：超出后按开奖期号裁剪最旧记录 */
 const HISTORY_MAX_STORED_ENTRIES = 20_000
-
 /** 当前进程内的权威缓存；IndexedDB 只负责持久化 */
 const cacheByGame = new Map<LotteryHistoryGameType, LotteryHistoryCache>()
 const loadPromises = new Map<LotteryHistoryGameType, Promise<LotteryHistoryCache | null>>()

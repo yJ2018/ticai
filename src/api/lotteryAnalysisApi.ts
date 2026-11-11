@@ -5,6 +5,7 @@ import {
   type HistoryPredictionAnalysis,
   type MathTrendPredictionAnalysis,
 } from '../domain/analysisTypes'
+import { type Kl8Recommendation, type SsqRecommendation } from '../domain/welfareAnalysis'
 
 /**
  * 开奖分析快照（服务端预算）。
@@ -14,7 +15,7 @@ import {
  * 这里只取最新一条，并把溯源（基于哪一期 / 哪一天 / 多少期样本）一起带回来。
  */
 
-export type LotteryAnalysisKind = 'prediction' | 'math_trend' | 'dlt'
+export type LotteryAnalysisKind = 'prediction' | 'math_trend' | 'dlt' | 'ssq' | 'kl8'
 
 export type LotteryAnalysisSample = {
   throughIssue: string
@@ -67,10 +68,12 @@ export type AnalysisSnapshotKindMap = {
   prediction: HistoryPredictionAnalysis
   math_trend: MathTrendPredictionAnalysis
   dlt: DltRecommendation
+  ssq: SsqRecommendation
+  kl8: Kl8Recommendation
 }
 
 export type AnalysisRequestParams = {
-  /** pl5 / qxc / dlt，也接受体彩 gameNo */
+  /** pl5 / qxc / dlt / ssq / kl8，也接受彩种编号 */
   game: string
   kind?: LotteryAnalysisKind
   /** 马尔可夫阶数 1–5（只有 prediction 生效，服务端已预算好 5 档） */

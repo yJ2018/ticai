@@ -98,7 +98,7 @@ export default function App() {
       {!isFullscreen && (
         <header className={`app-topbar${isNavOpen ? ' is-nav-open' : ''}`}>
           <div className="app-topbar__title">
-            <strong>体彩助手</strong>
+            <strong>彩票助手</strong>
             <span>赛事投注与开奖历史</span>
           </div>
           <nav

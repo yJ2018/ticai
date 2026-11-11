@@ -116,7 +116,7 @@ export function LotteryBetGroup({
       {group.draw && (
         <div className="lottery-bet__draw lottery-group__draw">
           <span>开奖号码</span>
-          <LotteryBalls main={group.draw.main} extra={group.draw.extra} />
+          <LotteryBalls main={group.draw.main} extra={group.draw.extra} gameKey={group.gameKey} />
         </div>
       )}
 
@@ -152,6 +152,8 @@ export function LotteryBetGroup({
                     main={lottery.numbers.main as number[]}
                     extra={lottery.numbers.extra}
                     matched={drawn ? lottery.matchedMain : undefined}
+                    matchedExtra={drawn ? lottery.matchedExtra : undefined}
+                    gameKey={lottery.gameKey}
                   />
                 )}
               </div>
@@ -193,7 +195,7 @@ export function LotteryBetGroup({
       </footer>
 
       {captureError && <p className="lottery-group__error">{captureError}</p>}
-      <p className="lottery-group__snapshot-foot">体彩助手 · 我的投注 · 仅作娱乐参考</p>
+      <p className="lottery-group__snapshot-foot">彩票助手 · 我的投注 · 仅作娱乐参考</p>
     </article>
   )
 }
@@ -202,12 +204,7 @@ function TicketResult({ bet, lottery }: { bet: Bet; lottery: LotteryBetInfo }) {
   const nested =
     Array.isArray(lottery.numbers.main) &&
     Array.isArray((lottery.numbers.main as number[][])[0])
-  const mainCount = nested
-    ? (lottery.numbers.main as number[][]).length
-    : (lottery.numbers.main as number[]).length
-  const hitText = lottery.positional
-    ? `命中 ${lottery.hits.main}/${mainCount} 位`
-    : `命中 前区 ${lottery.hits.main}/${mainCount} · 后区 ${lottery.hits.extra}/${lottery.numbers.extra.length}`
+  const hitText = lotteryHitText(lottery, nested)
   const tierText = lottery.tiers.map((item) => `${item.tier} ${item.units} 注`).join(' / ')
 
   if (bet.status === 'won') {
@@ -231,6 +228,23 @@ function TicketResult({ bet, lottery }: { bet: Bet; lottery: LotteryBetInfo }) {
   return <span>{hitText}</span>
 }
 
+/** 不同彩种的命中口径：位次 / 双色球红蓝 / 快乐8 选十 / 大乐透前后区 */
+function lotteryHitText(lottery: LotteryBetInfo, nested: boolean) {
+  if (lottery.positional) {
+    const mainCount = nested
+      ? (lottery.numbers.main as number[][]).length
+      : (lottery.numbers.main as number[]).length
+    return `命中 ${lottery.hits.main}/${mainCount} 位`
+  }
+  if (lottery.gameKey === 'ssq') {
+    return `红球命中 ${lottery.hits.main}/6 · 蓝球 ${lottery.hits.extra}/1`
+  }
+  if (lottery.gameKey === 'kl8') {
+    return `选十命中 ${lottery.hits.main}/10`
+  }
+  return `前区 ${lottery.hits.main}/5 · 后区 ${lottery.hits.extra}/2`
+}
+
 function pad2(value: number) {
   return String(value).padStart(2, '0')
 }
@@ -239,24 +253,32 @@ function LotteryBalls({
   main,
   extra,
   matched,
+  matchedExtra,
+  gameKey,
 }: {
   main: number[]
   extra: number[]
   matched?: boolean[]
+  matchedExtra?: boolean[]
+  gameKey?: string
 }) {
+  const tone = gameKey === 'ssq' ? ' is-red' : gameKey === 'kl8' ? ' is-kl8' : ''
   return (
     <p className="lottery-bet__balls">
       {main.map((value, index) => (
         <span
           key={`main-${index}`}
-          className={`lottery-bet__ball${matched?.[index] ? ' is-hit' : ''}`}
+          className={`lottery-bet__ball${tone}${matched?.[index] ? ' is-hit' : ''}`}
         >
           {pad2(value)}
         </span>
       ))}
       {extra.length > 0 && <span className="lottery-bet__plus">+</span>}
       {extra.map((value, index) => (
-        <span key={`extra-${index}`} className="lottery-bet__ball is-back">
+        <span
+          key={`extra-${index}`}
+          className={`lottery-bet__ball is-back${matchedExtra?.[index] ? ' is-hit' : ''}`}
+        >
           {pad2(value)}
         </span>
       ))}

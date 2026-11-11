@@ -39,7 +39,7 @@ def latest(
     handler_started = time.perf_counter()
 
     if not GAME_PATTERN.match(game):
-        raise AnalysisError(400, "game 参数不合法（用 pl5 / qxc / dlt 或体彩 gameNo）")
+        raise AnalysisError(400, "game 参数不合法（用 pl5 / qxc / dlt / ssq / kl8 或彩种编号）")
     game_row = load_game_row(game)
     if not game_row:
         raise AnalysisError(404, f"未知彩种：{game}（请先执行 npm run db:seed）")

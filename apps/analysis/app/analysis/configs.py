@@ -8,7 +8,7 @@ import re
 from .prediction import DEFAULT_PREDICTION_SCORE_WEIGHTS
 
 ENGINE_VERSION = "snapshot-1"
-KINDS = ("prediction", "math_trend", "dlt")
+KINDS = ("prediction", "math_trend", "dlt", "ssq", "kl8")
 PREDICTION_MARKOV_ORDERS = (1, 2, 3, 4, 5)
 PREDICTION_DEFAULT_ORDER = 2
 
@@ -20,12 +20,22 @@ MATH_TREND_DEFAULTS = {
 }
 
 DLT_WINDOW = 300
+SSQ_WINDOW = 300
+KL8_WINDOW = 300
 
 _WEIGHT_KEYS = ("recent", "long", "omission", "transition", "pairTransition")
 
 
 def default_kind_for_game(game: dict) -> str:
-    return "prediction" if game.get("is_positional") else "dlt"
+    if game.get("is_positional"):
+        return "prediction"
+    if game.get("game_key") == "dlt":
+        return "dlt"
+    if game.get("game_key") == "ssq":
+        return "ssq"
+    if game.get("game_key") == "kl8":
+        return "kl8"
+    return "dlt"
 
 
 def _clamp_int(value, fallback: int, minimum: int, maximum: int) -> int:
@@ -119,6 +129,14 @@ def dlt_config_key() -> str:
     return f"window={DLT_WINDOW}"
 
 
+def ssq_config_key() -> str:
+    return f"window={SSQ_WINDOW}"
+
+
+def kl8_config_key() -> str:
+    return f"window={KL8_WINDOW}"
+
+
 def analysis_options(kind: str, game: dict, config_key: str) -> dict:
     if kind == "prediction":
         return {**parse_prediction_config_key(config_key), "positionCount": game.get("main_count") or 5}
@@ -128,12 +146,22 @@ def analysis_options(kind: str, game: dict, config_key: str) -> dict:
 
 
 def presets_for_game(game: dict) -> list[dict]:
-    if game.get("game_key") == "dlt" or not game.get("is_positional"):
-        return [{"kind": "dlt", "configKey": dlt_config_key(), "options": {}}] if game.get("game_key") == "dlt" else []
+    if game.get("is_positional"):
+        presets = [
+            {
+                "kind": "prediction",
+                "configKey": prediction_config_key({"markovOrder": order}),
+                "options": {"markovOrder": order},
+            }
+            for order in PREDICTION_MARKOV_ORDERS
+        ]
+        presets.append({"kind": "math_trend", "configKey": math_trend_config_key(), "options": {}})
+        return presets
 
-    presets = [
-        {"kind": "prediction", "configKey": prediction_config_key({"markovOrder": order}), "options": {"markovOrder": order}}
-        for order in PREDICTION_MARKOV_ORDERS
-    ]
-    presets.append({"kind": "math_trend", "configKey": math_trend_config_key(), "options": {}})
-    return presets
+    if game.get("game_key") == "ssq":
+        return [{"kind": "ssq", "configKey": ssq_config_key(), "options": {}}]
+    if game.get("game_key") == "kl8":
+        return [{"kind": "kl8", "configKey": kl8_config_key(), "options": {}}]
+    if game.get("game_key") == "dlt":
+        return [{"kind": "dlt", "configKey": dlt_config_key(), "options": {}}]
+    return []

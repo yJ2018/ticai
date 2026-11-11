@@ -17,10 +17,11 @@ import '../styles/global.scss'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: '体彩助手 · 竞彩足球赛程、赔率与开奖结果',
+  title: '彩票助手 · 竞彩赛程、赔率与开奖历史',
   description: DEFAULT_DESCRIPTION,
   applicationName: SITE_NAME,
-  keywords: '竞彩足球,体彩,竞彩赛程,竞彩赔率,竞彩开奖结果,比分,总进球,半全场,胜平负,体彩助手',
+  keywords:
+    '竞彩足球,体彩,福彩,双色球,快乐8,大乐透,七星彩,排列五,开奖历史,号码走势,遗漏分析,推荐命中,彩票助手',
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '16x16 32x32 48x48' },
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: SITE_NAME,
     locale: 'zh_CN',
-    images: [{ url: '/og-cover.png', width: 1200, height: 630, alt: '体彩助手 · 竞彩赛程与开奖结果' }],
+    images: [{ url: '/og-cover.png', width: 1200, height: 630, alt: '彩票助手 · 竞彩赛程与开奖结果' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -55,8 +56,8 @@ const siteJsonLd = {
       '@id': `${SITE_URL}/#website`,
       url: `${SITE_URL}/`,
       name: SITE_NAME,
-      alternateName: ['ticai', '体彩助手 · 竞彩足球'],
-      description: '竞彩足球赛程、赔率、开奖结果与历史数据分析工具。',
+      alternateName: ['ticai', '彩票助手 · 竞彩足球'],
+      description: '竞彩足球赛程、赔率、开奖结果，以及体彩 / 福彩号码走势与推荐命中分析工具。',
       inLanguage: 'zh-CN',
     },
     {

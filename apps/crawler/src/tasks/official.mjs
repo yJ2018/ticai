@@ -10,7 +10,7 @@ import { crawlMatchResults } from './results.mjs'
  *   expire   本地状态收敛（不发请求）
  *   matches  在售赛程 + 赔率
  *   results  赛果开奖（比分 + 各玩法结果）
- *   history  四彩种开奖
+ *   history  六彩种开奖（体彩 + 福彩）
  *   details  伤停 / 交锋 / 近况 / 排名（7 个官方源）
  *
  * 不包含阵容——阵容来自 ESPN，赛前约 1 小时才公布，

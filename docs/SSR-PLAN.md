@@ -424,7 +424,7 @@ curl -s http://127.0.0.1:4180/about | grep -E "<title>|canonical"
 | 项 | 结果 |
 | --- | --- |
 | `/about` 响应 | 200，`x-ssr: hit`，本地 50ms |
-| `/about` HTML | 带顶部导航 + 页面正文，`<title>关于体彩助手</title>`，canonical / robots 正确 |
+| `/about` HTML | 带顶部导航 + 页面正文，`<title>关于彩票助手</title>`，canonical / robots 正确 |
 | hydration | 控制台 0 error / 0 warning，`<textarea>` 受控输入正常 |
 | 非 SSR 路由 `/results` | 空壳 + 正确 meta，客户端正常渲染 |
 | 客户端路由切换 | title / canonical 正常更新（`applyPageMeta` 未被改坏） |

@@ -40,16 +40,18 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/maintenance.sql
 | `db/migrations/0002_match_feed.sql` | 对战数据原始订阅源（7 类 feed）+ `player.sporttery_person_id` |
 | `db/migrations/0003_match_result.sql` | 竞彩赛果开奖：比分 + `had/hhad/ttg/crs/hafu` 结果 + 关联 `match` |
 | `db/migrations/0004_auth_bets.sql` | 可选登录（`app_user` / `email_code` / `user_session`）与投注单（`bet` / `bet_leg`） |
-| `db/migrations/0009_lottery_bets.sql` | `bet` 扩展 `kind` / `lottery_game_no` / `lottery_numbers`，支持排列五 / 七星彩 / 大乐透选号投注 |
+| `db/migrations/0009_lottery_bets.sql` | `bet` 扩展 `kind` / `lottery_game_no` / `lottery_numbers`，支持排列五 / 七星彩 / 大乐透 / 双色球 / 快乐8 选号投注 |
 | `db/migrations/0010_lottery_complex.sql` | 彩票复式：位次型号码改为「每位一个数组」，旧单式数据原地转换；注数按位乘积/组合数计算 |
 | `db/migrations/0011_match_result_ttg_odds.sql` | `match_result` 增加 `ttg_odds` / `ttg_odds_captured_at`：赛果入库时固化最后一份总进球赔率，赔率快照裁剪后仍可做不限时间的历史分布 |
 | `db/migrations/0012_match_result_closing_odds.sql` | `match_result` 增加 `closing_odds` / `closing_odds_captured_at`：赛果入库时把五个玩法的收盘赔率整包固化，给「票面赔率 vs 开奖赔率」的奖金对比用；旧行从保留期内快照回填 |
 | `db/migrations/0013_prediction_track.sql` | 逐期参考归档 `lottery_prediction_track`（每期一行：参考 / 实际 / 逐位命中 / 组合对上几位）+ `lottery_prediction_track_stat`（累计与最近 1000 期命中）+ `lottery_prediction_track_latest` 视图 |
+| `db/migrations/0014_welfare_lottery.sql` | 彩种字典增加 `source` / `category`；新增号码池推荐命中归档 `lottery_recommendation_track` + `_stat` + `_latest` 视图（大乐透 / 双色球 / 快乐8） |
+| `db/migrations/0015_welfare_analysis_kind.sql` | 分析快照 `kind` 约束扩到 `prediction / math_trend / dlt / ssq / kl8` |
 | `db/migrations/0005_identities_wechat.sql` | 第三方身份（`user_identity`）+ 一次性登录票据（`auth_ticket`）；`app_user.email` 允许为空 |
 | `db/migrations/0006_wechat_password_nullable.sql` | 微信建的账号没有密码，`password_hash` 允许为空 |
 | `db/migrations/0007_analysis_snapshot.sql` | 开奖分析快照 `lottery_analysis_snapshot` + `lottery_analysis_latest` 视图 |
 | `db/migrations/0008_code_signup_password.sql` | 验证码登录即注册：`email_code.purpose` 增加 `bind`，`user_session.verified_by`，`app_user.password_updated_at` |
-| `db/seed/001_lottery_games.sql` | 四个彩种字典（gameNo 已逐个实测） |
+| `db/seed/001_lottery_games.sql` | 六个彩种字典（体彩 4 + 福彩 2，gameNo 已逐个实测） |
 | `db/maintenance.sql` | 保留策略与巡检查询 |
 | `scripts/db-migrate.mjs` | 迁移执行器：`up` / `seed` / `status` / `verify` |
 
@@ -61,14 +63,17 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/maintenance.sql
 
 ### gameNo 已验证
 
-| gameNo | 彩种 | 号码形态 | 历史期数 |
-| --- | --- | --- | --- |
-| `35` | 排列3 | `8 6 4`（3 位，位置型） | 7755 |
-| `350133` | 排列5 | `8 6 4 0 3`（5 位，位置型） | 7755 |
-| `85` | 超级大乐透 | `01 06 10 15 32 03 04`（前 5 + 后 2） | 2938 |
-| `04` | 七星彩 | `8 9 1 1 5 9 5`（7 位，位置型） | 3404 |
+| gameNo | 来源 | 彩种 | 号码形态 | 历史期数 |
+| --- | --- | --- | --- | --- |
+| `35` | 体彩 | 排列3 | `8 6 4`（3 位，位置型） | 7755 |
+| `350133` | 体彩 | 排列5 | `8 6 4 0 3`（5 位，位置型） | 7755 |
+| `85` | 体彩 | 超级大乐透 | `01 06 10 15 32 03 04`（前 5 + 后 2） | 2938 |
+| `04` | 体彩 | 七星彩 | `8 9 1 1 5 9 5`（7 位，位置型） | 3404 |
+| `ssq` | 福彩 | 双色球 | 红球 6/33 + 蓝球 1/16 | 2087 |
+| `kl8` | 福彩 | 快乐8 | 20/80 | 2121 |
 
 排列3 与排列5 **共用期号体系**（同期号都是 `26280`），所以主键必须是 `(game_no, issue)`。
+福彩两个彩种的 `game_no` 同时是官方公告接口的 `name` 参数（`name=ssq` / `name=kl8`）。
 
 ### 567 是请求头指纹，不是 IP 封锁
 
@@ -156,10 +161,12 @@ on conflict (sporttery_match_id) do update set
 | `match_odds_snapshot` | 120 天 | 一场每天 30-80 次变更，是唯一会失控的表；总进球收盘赔率与全玩法收盘赔率会先固化到 `match_result`（`ttg_odds` / `closing_odds`），不受裁剪影响 |
 | `crawl_run` | 30 天 | 只用于排障和新鲜度判断 |
 | `injury` | 未愈 + 近 1 年 | 历史伤病仅用于球员耐用度标签 |
-| `lottery_draw` | 永久 | 四个彩种合计约 1.7 万期，毫无压力 |
+| `lottery_draw` | 永久 | 六个彩种合计约 2.6 万期，毫无压力 |
 | `lottery_analysis_snapshot` | 永久 | 每期 × 每参数一条（约 11 KB），一年 ~80 MB；留着可以回看「当时模型怎么推的」 |
 | `lottery_prediction_track` | 永久 | 三彩种合计 18 851 行、约 30 MB（含索引）；每行 JSON 约 1.2 KB（逐位候选 + 组合 + 命中） |
 | `lottery_prediction_track_stat` | 永久（每彩种/参数 1 行） | 累计计数 + 最近 1000 期命中；每彩种 payload 约 5 KB + state 约 14 KB |
+| `lottery_recommendation_track` | 永久 | 大乐透 / 双色球 / 快乐8 各最近 300 期，共约 900 行；每行 JSON 约 1 KB（推荐 / 实际 / 命中 / 奖级） |
+| `lottery_recommendation_track_stat` | 永久（每彩种 1 行） | 累计命中 + 最近 1000 期窗口 + 奖级分布；payload 约 8 KB + state 约 20 KB |
 
 全部在 `db/maintenance.sql`，已实测：3 条阵容 + 3 条明细 → 清理后各剩 1 条，明细随外键级联删除。
 
@@ -199,7 +206,7 @@ grant usage, select on all sequences in schema public to ticai_crawler;
 - `db/maintenance.sql` 全量执行、阵容裁剪与级联删除
 - `npm run db:verify` 9 项自检全绿
 
-**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0013_prediction_track`，`npm run db:verify` 9 项自检全绿。数据库当前共 26 张表 + 4 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest` / `lottery_prediction_track_latest`）。
+**已接线**：API 读库层（`apps/api/src/repos/`）与爬虫本体（`apps/crawler`）都已按上面的契约落地，迁移文件覆盖 `0001_init` → `0015_welfare_analysis_kind`，`npm run db:verify` 9 项自检全绿。数据库当前共 28 张表 + 5 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest` / `lottery_prediction_track_latest` / `lottery_recommendation_track_latest`）。
 
 账号链路的三条新约定（`0008`）：
 

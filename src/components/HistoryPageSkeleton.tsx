@@ -3,18 +3,32 @@ import { type LotteryHistoryGameType } from '../domain/lotteryHistory'
 const TREND_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 const FRONT_AXIS = Array.from({ length: 35 }, (_, index) => index + 1)
 const BACK_AXIS = Array.from({ length: 12 }, (_, index) => index + 1)
+const SSQ_RED_AXIS = Array.from({ length: 33 }, (_, index) => index + 1)
+const SSQ_BLUE_AXIS = Array.from({ length: 16 }, (_, index) => index + 1)
+const KL8_AXIS = Array.from({ length: 80 }, (_, index) => index + 1)
 
 type SkeletonMeta = {
   positional: boolean
   mainCount: number
   extraCount: number
+  family: 'positional' | 'dlt' | 'ssq' | 'kl8'
+  axes: number[][]
 }
 
-/** 骨架屏按彩种变形：位次彩种铺走势列，大乐透铺明细表 */
+/** 骨架屏按彩种变形：位次彩种铺走势列，号码池彩种铺号码矩阵 */
 const SKELETON_META: Record<LotteryHistoryGameType, SkeletonMeta> = {
-  pl5: { positional: true, mainCount: 5, extraCount: 0 },
-  qxc: { positional: true, mainCount: 7, extraCount: 0 },
-  dlt: { positional: false, mainCount: 5, extraCount: 2 },
+  pl5: { positional: true, mainCount: 5, extraCount: 0, family: 'positional', axes: [] },
+  qxc: { positional: true, mainCount: 7, extraCount: 0, family: 'positional', axes: [] },
+  dlt: { positional: false, mainCount: 5, extraCount: 2, family: 'dlt', axes: [FRONT_AXIS, BACK_AXIS] },
+  ssq: { positional: false, mainCount: 6, extraCount: 1, family: 'ssq', axes: [SSQ_RED_AXIS, SSQ_BLUE_AXIS] },
+  kl8: { positional: false, mainCount: 20, extraCount: 0, family: 'kl8', axes: [KL8_AXIS] },
+}
+
+const DESKTOP_COLUMNS: Record<SkeletonMeta['family'], string> = {
+  positional: '',
+  dlt: '5.1rem minmax(0, 35fr) minmax(0, 12fr) 12.8rem',
+  ssq: '5.1rem minmax(0, 33fr) minmax(0, 16fr) 16rem',
+  kl8: '5.1rem minmax(0, 80fr) 20rem',
 }
 
 export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGameType }) {
@@ -95,13 +109,13 @@ export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGam
 
       <div
         className={`history-page__desktop history-page-skeleton__desktop${
-          meta.positional ? '' : ' is-dlt'
+          meta.positional ? '' : ` is-${meta.family}`
         }`}
         aria-hidden="true"
         style={{
           gridTemplateColumns: meta.positional
             ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr))`
-            : '5.1rem minmax(0, 35fr) minmax(0, 12fr) 12.8rem',
+            : DESKTOP_COLUMNS[meta.family],
         }}
       >
         <section className="trend-axis">
@@ -115,7 +129,7 @@ export function HistoryPageSkeleton({ game = 'pl5' }: { game?: LotteryHistoryGam
 
         {(meta.positional
           ? Array.from({ length: meta.mainCount }, () => TREND_DIGITS)
-          : [FRONT_AXIS, BACK_AXIS]
+          : meta.axes
         ).map((axis, panelIndex) => (
           <section key={panelIndex} className="trend-panel">
             <div className="trend-panel__header">

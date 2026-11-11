@@ -119,7 +119,8 @@ export async function failOrphanRuns(pool) {
 /** 从字典表读彩种结构，爬虫不硬编码号码位数。 */
 export async function loadGames(pool, keys) {
   const { rows } = await pool.query(
-    `select game_no, game_key, name, main_count, extra_count
+    `select game_no, game_key, name, main_count, main_max, extra_count, extra_max,
+            source, category
      from lottery_game
      where active and game_no = any($1::text[])
      order by game_key`,
@@ -130,6 +131,10 @@ export async function loadGames(pool, keys) {
     gameKey: row.game_key,
     name: row.name,
     mainCount: row.main_count,
+    mainMax: row.main_max,
     extraCount: row.extra_count,
+    extraMax: row.extra_max,
+    source: row.source,
+    category: row.category,
   }))
 }

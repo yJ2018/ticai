@@ -6,16 +6,21 @@ import { HttpError } from './lib.mjs'
  * 号码结构：
  *   - 排列五 / 七星彩（位次型）：{ main: [[1,2], [5], [4], [4], [8]], extra: [] }
  *     每个位次一个数组；单式就是每个数组只有 1 个数字。
- *   - 超级大乐透（组合型）：{ main: [1,6,10,15,32], extra: [3,8] }
- *     前区至少 5 个、后区至少 2 个；单式就是恰好 5 + 2。
+ *   - 超级大乐透（前后区）：{ main: [1,6,10,15,32], extra: [3,8] }
+ *   - 双色球（红蓝区）：{ main: [3,9,16,20,25,30], extra: [5] }
+ *   - 快乐8（选十）：{ main: [1, 8, 12, … 共 10 个], extra: [] }
  *
  * 注数：
  *   - 位次型：各位长度的乘积；
- *   - 大乐透：C(前区个数, 5) × C(后区个数, 2)。
+ *   - 大乐透：C(前区个数, 5) × C(后区个数, 2)；
+ *   - 双色球：C(红球个数, 6) × C(蓝球个数, 1)；
+ *   - 快乐8：固定选十，单式 1 注（不支持多于 10 个号码的复式）。
  *
  * 判定：
  *   - 排列五 / 七星彩：按位比对，全中记一等奖（低奖项规则未建模）；
  *   - 大乐透：按官方九个奖级，返回中奖注数与奖级列表；
+ *   - 双色球：按六个奖级，复式用组合数算各奖级注数；
+ *   - 快乐8：按选十奖级（10/9/8/7/6/5/0 中）；
  *   - 浮动奖金不代算（payout 恒为 0），以官方公告为准。
  */
 
@@ -51,6 +56,46 @@ export const LOTTERY_GAMES = {
     mainMax: 35,
     extraCount: 2,
     extraMax: 12,
+    mainLabel: '前区',
+    extraLabel: '后区',
+    drawMain: 5,
+    drawExtra: 2,
+    singleMain: 5,
+    singleExtra: 2,
+  },
+  ssq: {
+    key: 'ssq',
+    gameNo: 'ssq',
+    name: '双色球',
+    positional: false,
+    mainCount: 6,
+    mainMax: 33,
+    extraCount: 1,
+    extraMax: 16,
+    mainLabel: '红球',
+    extraLabel: '蓝球',
+    drawMain: 6,
+    drawExtra: 1,
+    singleMain: 6,
+    singleExtra: 1,
+  },
+  kl8: {
+    key: 'kl8',
+    gameNo: 'kl8',
+    name: '快乐8',
+    positional: false,
+    mainCount: 10,
+    mainMax: 80,
+    extraCount: 0,
+    extraMax: 0,
+    mainLabel: '选十号码',
+    extraLabel: '',
+    drawMain: 20,
+    drawExtra: 0,
+    singleMain: 10,
+    singleExtra: 0,
+    /** 只支持「选十」：必须正好 10 个号码 */
+    fixedMain: true,
   },
 }
 
@@ -67,7 +112,7 @@ export function resolveLotteryGame(value) {
   return LOTTERY_GAMES[raw.toLowerCase()] ?? BY_GAME_NO.get(raw) ?? null
 }
 
-/** 组合数 C(n, k)，n 不会很大（≤35），直接乘除即可。 */
+/** 组合数 C(n, k)，n 不会很大（≤80），直接乘除即可。 */
 export function combinationCount(n, k) {
   if (!Number.isInteger(n) || !Number.isInteger(k) || k < 0 || n < k) {
     return 0
@@ -112,33 +157,55 @@ function normalizePositional(game, raw) {
   return { numbers: { main, extra: [] }, units }
 }
 
-function normalizeDlt(game, raw) {
+function normalizePool(game, raw) {
+  const mainLabel = game.mainLabel ?? '主号码'
+  const extraLabel = game.extraLabel ?? '特别号码'
   const main = toIntegerArray(raw?.main)
-  if (!main || main.length < game.mainCount || main.length > game.mainMax) {
-    throw new HttpError(400, `${game.name}前区至少选 ${game.mainCount} 个（最多 ${game.mainMax} 个）`)
-  }
-  if (!isIntegerInRange(main, 1, game.mainMax)) {
-    throw new HttpError(400, `${game.name}前区号码必须是 1–${game.mainMax} 的整数`)
+  if (!main) {
+    throw new HttpError(400, `${game.name}号码格式不正确`)
   }
 
-  const extra = toIntegerArray(raw?.extra)
-  if (!extra || extra.length < game.extraCount || extra.length > game.extraMax) {
-    throw new HttpError(400, `${game.name}后区至少选 ${game.extraCount} 个（最多 ${game.extraMax} 个）`)
+  if (game.fixedMain) {
+    if (main.length !== game.mainCount) {
+      throw new HttpError(400, `${game.name}选十必须正好选 ${game.mainCount} 个号码`)
+    }
+  } else if (main.length < game.mainCount || main.length > game.mainMax) {
+    throw new HttpError(
+      400,
+      `${game.name}${mainLabel}至少选 ${game.mainCount} 个（最多 ${game.mainMax} 个）`,
+    )
   }
-  if (!isIntegerInRange(extra, 1, game.extraMax)) {
-    throw new HttpError(400, `${game.name}后区号码必须是 1–${game.extraMax} 的整数`)
+  if (!isIntegerInRange(main, 1, game.mainMax)) {
+    throw new HttpError(400, `${game.name}${mainLabel}号码必须是 1–${game.mainMax} 的整数`)
+  }
+
+  let extra = []
+  if (game.extraCount > 0) {
+    const rawExtra = toIntegerArray(raw?.extra)
+    if (!rawExtra || rawExtra.length < game.extraCount || rawExtra.length > game.extraMax) {
+      throw new HttpError(
+        400,
+        `${game.name}${extraLabel}至少选 ${game.extraCount} 个（最多 ${game.extraMax} 个）`,
+      )
+    }
+    if (!isIntegerInRange(rawExtra, 1, game.extraMax)) {
+      throw new HttpError(400, `${game.name}${extraLabel}号码必须是 1–${game.extraMax} 的整数`)
+    }
+    extra = rawExtra
   }
 
   const sortedMain = Array.from(new Set(main)).sort((left, right) => left - right)
   const sortedExtra = Array.from(new Set(extra)).sort((left, right) => left - right)
   if (sortedMain.length !== main.length) {
-    throw new HttpError(400, `${game.name}前区号码不能重复`)
+    throw new HttpError(400, `${game.name}${mainLabel}号码不能重复`)
   }
   if (sortedExtra.length !== extra.length) {
-    throw new HttpError(400, `${game.name}后区号码不能重复`)
+    throw new HttpError(400, `${game.name}${extraLabel}号码不能重复`)
   }
 
-  const units = combinationCount(sortedMain.length, game.mainCount) * combinationCount(sortedExtra.length, game.extraCount)
+  const mainUnits = combinationCount(sortedMain.length, game.mainCount)
+  const extraUnits = game.extraCount > 0 ? combinationCount(sortedExtra.length, game.extraCount) : 1
+  const units = mainUnits * extraUnits
   return { numbers: { main: sortedMain, extra: sortedExtra }, units }
 }
 
@@ -153,7 +220,7 @@ export function normalizeLotteryNumbers(gameKey, raw) {
     throw new HttpError(400, `不支持的彩种：${gameKey}`)
   }
 
-  const result = game.positional ? normalizePositional(game, raw) : normalizeDlt(game, raw)
+  const result = game.positional ? normalizePositional(game, raw) : normalizePool(game, raw)
   return {
     ...result,
     mode: result.units > 1 ? 'multiple' : 'single',
@@ -175,6 +242,40 @@ const DLT_TIERS = [
   { tier: '九等奖', main: 1, extra: 2 },
   { tier: '九等奖', main: 0, extra: 2 },
 ]
+
+const SSQ_TIERS = ['一等奖', '二等奖', '三等奖', '四等奖', '五等奖', '六等奖']
+const KL8_TIERS = [
+  '选十中十',
+  '选十中九',
+  '选十中八',
+  '选十中七',
+  '选十中六',
+  '选十中五',
+  '选十中零',
+]
+
+function ssqTier(red, blue) {
+  if (red === 6 && blue === 1) return '一等奖'
+  if (red === 6 && blue === 0) return '二等奖'
+  if (red === 5 && blue === 1) return '三等奖'
+  if ((red === 5 && blue === 0) || (red === 4 && blue === 1)) return '四等奖'
+  if ((red === 4 && blue === 0) || (red === 3 && blue === 1)) return '五等奖'
+  if ((red === 2 && blue === 1) || (red === 1 && blue === 1) || (red === 0 && blue === 1)) {
+    return '六等奖'
+  }
+  return null
+}
+
+function kl8Tier(hits) {
+  if (hits === 10) return '选十中十'
+  if (hits === 9) return '选十中九'
+  if (hits === 8) return '选十中八'
+  if (hits === 7) return '选十中七'
+  if (hits === 6) return '选十中六'
+  if (hits === 5) return '选十中五'
+  if (hits === 0) return '选十中零'
+  return null
+}
 
 /** 兼容旧数据：位次型曾经存成扁平数字数组。 */
 function positionalGroups(numbers) {
@@ -235,6 +336,71 @@ function judgeDlt(game, numbers, drawMain, drawExtra) {
 }
 
 /**
+ * 双色球：红球池覆盖 r 个开奖号、蓝球池覆盖 b 个（0/1）。
+ * 恰好包含 k 个开奖红球的 6 码组合数 = C(r,k) × C(n-r,6-k)；
+ * 蓝球命中/未命中的组合数分别是 b / (m-b)。
+ */
+function judgeSsq(game, numbers, drawMain, drawExtra) {
+  const red = Array.isArray(numbers?.main) ? numbers.main : []
+  const blue = Array.isArray(numbers?.extra) ? numbers.extra : []
+  const redHit = red.filter((value) => drawMain.includes(value)).length
+  const blueHit = blue.filter((value) => drawExtra.includes(value)).length
+
+  const tierUnits = new Map()
+  for (let k = 0; k <= Math.min(6, redHit); k += 1) {
+    const redWays = combinationCount(redHit, k) * combinationCount(red.length - redHit, 6 - k)
+    if (redWays <= 0) {
+      continue
+    }
+    for (const [blueMatch, blueWays] of [
+      [1, combinationCount(blueHit, 1) * combinationCount(blue.length - blueHit, 0)],
+      [0, combinationCount(blueHit, 0) * combinationCount(blue.length - blueHit, 1)],
+    ]) {
+      if (blueWays <= 0) {
+        continue
+      }
+      const tier = ssqTier(k, blueMatch)
+      if (!tier) {
+        continue
+      }
+      tierUnits.set(tier, (tierUnits.get(tier) ?? 0) + redWays * blueWays)
+    }
+  }
+
+  const tiers = SSQ_TIERS.filter((tier) => tierUnits.has(tier)).map((tier) => ({
+    tier,
+    units: tierUnits.get(tier),
+  }))
+  const winningUnits = tiers.reduce((sum, item) => sum + item.units, 0)
+
+  return {
+    status: winningUnits > 0 ? 'won' : 'lost',
+    tier: tiers[0]?.tier ?? null,
+    tiers,
+    winningUnits,
+    hits: { main: redHit, extra: blueHit },
+    matchedMain: red.map((value) => drawMain.includes(value)),
+    matchedExtra: blue.map((value) => drawExtra.includes(value)),
+  }
+}
+
+/** 快乐8 选十：10 个号码命中 10/9/8/7/6/5/0 个有奖，1–4 个无奖。 */
+function judgeKl8(game, numbers, drawMain) {
+  const picks = Array.isArray(numbers?.main) ? numbers.main : []
+  const hits = picks.filter((value) => drawMain.includes(value)).length
+  const tier = kl8Tier(hits)
+  return {
+    status: tier ? 'won' : 'lost',
+    tier,
+    tiers: tier ? [{ tier, units: 1 }] : [],
+    winningUnits: tier ? 1 : 0,
+    hits: { main: hits, extra: 0 },
+    matchedMain: picks.map((value) => drawMain.includes(value)),
+    matchedExtra: [],
+  }
+}
+
+/**
  * 判定一张彩票注单（单式与复式同一套逻辑）。
  *
  * @returns {{ status: 'pending'|'won'|'lost', tier: string|null, tiers: Array<{tier:string,units:number}>, winningUnits: number, hits: {main:number,extra:number}, matchedMain: boolean[], matchedExtra: boolean[], draw: null|{issue:string,drawDate:string,main:number[],extra:number[]} }}
@@ -257,9 +423,18 @@ export function judgeLotteryBet(gameKey, numbers, draw) {
 
   const drawMain = (draw.main_numbers ?? []).map(Number)
   const drawExtra = (draw.extra_numbers ?? []).map(Number)
-  const judged = game.positional
-    ? judgePositional(game, numbers, drawMain)
-    : judgeDlt(game, numbers, drawMain, drawExtra)
+  let judged
+  if (game.positional) {
+    judged = judgePositional(game, numbers, drawMain)
+  } else if (game.key === 'dlt') {
+    judged = judgeDlt(game, numbers, drawMain, drawExtra)
+  } else if (game.key === 'ssq') {
+    judged = judgeSsq(game, numbers, drawMain, drawExtra)
+  } else if (game.key === 'kl8') {
+    judged = judgeKl8(game, numbers, drawMain)
+  } else {
+    judged = { ...empty, status: 'lost' }
+  }
 
   return {
     ...judged,

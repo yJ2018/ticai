@@ -61,7 +61,7 @@ export function createMailer(config) {
       console.warn(`[mail] 未配置 RESEND_API_KEY，${label}验证码只写日志：${to} → ${code}（${minutes} 分钟有效）`)
     }
 
-    const subject = `【体彩助手】${label}验证码 ${code}`
+    const subject = `【彩票助手】${label}验证码 ${code}`
     const text = [
       `你的${label}验证码是 ${code}，${minutes} 分钟内有效。`,
       '如果不是你本人操作，忽略这封邮件即可。',
@@ -70,7 +70,7 @@ export function createMailer(config) {
     const html = `<!doctype html>
 <html lang="zh-CN"><body style="margin:0;padding:24px;background:#f5f6f8;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;">
   <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:28px 24px;">
-    <h1 style="margin:0 0 8px;font-size:18px;color:#1f2329;">体彩助手 · ${label}验证码</h1>
+    <h1 style="margin:0 0 8px;font-size:18px;color:#1f2329;">彩票助手 · ${label}验证码</h1>
     <p style="margin:0 0 20px;color:#5c6370;font-size:14px;">请在页面中输入下面的验证码，${minutes} 分钟内有效。</p>
     <div style="font-size:32px;letter-spacing:8px;font-weight:700;color:#1f2329;background:#f2f4f7;border-radius:8px;padding:14px 0;text-align:center;">${code}</div>
     <p style="margin:20px 0 0;color:#8a919c;font-size:12px;">如果不是你本人操作，忽略这封邮件即可。</p>

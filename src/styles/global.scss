@@ -2177,6 +2177,7 @@ button:focus-visible,
 .history-page__tabs {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
 
   button {
@@ -2189,12 +2190,65 @@ button:focus-visible,
     font-size: 0.88rem;
     box-shadow: 0 0.2rem 0.6rem rgba(15, 23, 42, 0.06);
     cursor: pointer;
+
+    small {
+      margin-left: 0.32rem;
+      padding: 0.05rem 0.28rem;
+      border-radius: 0.3rem;
+      background: #f1f5f9;
+      color: #64748b;
+      font-size: 0.58rem;
+      font-weight: 600;
+      vertical-align: middle;
+    }
   }
 
   .is-active {
     background: #2563eb;
     color: #fff;
+
+    small {
+      background: rgba(255, 255, 255, 0.18);
+      color: #eff6ff;
+    }
   }
+}
+
+/* ── 当前玩法的分析方法条 ───────────────────────────────── */
+.history-page__method {
+  margin: 0 1rem 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px dashed #dbeafe;
+  background: #fbfdff;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  color: #475569;
+  font-size: 0.72rem;
+
+  strong {
+    color: #1e3a8a;
+    font-size: 0.74rem;
+  }
+}
+
+.history-page__method-label {
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  background: #e0edff;
+  color: #1d4ed8;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.history-page__method-tag {
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.66rem;
 }
 
 .history-page__summary {
@@ -2489,6 +2543,23 @@ button:focus-visible,
   text-align: right;
 }
 
+.dlt-recommend__header-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.dlt-recommend__quick {
+  display: flex;
+  justify-content: flex-end;
+
+  .history-auto-bet {
+    margin-left: 0;
+  }
+}
+
 .dlt-recommend__body {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
@@ -2679,6 +2750,14 @@ button:focus-visible,
     text-align: left;
   }
 
+  .dlt-recommend__header-side {
+    align-items: flex-start;
+  }
+
+  .dlt-recommend__quick {
+    justify-content: flex-start;
+  }
+
   .dlt-recommend__body {
     grid-template-columns: 1fr;
     gap: 0.8rem;
@@ -2692,6 +2771,96 @@ button:focus-visible,
 
   .dlt-recommend__plus {
     display: none;
+  }
+}
+
+/* ── 双色球 / 快乐8 推演卡：复用大乐透的骨架，只补号码池 ── */
+.ssq-recommend__pools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ssq-recommend__pool {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.ssq-recommend__pool-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.ssq-recommend__pill {
+  border-radius: 999px;
+  padding: 0.12rem 0.4rem;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  &.is-primary {
+    background: #fed7aa;
+    color: #9a3412;
+    box-shadow: inset 0 0 0 1px rgba(194, 65, 12, 0.22);
+  }
+
+  &.is-back {
+    background: #eff6ff;
+    color: #1d4ed8;
+
+    &.is-primary {
+      background: #bfdbfe;
+      color: #1e3a8a;
+      box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.22);
+    }
+  }
+
+  &.is-kl8 {
+    background: #ecfdf5;
+    color: #047857;
+
+    &.is-primary {
+      background: #a7f3d0;
+      color: #065f46;
+      box-shadow: inset 0 0 0 1px rgba(4, 120, 87, 0.22);
+    }
+  }
+}
+
+.dlt-recommend__ball.is-kl8 {
+  background: linear-gradient(180deg, #10b981, #059669);
+  box-shadow: 0 0.25rem 0.6rem rgba(5, 150, 105, 0.22);
+}
+
+.kl8-recommend__ticket {
+  gap: 0.4rem;
+}
+
+.kl8-recommend__ticket .dlt-recommend__balls {
+  flex-wrap: wrap;
+}
+
+/* 快乐8 20 个开奖号在手机卡片里换行，球缩小一档 */
+.history-card__ball.is-kl8 {
+  width: 1.9rem;
+  height: 1.9rem;
+  font-size: 0.72rem;
+}
+
+/* ── 快乐8 80 列走势：字号再收一档，避免两位数挤在一起 ── */
+.trend-panel.is-ultra {
+  .trend-panel__digits-head span,
+  .trend-panel__cell {
+    font-size: 0.5rem;
+  }
+
+  .trend-panel__rank {
+    min-width: 0.5rem;
+    font-size: 0.38rem;
   }
 }
 
@@ -3158,7 +3327,9 @@ button:focus-visible,
 .trend-axis__row.is-alt,
 .hit-rail__row.is-alt,
 .dlt-metrics__row.is-alt,
-.history-page__desktop.is-dlt .trend-panel__grid-row.is-alt {
+.history-page__desktop.is-dlt .trend-panel__grid-row.is-alt,
+.history-page__desktop.is-ssq .trend-panel__grid-row.is-alt,
+.history-page__desktop.is-kl8 .trend-panel__grid-row.is-alt {
   background: #e9eef6;
 }
 
@@ -3462,6 +3633,24 @@ button:focus-visible,
   &:last-child span {
     border-bottom: none;
   }
+}
+
+/* 双色球（红球 5 项 + 蓝球）与快乐8（和值/跨度/奇偶/大小/四区/连号）都是 6 列 */
+.dlt-metrics__head.is-ssq,
+.dlt-metrics__row.is-ssq,
+.dlt-metrics__head.is-kl8,
+.dlt-metrics__row.is-kl8 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.dlt-metrics__row.is-kl8 span,
+.dlt-metrics__head.is-kl8 span {
+  font-size: 0.56rem;
+}
+
+.dlt-metrics__row .is-blue {
+  color: #1d4ed8;
+  font-weight: 700;
 }
 
 /* ── 大乐透开奖明细（非位次彩种） ─────────────────────── */
@@ -5623,6 +5812,19 @@ span.analysis-skeleton__pill--light {
     margin-left: 0;
   }
 
+  /* 手机窄屏：双色球 6 红 + 1 蓝要挤在同一行，球缩一档 */
+  .history-card__ball {
+    width: 2.3rem;
+    height: 2.3rem;
+    font-size: 0.92rem;
+  }
+
+  .history-card__ball.is-kl8 {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.66rem;
+  }
+
   .history-page__header,
   .history-page__toolbar {
     flex-direction: column;
@@ -5785,19 +5987,25 @@ span.analysis-skeleton__pill--light {
     white-space: normal;
   }
 
-  /* 大乐透左右两栏固定表头高度：号码矩阵、期号轴、指标栏逐行对齐 */
-  .history-page__desktop.is-dlt .trend-panel__header {
+  /* 号码池彩种固定表头高度：号码矩阵、期号轴、指标栏逐行对齐 */
+  .history-page__desktop.is-dlt .trend-panel__header,
+  .history-page__desktop.is-ssq .trend-panel__header,
+  .history-page__desktop.is-kl8 .trend-panel__header {
     height: 3.6rem;
     min-height: 0;
     overflow: hidden;
   }
 
   /* 号码矩阵的表格上边框 + 表头下边框共 2px，期号轴补同样的偏移 */
-  .history-page__desktop.is-dlt .trend-axis {
+  .history-page__desktop.is-dlt .trend-axis,
+  .history-page__desktop.is-ssq .trend-axis,
+  .history-page__desktop.is-kl8 .trend-axis {
     padding-top: calc(0.5rem + 2px);
   }
 
-  .history-page__desktop.is-dlt .trend-axis__body {
+  .history-page__desktop.is-dlt .trend-axis__body,
+  .history-page__desktop.is-ssq .trend-axis__body,
+  .history-page__desktop.is-kl8 .trend-axis__body {
     border-top: none;
   }
 
@@ -6878,6 +7086,366 @@ span.analysis-skeleton__pill--light {
   margin-top: 0.85rem;
   scroll-margin-top: 4.5rem;
   flex: 0 0 auto;
+}
+
+/* ── 号码池推荐命中记录（大乐透 / 双色球 / 快乐8） ─────── */
+.history-page__hits {
+  margin-top: 0.85rem;
+  flex: 0 0 auto;
+}
+
+.rec-hit {
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 0.35rem 1rem rgba(15, 23, 42, 0.06);
+  padding: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.rec-hit__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  h3 {
+    margin: 0.18rem 0 0;
+    color: #0f172a;
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+}
+
+.rec-hit__eyebrow {
+  margin: 0;
+  color: #2563eb;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.rec-hit__desc {
+  max-width: 26rem;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  text-align: right;
+}
+
+.rec-hit__empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.rec-hit__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.rec-hit__metric {
+  border-radius: 0.8rem;
+  background: #f8fafc;
+  padding: 0.7rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+
+  span {
+    color: #64748b;
+    font-size: 0.7rem;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 1rem;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+
+  em {
+    color: #94a3b8;
+    font-size: 0.64rem;
+    font-style: normal;
+    line-height: 1.35;
+  }
+}
+
+.rec-hit__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 0.9rem;
+}
+
+.rec-hit__distribution,
+.rec-hit__tiers {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.8rem;
+  padding: 0.65rem 0.75rem;
+  min-width: 0;
+}
+
+.rec-hit__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 700;
+
+  em {
+    color: #94a3b8;
+    font-size: 0.62rem;
+    font-style: normal;
+    font-weight: 400;
+  }
+}
+
+.rec-hit__bars {
+  height: 6.5rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.28rem;
+  padding: 0.2rem 0.1rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.rec-hit__bar {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.15rem;
+
+  em {
+    color: #94a3b8;
+    font-size: 0.56rem;
+    font-style: normal;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.rec-hit__bar-fill {
+  width: 70%;
+  min-height: 3px;
+  border-radius: 0.22rem 0.22rem 0 0;
+  background: linear-gradient(180deg, #60a5fa, #2563eb);
+}
+
+.rec-hit__window-row {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.7rem;
+  color: #64748b;
+  font-size: 0.64rem;
+
+  strong {
+    color: #1d4ed8;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.rec-hit__tier-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.28rem 0.4rem;
+    border-radius: 0.45rem;
+    background: #f8fafc;
+    font-size: 0.68rem;
+  }
+
+  span {
+    color: #b45309;
+    font-weight: 700;
+  }
+
+  strong {
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+
+  em {
+    color: #94a3b8;
+    font-style: normal;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.rec-hit__recent {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 0.75rem;
+}
+
+.rec-hit__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.rec-hit__item {
+  border-radius: 0.75rem;
+  background: #fbfdff;
+  border: 1px solid #eef2f7;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.rec-hit__item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+
+  strong {
+    color: #0f172a;
+    font-size: 0.78rem;
+  }
+
+  span {
+    margin-left: 0.4rem;
+    color: #94a3b8;
+    font-size: 0.66rem;
+  }
+}
+
+.rec-hit__item-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+
+  span {
+    margin: 0;
+    color: #334155;
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  em {
+    padding: 0.08rem 0.35rem;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #b45309;
+    font-size: 0.62rem;
+    font-style: normal;
+    font-weight: 700;
+  }
+}
+
+.rec-hit__numbers {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.rec-hit__numbers-label {
+  flex: 0 0 2.1rem;
+  padding-top: 0.12rem;
+  color: #94a3b8;
+  font-size: 0.62rem;
+}
+
+.rec-hit__number-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.rec-hit__number {
+  min-width: 1.42rem;
+  padding: 0.08rem 0.2rem;
+  border-radius: 0.3rem;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+
+  &.is-hit {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  &.is-back {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+
+  &.is-back.is-hit {
+    background: #bfdbfe;
+    color: #1e3a8a;
+  }
+
+  &.is-kl8 {
+    background: #ecfdf5;
+    color: #047857;
+  }
+
+  &.is-kl8.is-hit {
+    background: #a7f3d0;
+    color: #065f46;
+  }
+}
+
+.rec-hit__plus {
+  color: #cbd5e1;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+@media (max-width: 48rem) {
+  .history-page__method {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .rec-hit__header {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .rec-hit__desc {
+    max-width: none;
+    text-align: left;
+  }
+
+  .rec-hit__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rec-hit__body {
+    grid-template-columns: 1fr;
+  }
 }
 
 .deviation {

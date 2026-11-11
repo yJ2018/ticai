@@ -31,7 +31,7 @@ export function createLotteryAnalysisHandlers(config) {
 
   async function resolveGame(gameKey) {
     if (!GAME_PATTERN.test(gameKey)) {
-      throw new HttpError(400, 'game 参数不合法（用 pl5 / qxc / dlt 或体彩 gameNo）')
+      throw new HttpError(400, 'game 参数不合法（用 pl5 / qxc / dlt / ssq / kl8 或彩种编号）')
     }
     const game = await loadGameRow(runQuery, gameKey)
     if (!game) {

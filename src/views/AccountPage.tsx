@@ -115,7 +115,7 @@ export function AccountPage() {
 
   const wechatIdentity = identities.find((item) => item.provider === 'wechat')
   const emailIdentity = identities.find((item) => item.provider === 'email')
-  const displayName = user?.displayName || user?.email || '体彩助手用户'
+  const displayName = user?.displayName || user?.email || '彩票助手用户'
 
   async function handleBind() {
     if (!token || busy) {

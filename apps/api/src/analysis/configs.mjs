@@ -14,7 +14,7 @@ import { DEFAULT_PREDICTION_SCORE_WEIGHTS } from './history-prediction.mjs'
  */
 
 export const ENGINE_VERSION = 'snapshot-1'
-export const KINDS = ['prediction', 'math_trend', 'dlt']
+export const KINDS = ['prediction', 'math_trend', 'dlt', 'ssq', 'kl8']
 export const PREDICTION_MARKOV_ORDERS = [1, 2, 3, 4, 5]
 export const PREDICTION_DEFAULT_ORDER = 2
 
@@ -28,9 +28,24 @@ export const MATH_TREND_DEFAULTS = {
 
 /** 与 domain/dltRecommendation.ts 的 LONG_WINDOW 保持一致 */
 export const DLT_WINDOW = 300
+/** 双色球 / 快乐8 推演窗口（与各自模块内的常量一致） */
+export const SSQ_WINDOW = 300
+export const KL8_WINDOW = 300
 
 export function defaultKindForGame(game) {
-  return game.is_positional ? 'prediction' : 'dlt'
+  if (game.is_positional) {
+    return 'prediction'
+  }
+  if (game.game_key === 'dlt') {
+    return 'dlt'
+  }
+  if (game.game_key === 'ssq') {
+    return 'ssq'
+  }
+  if (game.game_key === 'kl8') {
+    return 'kl8'
+  }
+  return 'dlt'
 }
 
 function clampInt(value, fallback, min, max) {
@@ -109,6 +124,14 @@ export function dltConfigKey() {
   return `window=${DLT_WINDOW}`
 }
 
+export function ssqConfigKey() {
+  return `window=${SSQ_WINDOW}`
+}
+
+export function kl8ConfigKey() {
+  return `window=${KL8_WINDOW}`
+}
+
 /** 参数 → 算法选项；positionCount 跟着彩种走（排列五 5、七星彩 7） */
 export function analysisOptions(kind, game, configKey) {
   if (kind === 'prediction') {
@@ -123,26 +146,33 @@ export function analysisOptions(kind, game, configKey) {
 /**
  * 开奖后一次要算的组合：
  *   位置型（排列三/五、七星彩）：5 个马尔可夫阶数 + 数学走势；
- *   大乐透：5+2 推演。
+ *   大乐透 / 双色球 / 快乐8：各自一套号码池推演。
  * 单次成本实测（7760 期）约 1.5s/档，开奖一天一期，可以接受。
  */
 export function presetsForGame(game) {
-  if (game.game_key === 'dlt' || !game.is_positional) {
-    return game.game_key === 'dlt'
-      ? [{ kind: 'dlt', configKey: dltConfigKey(), options: {} }]
-      : []
+  if (game.is_positional) {
+    return [
+      ...PREDICTION_MARKOV_ORDERS.map((order) => ({
+        kind: 'prediction',
+        configKey: predictionConfigKey({ markovOrder: order }),
+        options: { markovOrder: order },
+      })),
+      {
+        kind: 'math_trend',
+        configKey: mathTrendConfigKey(),
+        options: {},
+      },
+    ]
   }
 
-  return [
-    ...PREDICTION_MARKOV_ORDERS.map((order) => ({
-      kind: 'prediction',
-      configKey: predictionConfigKey({ markovOrder: order }),
-      options: { markovOrder: order },
-    })),
-    {
-      kind: 'math_trend',
-      configKey: mathTrendConfigKey(),
-      options: {},
-    },
-  ]
+  if (game.game_key === 'ssq') {
+    return [{ kind: 'ssq', configKey: ssqConfigKey(), options: {} }]
+  }
+  if (game.game_key === 'kl8') {
+    return [{ kind: 'kl8', configKey: kl8ConfigKey(), options: {} }]
+  }
+  if (game.game_key === 'dlt') {
+    return [{ kind: 'dlt', configKey: dltConfigKey(), options: {} }]
+  }
+  return []
 }

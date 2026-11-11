@@ -11,9 +11,17 @@ import math
 import unittest
 from pathlib import Path
 
-from app.analysis.configs import math_trend_config_key, parse_prediction_config_key, prediction_config_key
+from app.analysis.configs import (
+    kl8_config_key,
+    math_trend_config_key,
+    parse_prediction_config_key,
+    prediction_config_key,
+    ssq_config_key,
+)
 from app.analysis.dlt import analyze_dlt_recommendation
+from app.analysis.kl8 import analyze_kl8_recommendation
 from app.analysis.prediction import analyze_history_prediction, analyze_math_trend_prediction
+from app.analysis.ssq import analyze_ssq_recommendation
 
 FIXTURE = Path(__file__).parent / "fixtures" / "lottery-parity.json"
 
@@ -93,6 +101,28 @@ class LotteryParityTests(unittest.TestCase):
                 with self.subTest(game=game_key, config=config_key):
                     assert_deep_equal(self, actual, expected, f"{game_key}.{config_key}")
 
+    def test_ssq_payloads_match_node(self) -> None:
+        for game_key, pack in self.fixture["games"].items():
+            draws = pack["draws"]
+            for key, expected in pack["expected"].items():
+                kind, config_key = key.split(":", 1)
+                if kind != "ssq":
+                    continue
+                actual = analyze_ssq_recommendation([{"numbers": draw["numbers"]} for draw in draws])
+                with self.subTest(game=game_key, config=config_key):
+                    assert_deep_equal(self, actual, expected, f"{game_key}.{config_key}")
+
+    def test_kl8_payloads_match_node(self) -> None:
+        for game_key, pack in self.fixture["games"].items():
+            draws = pack["draws"]
+            for key, expected in pack["expected"].items():
+                kind, config_key = key.split(":", 1)
+                if kind != "kl8":
+                    continue
+                actual = analyze_kl8_recommendation([{"numbers": draw["numbers"]} for draw in draws])
+                with self.subTest(game=game_key, config=config_key):
+                    assert_deep_equal(self, actual, expected, f"{game_key}.{config_key}")
+
     def test_config_keys_round_trip(self) -> None:
         """config_key 是快照的主键维度，Python 必须生成与 Node 完全一样的字符串。"""
         for order in (1, 2, 3, 4, 5):
@@ -102,6 +132,8 @@ class LotteryParityTests(unittest.TestCase):
             math_trend_config_key(),
             "window=240;trend=36;validate=120;candidates=3",
         )
+        self.assertEqual(ssq_config_key(), "window=300")
+        self.assertEqual(kl8_config_key(), "window=300")
         parsed = parse_prediction_config_key("markov=3;w=34-20-22-14-10")
         self.assertEqual(parsed["markovOrder"], 3)
         self.assertAlmostEqual(parsed["scoreWeights"]["recent"], 0.34)

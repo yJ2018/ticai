@@ -378,7 +378,7 @@ function buildSvg() {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${height}" width="${WIDTH}" height="${height}" font-family="'Microsoft YaHei','PingFang SC','Noto Sans SC','Segoe UI',sans-serif">`,
     `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 Z" fill="#94a3b8"/></marker></defs>`,
     `<rect width="${WIDTH}" height="${height}" fill="#f5f7fa"/>`,
-    `<text x="40" y="56" font-size="26" font-weight="700" fill="#0f172a">体彩助手 · ticai 全栈架构图</text>`,
+    `<text x="40" y="56" font-size="26" font-weight="700" fill="#0f172a">彩票助手 · ticai 全栈架构图</text>`,
     `<text x="40" y="80" font-size="12.5" fill="#64748b">React 19 · Next.js 16 App Router · TypeScript 6 · Zustand 5　＋　Node API（apps/api）＋ Python 分析（apps/analysis）＋ 本地爬虫（apps/crawler）</text>`,
     `<text x="${WIDTH - 40}" y="55" text-anchor="end" font-size="11" fill="#475569">src ${formatNumber(stats.sourceCount)} 文件 / ${formatNumber(stats.sourceLines)} 行</text>`,
     `<text x="${WIDTH - 40}" y="74" text-anchor="end" font-size="11" fill="#475569">SCSS ${stats.scssCount} 文件 / ${formatNumber(stats.scssLines)} 行</text>`,

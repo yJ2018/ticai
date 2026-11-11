@@ -1,13 +1,14 @@
-# ticai · 体彩助手 架构说明
+# ticai · 彩票助手 架构说明
 
-> 竞彩足球赔率投注 + 中国体彩开奖历史（排列5 / 七星彩 / 超级大乐透）+ 两种号码预测分析，
+> 竞彩足球赔率投注 + 中国体育彩票 / 福利彩票开奖历史（排列5 / 七星彩 / 超级大乐透 / 双色球 / 快乐8）+ 号码预测与推荐命中分析，
 > 附带星座运势 / 天气，以及可选的账号、投注记录与中奖结算。
 >
 > **架构形态**：Next.js 16 App Router（公开页按请求 SSR + 客户端 Keep-Alive） + 独立 Node API（`apps/api`，只读库，分析接口反向代理） + Python 分析服务（`apps/analysis`，FastAPI，算全部分析） + 本地爬虫（`apps/crawler`，写库）。
 > 浏览器只与自有 API 通信（生产走同源 `/api` rewrite）；第三方密钥、提示词、上游访问全部留在服务端。
 >
 > 2026-10-23 起 `server/` 与 `api/` 两个旧 BFF 目录已删除，`apps/api` 是唯一 Node 服务端实现；
-> 2026-10-29 起分析层（推荐 / 开奖 / 走势 / 大乐透 / 天气 / AI）全部由 `apps/analysis` 计算。
+> 2026-10-29 起分析层（推荐 / 开奖 / 走势 / 大乐透 / 天气 / AI）全部由 `apps/analysis` 计算；
+> 2026-11-11 起福彩双色球 / 快乐8 接入，分析 kind 扩到 `dlt / ssq / kl8` 三个号码池推演。
 > 接口契约以 [docs/api.md](api.md) 为准。
 
 ![架构图](./architecture.png)
@@ -26,12 +27,12 @@
 | 名称 / 版本 | `ticai` 0.0.0（私有） |
 | 形态 | Next.js（Vercel `ticai` 项目，静态 + Serverless 函数）+ Node API（Vercel `ticai-service`）+ Python 分析服务（Vercel `ticai-analysis`）；生产用同源 `/api` rewrite 代理 |
 | 前端规模 | 14 个页面（`src/views`）；`src` 下 115 个 TS/TSX 文件；`global.scss` + 7 个按域拆分样式 |
-| 服务端规模 | `apps/api`：16 个 handler 模块、35 个接口路径（37 个处理方法）；`apps/analysis`：37 个 Python 文件 / 6 197 行（推荐 + 开奖 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
-| 数据层 | PostgreSQL 26 张表 + 4 个视图：API 与分析服务以读为主（分析服务写 `lottery_analysis_snapshot`；API 仅在归档缺失时兜底写 `lottery_prediction_track*`，只读账号下会降级读旧归档），爬虫写业务表与逐期归档（`db/README.md`） |
+| 服务端规模 | `apps/api`：17 个 handler 模块、36 个接口路径（38 个处理方法）；`apps/analysis`：40 个 Python 文件（推荐 + 开奖 + 双色球 / 快乐8 + AI）；`apps/crawler`：赛程/赛果/开奖/伤停/阵容/停售六条链路 |
+| 数据层 | PostgreSQL 28 张表 + 5 个视图：API 与分析服务以读为主（分析服务写 `lottery_analysis_snapshot`；API 仅在归档缺失时兜底写 `lottery_prediction_track*` / `lottery_recommendation_track*`，只读账号下会降级读旧归档），爬虫写业务表与逐期归档（`db/README.md`） |
 | 构建产物 | `.next`：客户端 JS ≈ 670 KB + 143 KB CSS（gzip 后约 185 + 24 KB）+ 一个 SSR Serverless 函数 |
 | 运行时 | 浏览器（ES2022+）+ Node ≥ 20（Next 服务端 / API 函数）+ Python 3.12（Vercel Python 运行时） |
 | 依赖 | 前端：React 19、Next.js 16、Zustand 5、html2canvas、Sass；Node 服务端仅 `pg`；Python：FastAPI + uvicorn + psycopg；爬虫零额外依赖（体彩 + ESPN 都是 `fetch`） |
-| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 148 个（API 105 + 爬虫 43）+ Python unittest 38 个（含与 Node 的对拍） |
+| 工程设施 | Git hooks（架构图、密钥扫描、自动部署）+ `node:test` 单测 201 个（API 138 + 爬虫 63）+ Python unittest 48 个（含与 Node 的对拍） |
 | tsconfig | `strict` **未开启**；开启 `noUnusedLocals`、`noUnusedParameters`、`erasableSyntaxOnly`、`verbatimModuleSyntax` |
 
 ### 功能地图
@@ -40,7 +41,7 @@
 | --- | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、**赔率接近标注**（最低两档 ≤8% 时标 ≈，蓝框为分析偏向）、串关注数/金额/最高奖金（按体彩单注限额封顶）/税、首屏骨架屏、单场与方案级 AI 分析、高清快照、保存投注 | `GET /api/matches`、`GET /api/match-signals`、`POST /api/bets` |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气，PC 弹框与 H5 页面共用正文 | `GET /api/match-detail`、`GET /api/venue-weather` |
-| `/history` | 开奖历史 | 排列五 / 七星彩 / 大乐透走势；**逐期参考归档**（每期开奖前的 3 个候选以 1/2/3 角标标在走势格、隔行底色、右侧逐期命中栏、分位/号码/漂移偏差面板）；大乐透前后区号码矩阵 + 右侧前区逐期指标（和值 / 跨度 / 奇偶比 / 大小比 / 三区比），并按近期频次与遗漏给出下期 5+2 号码参考和理由、首屏骨架屏、预测摘要；工具栏「选号投注」可直接选号并保存到我的投注，「组合参考」旁的「一键加注」一次把这 6 组单式各存一张 | `GET /api/history` + IndexedDB（分析结果已有服务端快照：`GET /api/analysis/lottery`）、`GET /api/analysis/lottery/track`、`POST /api/bets`（`kind=lottery`） |
+| `/history` | 开奖历史 | 体彩 / 福彩五种彩种走势；排列五 / 七星彩按位次显示逐期参考（1/2/3 角标）与命中位；大乐透 / 双色球 / 快乐8 号码矩阵 + 逐期指标 + 号码推演（5+2 / 12+4 / 选十 10 码）；**推荐命中记录**（每期推荐 vs 实际、命中分布、奖级分布、30–1000 期窗口）；工具栏「选号投注」可直接选号并保存到我的投注，「组合参考」旁「一键加注」一次把 6 组单式各存一张 | `GET /api/history` + IndexedDB、`GET /api/analysis/lottery`（`prediction` / `dlt` / `ssq` / `kl8`）、`GET /api/analysis/lottery/track`、`GET /api/analysis/lottery/hits`、`POST /api/bets`（`kind=lottery`） |
 | `/history-analysis` | 分析页面 | 频次/遗漏/马尔可夫/滚动回测/组合推荐/冷热统计，首屏骨架屏；阶数 1–5 直接切快照，拖权重滑块时把权重作为 `w=` 参数发给服务端现算 | `GET /api/analysis/lottery?kind=prediction&order=N&w=34-20-22-14-10` |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测，首屏骨架屏 | `GET /api/analysis/lottery?kind=math_trend` |
 | `/horoscope` | 星座运势 | 12 星座 × 5 种时间维度 + 基于 IP 的天气 | `/api/horoscope`、`/api/weather`、`/api/ip` |
@@ -65,7 +66,7 @@
 | 路由 | Next App Router：`src/app/[[...slug]]/page.tsx` 是唯一入口，页面分发由 `src/router/manifest.ts` + `AppShell` 在客户端完成（Keep-Alive 需要） |
 | 状态 | Zustand 5（`matchStore` / `authStore`）+ 自定义 hook（`useBetSlip`） |
 | 样式 | `src/styles/global.scss`（BEM，5 552 行）+ `authBets / results / account / confirmDialog`、`features/matchDetail`、`features/betting/autoParlay` 按域拆分 |
-| 计算 | 全部在 Python 分析服务（`apps/analysis`）：开奖分析 / 走势 / 大乐透推演 / 投注推荐 / 场馆天气 / AI；前端只渲染快照，权重滑块也走服务端（`w=` 参数） |
+| 计算 | 全部在 Python 分析服务（`apps/analysis`）：开奖分析 / 走势 / 大乐透 / 双色球 / 快乐8 推演 / 投注推荐 / 场馆天气 / AI；前端只渲染快照，权重滑块也走服务端（`w=` 参数） |
 | 分析服务 | Python 3.12 + FastAPI 0.115 + uvicorn + psycopg（连接池）；`api/index.py` 暴露 ASGI，Vercel Python 运行时 |
 | 持久化 | IndexedDB（开奖历史）；localStorage（登录 token、AI 结果缓存、免责弹层偏好） |
 | 传输 | 浏览器 `fetch('/api/*')`（默认同源，Vercel rewrite 转发到 API 项目）；API 只读库，不直连上游 |
@@ -266,7 +267,7 @@ D:\ticai
 ├─ .env / .env.example         # 数据库、AI、聚合数据、Resend、微信（.env 已被 gitignore）
 ├─ public/                     # favicon / apple-touch / PWA 图标、robots.txt、sitemap.xml、og-cover.png
 ├─ apps/
-│  ├─ api/                     # ★ 独立 Node 服务端：只读库，35 个接口路径
+│  ├─ api/                     # ★ 独立 Node 服务端：只读库，36 个接口路径
 │  │  ├─ api/index.js          # Vercel 函数入口（全路径 rewrite 到这里）
 │  │  ├─ src/app.mjs           # 路由表、CORS、错误信封、/healthz
 │  │  ├─ src/index.mjs         # 本地 / VPS node:http 入口
@@ -287,32 +288,34 @@ D:\ticai
 │  │  ├─ vercel.json           # rewrite 带 ?__path=/$1（Vercel 会丢原始路径）
 │  │  ├─ app/main.py           # FastAPI + RewritePathMiddleware + /healthz
 │  │  ├─ app/recommend/        # 幂法去水 / 泊松 / Dixon-Coles / 有界修正 / 风控 / 回测
-│  │  ├─ app/analysis/         # prediction / dlt / configs / compute（读库 → 算 → 写快照）
+│  │  ├─ app/analysis/         # prediction / dlt / ssq / kl8 / pool_utils / configs / compute
 │  │  ├─ app/ai/               # 单场与串关提示词 + 上下文装配（逐字节对齐 Node）
 │  │  ├─ app/llm.py / venue.py # DeepSeek（非流式 + SSE）/ 比赛地天气
 │  │  ├─ app/routes/           # recommend / lottery / weather / ai
-│  │  └─ tests/                # 38 个用例：数学、风控、对拍、提示词、路径还原
+│  │  └─ tests/                # 48 个用例：数学、风控、对拍、提示词、路径还原
 │  └─ crawler/                 # ★ 本地爬虫：只写库
 │     ├─ src/tasks/matches.mjs # 赛程 + 赔率快照 + 自动下架
 │     ├─ src/tasks/results.mjs # 赛果开奖：比分 + 五个玩法结果 + 固化 TTG 收盘赔率
-│     ├─ src/tasks/history.mjs # 四彩种开奖（含奖级）→ 写完后触发分析快照 + 逐期归档增量
+│     ├─ src/tasks/history.mjs # 六彩种开奖（体彩 + 福彩，含奖级）→ 分析快照 + 逐期归档增量
 │     ├─ src/tasks/details.mjs # 伤停 + 积分/交锋/近况/射手（7 个官方接口，默认全抓）
 │     ├─ src/tasks/lineups-espn.mjs # 阵容（ESPN 官方首发 + 阵型，纯 HTTP）
 │     ├─ src/espn.mjs          # ESPN 客户端：联赛映射 + 时间/缩写匹配 + 阵容解析
+│     ├─ src/cwl.mjs           # 福彩公告接口（双色球 / 快乐8）
 │     ├─ src/tasks/expire.mjs  # 已开赛 → 停售（纯本地）
 │     ├─ src/tasks/official.mjs# 每日 09:00 官方数据预热
-│     ├─ src/normalize.mjs     # 上游 → 库字段，赛果 key 推导
+│     ├─ src/normalize.mjs     # 上游 → 库字段，赛果 key 推导，福彩号码/奖级映射
 │     ├─ src/bet-window.mjs    # 竞彩销售时段闸门
 │     └─ src/daemon.mjs        # 常驻调度器：串行队列 + 开盘补跑
 ├─ db/
-│  ├─ migrations/              # 0001_init → 0013_prediction_track
-│  ├─ seed/                    # 四彩种字典
+│  ├─ migrations/              # 0001_init → 0015_welfare_analysis_kind
+│  ├─ seed/                    # 六彩种字典（体彩 4 + 福彩 2）
 │  └─ maintenance.sql          # 阵容/赔率/抓取记录保留策略
 ├─ scripts/
 │  ├─ dev.mjs                  # 并行拉起 API + Next dev，任一退出则联动关闭
 │  ├─ db-migrate.mjs           # 迁移执行器（up|seed|status|verify）
 │  ├─ analyze-snapshot.mjs     # 分析快照回填 / --force 重算 / --status 巡检
-│  ├─ backfill-prediction-track.mjs # 逐期参考归档回填 / --force / --status
+│  ├─ backfill-prediction-track.mjs # 位次型逐期参考归档回填 / --force / --status
+│  ├─ backfill-recommendation-track.mjs # 号码池推荐命中归档回填 / --force / --status
 │  ├─ analysis-dev.mjs         # 本地起 Python 分析服务（uvicorn，默认 3012）
 │  ├─ analysis-test.mjs        # 跑 Python 单测 + 与 Node 的对拍（npm run analysis:test）
 │  ├─ export-*-fixtures.mjs    # 三家对拍夹具：推荐 / 开奖分析 / AI 提示词
@@ -339,7 +342,7 @@ D:\ticai
    ├─ proxy.ts                 # 写 x-pathname 请求头，layout 靠它知道当前页面
    ├─ views                    # 14 个页面（见 §4 路由表）
    │  ├─ HomePage.tsx          # 803 行：状态编排 + 组合子组件 + 方案弹层
-   │  ├─ HistoryPage.tsx       # 1017 行：走势矩阵 + 逐期参考/命中 + 大乐透号码推演 + 右栏指标
+   │  ├─ HistoryPage.tsx       # 走势矩阵（位次 / 号码池）+ 推荐命中 + 大乐透 / 双色球 / 快乐8 推演 + 右栏指标
    │  ├─ HistoryAnalysisPage   # 723 行（仍未拆分）
    │  ├─ MathTrendAnalysisPage # 444 行（仍未拆分）
    │  ├─ ResultsPage.tsx       # 258 行：比赛日翻页 + 五个玩法结果
@@ -654,9 +657,9 @@ flowchart LR
 
 | 列 | 含义 |
 | --- | --- |
-| `game_no` / `kind` / `config_key` | 彩种 × 分析种类（prediction / math_trend / dlt）× 参数指纹（如 `markov=2`） |
+| `game_no` / `kind` / `config_key` | 彩种 × 分析种类（prediction / math_trend / dlt / ssq / kl8）× 参数指纹（如 `markov=2`、`window=300`） |
 | `through_issue` / `through_issue_seq` / `through_draw_date` | **基于哪一期、哪一天**（最新一期开奖） |
-| `from_issue` / `from_draw_date` / `draw_count` | 样本起点与真正吃进去的期数（数学走势 240、大乐透 300） |
+| `from_issue` / `from_draw_date` / `draw_count` | 样本起点与真正吃进去的期数（数学走势 240、大乐透 / 双色球 / 快乐8 300） |
 | `payload` | 与前端渲染同构（类型见 `src/domain/analysisTypes.ts`），前端可直接渲染 |
 | `meta` | 引擎版本 + 指纹（Python 版写 `python <版本>` / `python-port-1`）+ 选项 |
 | `source` / `crawl_run_id` / `duration_ms` / `computed_at` | 谁触发的（crawler / cli / api）、哪一轮抓取、算了多久 |
@@ -665,7 +668,8 @@ flowchart LR
 新一期只补一条。视图 `lottery_analysis_latest` 把每种分析的最新快照和**库里最后一期开奖**放在一起，
 可以直接看出「分析是否落后于开奖」（`/api/health`、`db:status`、`analyze:snapshot --status` 都在用）。
 
-**预设组合**：开奖后一次算 5 个马尔可夫阶数 + 数学走势（位置型彩种）或 5+2 推演（大乐透），
+**预设组合**：开奖后一次算 5 个马尔可夫阶数 + 数学走势（位置型彩种），
+或按彩种各算一套号码池推演（大乐透 5+2、双色球 12+4、快乐8 选十）。
 前端切阶数只是换 `order` 参数，不再等计算。权重滑块是连续值，不进预设；需要时按参数现算一条并落库。
 
 **接口**：
@@ -685,8 +689,10 @@ GET /api/analysis/lottery?game=pl5&kind=prediction&order=3&w=34-20-22-14-10   # 
 **为什么不「请求时现算」**：7760 期全量回测 1.4–1.9s，加上冷启动与远端库往返就是 3–6s，
 而结果只在「多了一期开奖」时才变——现算等于把同一份结果重复算给每个访客。
 
-**算法源只有一份**：Python 分析服务 `apps/analysis/app/analysis/`（`prediction.py` / `dlt.py` / `dlt_indicators.py`）。
-前端只保留 `domain/analysisTypes.ts`（类型与空态）与 `domain/dltIndicators.ts`（走势图右栏的展示计算）；
+**算法源只有一份**：Python 分析服务 `apps/analysis/app/analysis/`
+（`prediction.py` / `dlt.py` / `ssq.py` / `kl8.py` / `pool_utils.py` / `dlt_indicators.py`）。
+前端只保留 `domain/analysisTypes.ts`、`domain/welfareAnalysis.ts`（类型与空态）与
+`domain/dltIndicators.ts`、`domain/welfareIndicators.ts`（走势图右栏的展示计算）；
 `apps/api/src/analysis/*.mjs` 是冻结的 Node 内联回退实现，不再从任何 TS 生成。
 
 ### 5.3.2 逐期参考归档：命中率与偏差
@@ -745,6 +751,52 @@ Python 服务增加一条写库链路，也不依赖 `ANALYSIS_API_BASE` 可达�
 `apps/api/src/analysis/prediction-track.mjs` 直接调用冻结的 `rankNextDigits`，
 单测断言归档累计与既有 `runBacktest` 的 top1Hits/top3Hits 完全一致（排列五 7 736 期实测一致）；
 Python 仍是打分算法的唯一真源，改打分时先改 Python，再同步 Node 回退并跑对拍。
+
+### 5.3.3 号码池推荐命中：大乐透 / 双色球 / 快乐8
+
+位次型的 `lottery_prediction_track` 记录「逐位 Top1/Top3」，但号码池彩种的推荐是
+「一组号码」，命中口径完全不同。2026-11-11 起单独归档：
+
+| 彩种 | 推荐 | 命中口径 | 奖级 |
+| --- | --- | --- | --- |
+| 大乐透 | 前区 5 + 后区 2 | 前区中几个 / 后区中几个（0–5 / 0–2） | 官方九奖级 |
+| 双色球 | 红球 12 码 + 蓝球 4 码；主推 6+1 | 12 码池覆盖几个红球（0–6）+ 蓝球是否在 4 码池（0/1） | 复式按组合数算各奖级注数 |
+| 快乐8 | 选十 10 码 + 20 码池 | 10 码中几个开奖号（0–10） | 选十奖级 |
+
+```mermaid
+flowchart LR
+  DRAW["lottery_draw<br/>全量开奖"] --> BUILD["buildRecommendationTrack<br/>walk-forward：第 N 期只用 1..N-1 期"]
+  BUILD --> RECOMMEND["推演：dlt / ssq / kl8<br/>与线上快照同一套算法"]
+  BUILD --> ROW["lottery_recommendation_track<br/>推荐 / 实际 / 命中 / 奖级"]
+  BUILD --> AGG["累计计数 + 最近 1000 期命中"]
+  AGG --> STAT["lottery_recommendation_track_stat<br/>payload + state"]
+  ROW --> API["GET /api/analysis/lottery/hits<br/>?game=ssq&limit=30"]
+  STAT --> API
+  API --> WEB["/history：推荐命中卡<br/>平均命中 / 覆盖率 / 命中分布 / 奖级分布 / 逐期记录"]
+  CRAWL["crawl:history<br/>（体彩 / 福彩两套上游）"] --> BUILD
+  CLI["npm run track:hits<br/>首次 / 换算法"] --> BUILD
+```
+
+**关键口径**：
+
+- 覆盖率 = 命中的开奖号 ÷ 全部开奖号；理论覆盖率 = 推荐号码个数 ÷ 号码空间
+  （大乐透 5/35、双色球 12/33、快乐8 10/80），`lift` = 实际覆盖率 ÷ 理论值。
+- 双色球奖级按复式计算：红球池命中 `r` 个、池 `n` 个时，恰好包含 `k` 个开奖号的
+  6 码组合数为 `C(r,k) × C(n-r,6-k)`，再乘蓝球命中 / 未命中的组合数，得到各奖级注数。
+- 大乐透 / 快乐8 按官方奖级定档；浮动奖金不代算，页面只展示“中了几注 / 什么奖级”。
+- 归档默认只覆盖最近 300 期（大乐透约 300 期、双色球约 10 个月、快乐8 约 10 个月），
+  够做 30/100/300 窗口；增量补一期从 `state` 续算，不重跑全量。
+
+**触发与接口**：
+
+- 爬虫开奖入库后调用 `ensureRecommendationTrack`：新开奖补 1 期；回填历史后若归档覆盖不足会自动补到 300 期。
+- 首次部署 / 换算法：`npm run track:hits`；巡检用 `npm run track:hits -- --status`。
+- API 兜底：`hits` 接口发现缺失 / 落后 / 算法指纹变化时现算一次并落库；只读库账号下写失败会降级读旧归档。
+- 前端：`RecommendationHitPanel` 在 `/history` 走势下方展示，位次型彩种仍使用 `PredictionDeviationPanel`。
+
+**为什么独立于位次型归档**：推荐结构（位次 vs 号码池）、命中口径与奖级完全不同；
+强行塞进 `positions` 会让约束和查询都变复杂，也无法支持快乐8 的 0–10 命中。
+两张表共享同一套 walk-forward 与增量续算思路，接口各司其职。
 
 ### 5.4 比赛 AI 分析（SSE）
 
@@ -1050,7 +1102,7 @@ flowchart LR
 - **回滚靠环境变量**：删掉 `ANALYSIS_API_BASE` 就回到 Node 内联实现，不用回滚代码；
   Python 侧故障时代理失败，Node 自动回退（响应头 `x-analysis-via: python` 表示这一跳走了 Python；
   `x-analysis-source` 仍表示快照来源，两者不要混用）。
-- **已迁移的分析路径**：`/api/recommendations`、`/api/analysis/lottery`（`prediction` / `math_trend` / `dlt`）、
+- **已迁移的分析路径**：`/api/recommendations`、`/api/analysis/lottery`（`prediction` / `math_trend` / `dlt` / `ssq` / `kl8`）、
   `/api/venue-weather`、`/api/ai-analysis` 与 `/api/ai-parlay`（SSE 原样流式转发）都走 Python；
   代理只认路径，后续新增分析接口只需往 `ANALYSIS_PATHS` 里加一条。
 - **对拍**：`npm run analysis:fixtures` 用 Node 引擎导出一批真实盘口的期望结果（提交在仓库里），
@@ -1092,7 +1144,7 @@ flowchart LR
   只读、轻量，不生成方案也不跑回测；`/api/recommendations` 仍按原路径走 Python。
 - **测试**：`match-signals.test.mjs` 6 个用例（阈值、同赔、让球标签、缺项、signalsOnly 不返回方案）。
 
-### 5.10 彩票选号投注（排列五 / 七星彩 / 大乐透，支持复式）
+### 5.10 彩票选号投注（排列五 / 七星彩 / 大乐透 / 双色球 / 快乐8，支持复式）
 
 足球投注是「场次 × 选项」存 `bet_leg`；彩票是「一组号码 × 倍数」，没有场次。为了复用列表、统计、
 删除与「我的投注」，在 `bet` 上扩展字段而不是再造平行表（迁移 `0009_lottery_bets.sql`）：
@@ -1100,19 +1152,21 @@ flowchart LR
 | 列 | 说明 |
 | --- | --- |
 | `kind` | `football`（默认）/ `lottery` |
-| `lottery_game_no` | 彩票 `game_no`（`350133` / `04` / `85`） |
-| `lottery_numbers` | 位次型：`{"main":[[1,2],[5],[4],[4],[8]],"extra":[]}`；大乐透：`{"main":[1,6,10,15,32,33],"extra":[3,8,9]}` |
+| `lottery_game_no` | 彩票 `game_no`（`350133` / `04` / `85` / `ssq` / `kl8`） |
+| `lottery_numbers` | 位次型：`{"main":[[1,2],[5],[4],[4],[8]],"extra":[]}`；大乐透：`{"main":[1,6,10,15,32,33],"extra":[3,8,9]}`；双色球：`{"main":[3,9,16,20,25,30],"extra":[5,11]}`；快乐8：`{"main":[…10 个…],"extra":[]}` |
 | `units` / `amount` | 注数（含倍数）与金额；单张最多 1000 注（2000 元） |
 
-**复式与注数**（`apps/api/src/lottery-settlement.mjs`）：单式就是「每位 1 个数字 / 前区 5+后区 2」的特例。
+**复式与注数**（`apps/api/src/lottery-settlement.mjs`）：单式就是「每位 1 个数字 / 前区 5+后区 2 / 红球 6+蓝球 1 / 选十 10 个」的特例。
 
 - 排列五 / 七星彩：每个位次可多选，注数 = 各位数字个数的乘积；
   其中**七星彩前六位 0–9、末位 0–14**（官网末位共 15 个号码），服务端按位次分别校验范围；
 - 大乐透：前区至少 5 个（最多 35）、后区至少 2 个（最多 12），注数 = `C(前区个数,5) × C(后区个数,2)`；
+- 双色球：红球至少 6 个（最多 33）、蓝球至少 1 个（最多 16），注数 = `C(红球个数,6) × C(蓝球个数,1)`；
+- 快乐8：只支持「选十」，必须正好 10 个号码（1–80），1 注；
 - 金额 = 2 元 × 注数 × 倍数；超过 1000 注直接 `400`，前端也会提前禁用保存并提示。
 
 **写入**：`POST /api/bets` 带 `kind: "lottery"` 走 `createLotteryBet`（`apps/api/src/repos/bets.mjs`）。
-服务端重新校验并归一化号码（位次顺序保留、大乐透排序去重），不信任前端传来的注数/金额；
+服务端重新校验并归一化号码（位次顺序保留、号码池排序去重），不信任前端传来的注数/金额；
 标题按「`彩种 复式 N 注`」或单式的号码文本生成。
 
 **判定**：读单时取 `placedAt` 之后该彩种的第一场开奖（`lottery_draw`，开奖时间缺失时按开奖日 21:00 兜底）：
@@ -1120,13 +1174,21 @@ flowchart LR
 - 排列五 / 七星彩：逐位比对，全中记一等奖，否则 `lost`（七星彩低奖项规则未建模，只精确判全中）；
 - 大乐透：按官方九个奖级，用「命中个数 × 未命中个数」的组合数算出**中奖注数与各奖级注数**，
   复式也能给出「一等奖 1 注 / 二等奖 2 注 …」这样的结果；
+- 双色球：红球池覆盖 `r` 个开奖号时，恰好含 `k` 个的 6 码组合数为 `C(r,k)×C(n-r,6-k)`，再乘蓝球命中/未命中的组合数；
+  按一至六等奖汇总注数；
+- 快乐8：选十命中 10/9/8/7/6/5/0 个对应选十奖级，1–4 个无奖；
 - 浮动奖金不代算，`payout` 恒为 `0`，`lottery` 里带 `draw`、`hits`、`matchedMain`、`winningUnits`、`tiers`，
   前端展示「以官方公告为准」。
 
 **前端**：`/history` 工具栏的「选号投注」打开 `LotteryBetPanel`（按当前彩种）：
-排列五/七星彩是「位次 × 0–9」多选矩阵，大乐透是前后区多选网格；实时显示注数、倍数与金额，
-超过上限禁用保存。「我的投注」里复式按位次分组渲染（`1,2 | 5 | 4 | 4 | 8`），
+排列五/七星彩是「位次 × 0–9」多选矩阵，大乐透是前后区多选网格，双色球是红球 33 + 蓝球 16 网格，
+快乐8 是 1–80 选十网格（选满 10 个后不能再加）；实时显示注数、倍数与金额，超过上限禁用保存。
+「我的投注」里位次型复式按位次分组渲染（`1,2 | 5 | 4 | 4 | 8`），双色球红蓝/快乐8绿色号码区分，
 命中位置/号码标绿，中奖时显示中奖注数与奖级。
+
+**一键投注（2026-11-11）**：大乐透 / 双色球 / 快乐8 推荐卡右上角的 `LotteryQuickBetButton`
+只提交主推单式（大乐透 5+2、双色球 6+1、快乐8 选十 10 码），1 注 2 元；保存后跳到「我的投注」可整卡截图。
+复式池（如双色球 12+4 = 3696 注）超过单张上限，仍走「选号投注」手动选。
 
 **一键加注（2026-11-04）**：「组合参考」行右侧的 `LotteryAutoBetButton` 把当前展示的 6 组单式
 一次各存一张票（2 元/注，合计 12 元），免去照着号码手输。组合参考在服务端是拼接串
@@ -1139,16 +1201,16 @@ flowchart LR
 **同类同期合并 + 合并卡截图（2026-11-02）**：
 
 - 合并键 = `彩种 + 状态 + 开奖批次`；开奖批次已开奖用真实 `draw.issue`，待开奖用
-  `src/domain/lotterySchedule.ts` 按彩种开奖日估算的目标日期（排列五每日、七星彩周二/五/日、
-  大乐透周一/三/六，21:00 截止）。同一批次的票即使夹着别的彩票单也归到同一张卡；足球单不参与合并。
+  `src/domain/lotterySchedule.ts` 按彩种开奖日估算的目标日期（排列五/快乐8 每日、七星彩周二/五/日、
+  大乐透周一/三/六、双色球周二/四/日，21:00 截止）。同一批次的票即使夹着别的彩票单也归到同一张卡；足球单不参与合并。
 - 合并只影响展示：顶部统计、删除、`/api/bets` 仍按单张 `bet` 计数；合并卡的「删除」会逐张删除本批。
 - 每张合并卡有「截图」：`html2canvas` 截整张卡（隐藏操作按钮、保留合计与落款），
-  右下角复用 `SnapshotOverlay` 预览/保存；不改变原方案截图链路。
+  右下角复用 `SnapshotOverlay` 预览/保存；不改变原方案截图链路。双色球/快乐8 的合并卡同样支持。
 - 读单性能：`hydrate` 原来每张彩票单一次 `loadNextDraw`（10 来张就是 10 来次跨境往返，实测 ~9.5s）；
   现在一次取「涉及的彩种、最早投注之后」的全部开奖，再在内存里为每张票找下一期（实测 ~3s）。
   同时把 `draw_date` 在 SQL 里 `to_char` 成 `YYYY-MM-DD`，修掉前端显示 `Sat Oct 31` 的问题。
 
-**已知限制**：不支持胆拖；七星彩部分命中、大乐透浮动奖金金额都不在这里计算，避免给出错误的钱数。
+**已知限制**：不支持胆拖；七星彩部分命中、快乐8 选一~选九、浮动奖金金额都不在这里计算，避免给出错误的钱数。
 
 ---
 
@@ -1168,6 +1230,7 @@ flowchart LR
 | 开奖 | `GET /api/history` | 数据库 | 60 s |
 | 开奖分析 | `GET /api/analysis/lottery`、`GET /api/analysis/lottery/snapshots`（Python） | 数据库（爬虫开奖后预算的快照） | 同一期不变：`s-maxage=900`；落后开奖时 60 s |
 | 逐期归档 | `GET /api/analysis/lottery/track`（Node，读归档表） | 数据库（`lottery_prediction_track`，爬虫开奖后增量补/首次回填） | 已到最新 5 min；落后开奖 60 s；本次补算不缓存 |
+| 推荐命中 | `GET /api/analysis/lottery/hits`（Node，读归档表） | 数据库（`lottery_recommendation_track`，爬虫开奖后增量补/首次 `track:hits`） | 已到最新 5 min；落后开奖 60 s；本次补算不缓存 |
 | 赛果 | `GET /api/results` | 数据库 | 30 s |
 | 赔率分布 | `GET /api/odds-distribution` | 数据库（`match_result.ttg_odds`，回退赔率快照） | 5 min |
 | 赔率接近 | `GET /api/match-signals` | 数据库（赔率 + 近况 + 伤停，复用推荐引擎） | 60 s |
@@ -1252,7 +1315,7 @@ flowchart LR
 | 投注 | `bet` / `bet_leg` | API（登录用户） | 永久（用户删除即级联删除） |
 | 可观测 | `crawl_run` | 每条爬虫链路 | 30 天 |
 
-共 26 张表 + 4 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest` / `lottery_prediction_track_latest`）。
+共 28 张表 + 5 个视图（`match_side` / `match_odds_latest` / `lottery_analysis_latest` / `lottery_prediction_track_latest` / `lottery_recommendation_track_latest`）。
 
 关键设计：
 
@@ -1302,14 +1365,15 @@ flowchart LR
 | `POST /api/ai-analysis`、`POST /api/ai-parlay` | 单场 / 串关 AI 分析，SSE：`meta → reasoning/content → done / error` |
 | `GET /healthz` | 健康检查（`service` / `uptimeSeconds` / `envLoaded` / `databaseConfigured`） |
 
-> `GET /api/analysis/lottery/track`（逐期归档）**不在 Python 侧**：写入方是爬虫（Node），
-> 读接口由 `apps/api` 直接查 `lottery_prediction_track`，避免给 Python 服务增加一条写库链路；
+> `GET /api/analysis/lottery/track`（逐期归档）与 `/api/analysis/lottery/hits`（推荐命中）
+> **不在 Python 侧**：写入方是爬虫（Node），读接口由 `apps/api` 直接查归档表，
+> 避免给 Python 服务增加一条写库链路；
 > 打分仍复用冻结的 Node 回退（与 Python 对拍），只做 walk-forward 展开，不新增算法。
 
 - 入口 `api/index.py` 只暴露 ASGI；`app/main.py` 挂 `RewritePathMiddleware` 还原 Vercel rewrite 丢掉的原始路径。
 - 部署：`npm run deploy:analysis`（`apps/analysis/vercel.json`：函数 1024 MB / 60s，rewrite `?__path=/$1`）；
   环境变量 `DATABASE_URL` / `DATABASE_SSL` / `DEEPSEEK_API_KEY`，**必须关闭 Deployment Protection**，否则 Node 代理 401。
-- 对拍与测试：`npm run analysis:fixtures` 导出夹具，`npm run analysis:test` 跑 38 个用例
+- 对拍与测试：`npm run analysis:fixtures` 导出夹具，`npm run analysis:test` 跑 48 个用例
   （开奖分析全量逐字段 0 差异、推荐最大概率差 5e-4、AI 提示词逐字节一致）。
 - 回滚：删掉 Node 项目的 `ANALYSIS_API_BASE` 并重新发布 API，即回 Node 内联实现。
 
@@ -1390,7 +1454,7 @@ flowchart LR
 | 7 | 类型宽松 | 领域类型含 `[key: string]: unknown`；`strict` 未开 | 接口字段漂移无法在编译期发现 |
 | 8 | 截图以 base64 常驻 state | `HomePage.tsx` | 多次截图累积数 MB 内存 |
 | 9 | 缓存无 TTL 过期 | `historyService.ts` | 老数据长期保留（裁剪只按数量） |
-| 10 | 无 ESLint / Prettier / CI | 全仓 | `node:test` 131 个 + Python unittest 38 个，但没有 lint 与流水线 |
+| 10 | 无 ESLint / Prettier / CI | 全仓 | `node:test` 201 个 + Python unittest 48 个，但没有 lint 与流水线 |
 | 11 | 只预取了两页 | `src/server/prefetch.ts` | `/` 与 `/results` 已 SSR；`/history` 与两个分析页仍靠客户端拉取，禁用 JS 看不到数据 |
 | 12 | 同源 rewrite 依赖 `ticai-service` | `next.config.ts` | API 项目改名或迁移时前端要同步改 rewrite（不需重新打包） |
 
@@ -1473,7 +1537,7 @@ flowchart LR
 | --- | --- | --- |
 | 接口来源 | BFF 实时透传体彩 | 爬虫写库，API 只读库（`apps/api`） |
 | 数据存储 | 无 | PostgreSQL 16 张表 + 2 个视图（当时；现为 23 张表）：彩票域、足球域、对战源、可观测性 |
-| 爬虫 | 无 | `apps/crawler`：赛程/赔率、四彩种开奖、伤停、赛果、阵容 |
+| 爬虫 | 无 | `apps/crawler`：赛程/赔率、六彩种开奖（体彩 + 福彩）、伤停、赛果、阵容 |
 | 阵容 | 无来源 | 500.com + Playwright（有头）→ 2026-11 改为 ESPN 官方首发（纯 HTTP，含阵型） |
 | AI 分析 | 前端拼 messages 发 `/api/ai-chat` | `POST /api/ai-analysis` 只收 `matchId + pool`，提示词与官方数据下沉服务端 |
 | 前端请求 | 天气 + 详情 + 对话 = 3 次 | 1 次；`meta` 事件先返回天气 |
@@ -1583,7 +1647,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | 数学走势 | 同上 | `analyze_math_trend_prediction`：线性趋势、预测中心、波动率、滚动验证 |
 | 对拍 | 只有一套实现 | 320/260/200 期夹具 + **全量 7762 期**逐字段对比：prediction、math_trend 差异 **0** |
 | 性能 | Node 全量 1.68s | 照搬的 O(n²) 要 64s → 改成增量流式（转移计数 / 出现次数 / 遗漏位置都增量维护）后 **1.59s**；数学走势 6.8s（Node 0.56s，快照预计算，不在请求路径上） |
-| 代理分流 | 全走 Node | `prediction` / `math_trend` / `dlt` 全部走 Python，代理只按路径判断 |
+| 代理分流 | 全走 Node | `prediction` / `math_trend` / `dlt` / `ssq` / `kl8` 全部走 Python，代理只按路径判断 |
 | 响应头 | Node 自己产 | 代理透传全部 `x-analysis-*` 与 `server-timing`，另加 `x-analysis-via: python`；`x-analysis-source`（快照来源）语义不变 |
 
 ### 2026-10-29 增量：大乐透推演 + 场馆天气迁 Python
@@ -1732,7 +1796,7 @@ AI 单场与串关（SSE）迁 Python，以及删除前端 TS 分析实现、权
 | --- | --- | --- |
 | 列表 | 每张彩票单一张卡；7 张 1 注 2 元的排列五就是 7 张卡 | `src/features/bets/lotteryGroups.ts` 按「彩种 + 状态 + 开奖批次」合并；待开奖批次用 `domain/lotterySchedule.ts` 按彩种开奖日估算（排列五每日 / 七星彩周二三五日 / 大乐透周一三六，21:00 截止），同批次即使夹着别的彩票单也归到同一张卡；足球单不合并 |
 | 合并卡 | — | 头部显示彩种、批次、合计注数/金额、状态；逐张列号码与投注时间/倍数/注数/金额；已开奖显示开奖号码、逐张中奖与命中位；页脚合计 + 删除整批 |
-| 截图 | 只有首页方案弹层能截图 | 每张合并卡有「截图」：`html2canvas` 截整张卡，隐藏截图/删除按钮、保留合计与「体彩助手 · 仅作娱乐参考」落款；右下角复用 `SnapshotOverlay` 预览/保存，桌面导出宽度收窄到 680px，手机按卡宽 |
+| 截图 | 只有首页方案弹层能截图 | 每张合并卡有「截图」：`html2canvas` 截整张卡，隐藏截图/删除按钮、保留合计与「彩票助手 · 仅作娱乐参考」落款；右下角复用 `SnapshotOverlay` 预览/保存，桌面导出宽度收窄到 680px，手机按卡宽 |
 | 读单性能 | 每张彩票单一次 `loadNextDraw`（10 来张 = 10 来次跨境往返，实测 ~9.5s） | `hydrate` 一次取「涉及彩种、最早投注之后」的全部开奖，再在内存里为每张票找下一期（实测 ~3s） |
 | 日期 | `draw_date` 是 Date，`String(...).slice(0,10)` 显示成 `Sat Oct 31` | `loadDrawsAfter` 的 SQL 直接 `to_char(draw_date,'YYYY-MM-DD')`，前端显示 `2026-10-31` |
 | 删除 | 单张删除 | 合并卡按批删除（逐张 `DELETE`，每成功一张同步列表/统计/offset）；单张卡仍是原来的单张删除 |
@@ -1874,4 +1938,65 @@ src/views/ResultsPage   → useInitialResults() 作为 useState 初始值，并�
 
 新增页面时按同样三步走：`loadInitialData` 加分支 → `SsrInitialData` 加字段 → 页面用
 `useInitialXxx()` 做首帧初始值、store 作为后续交互的载体。
+
+---
+
+## 14. 2026-11-11 增量：福彩双色球 / 快乐8 + 推荐命中归档
+
+### 14.1 彩种与数据链路
+
+- 品牌由「体彩助手」统一改为「彩票助手」（前端标题、SEO、邮件、截图落款、架构图）。
+- `lottery_game` 增加 `source`（`sporttery` / `cwl`）与 `category`（`sports` / `welfare`）：
+  - 体彩：排列 3/5、七星彩、大乐透，走 `webapi.sporttery.cn`；
+  - 福彩：双色球（红 6/33 + 蓝 1/16）、快乐 8（20/80），走 `www.cwl.gov.cn` 公告接口。
+- 爬虫 `history` 按 `game.source` 分流；福彩号码在 `normalize.mjs` 统一成两位数字 + 空格串，
+  `/api/history` 与前端不需要感知两套上游格式。奖级映射：双色球 1–6 等奖、快乐 8 `x10z10 → 选十中十`。
+- 回填实测：双色球 2 087 期、快乐 8 2 121 期，各 21–22 页；之后 `history` 每 3 小时只抓最新一页。
+
+### 14.2 分析口径
+
+| 彩种 | 分析 kind | 推荐 | 方法 |
+| --- | --- | --- | --- |
+| 大乐透 | `dlt` | 前区 5 + 后区 2 | 原 5+2 推演，窗口 300 期 |
+| 双色球 | `ssq` | 红球 12 码 + 蓝球 4 码，主推 6+1 | 红球三区各 4 码；近 10/30/100 期频次 + 遗漏 + 重号/邻号；枚举 6 码做和值/跨度/奇偶/大小/三区软约束；蓝球独立排序 |
+| 快乐8 | `kl8` | 选十 10 码 + 20 码池 | 80 码频次/遗漏评分；四区各 5 码组 20 码池；按近 30 期四区均值分配 10 个名额 |
+
+- Python 实现：`apps/analysis/app/analysis/ssq.py` / `kl8.py` / `pool_utils.py`；
+  Node 回退：`apps/api/src/analysis/ssq-recommendation.mjs` / `kl8-recommendation.mjs` / `pool-utils.mjs`。
+- 对拍：`scripts/export-lottery-fixtures.mjs` 新增 ssq / kl8（真实 320 期），
+  Python 与 Node 逐字段 0 差异；`npm run analysis:test` 48 个用例全绿。
+- 快照：`kind` 约束扩到 5 种（迁移 `0015`），每期预算 1 条；`window=300`。
+
+### 14.3 推荐命中归档
+
+- 迁移 `0014`：`lottery_recommendation_track`（每期推荐/实际/命中/奖级）+
+  `_stat`（累计 + 最近 1000 期窗口 + 奖级分布）+ `_latest` 视图。
+- 写入：`apps/api/src/analysis/recommendation-track.mjs` 纯函数 walk-forward；
+  `apps/api/src/repos/recommendation-track.mjs` 增量/回填/upsert；
+  爬虫开奖入库后调用，API 在缺失/落后时兜底。
+- 接口：`GET /api/analysis/lottery/hits`（Node，不经过 Python）。
+- 前端：`RecommendationHitPanel` 展示平均命中、覆盖率/理论值、lift、30/100/300/1000 窗口、
+  命中分布、奖级分布与最近 12 期明细；位次型彩种继续用 `PredictionDeviationPanel`。
+- 首次回填：`npm run track:hits`；巡检 `npm run track:hits -- --status`。
+
+### 14.4 前端
+
+- `/history` 彩种 tab 扩到 5 个（体彩 3 + 福彩 2），支持 `?game=ssq` 深链；
+  每个彩种有独立的「分析方法」条（不同玩法不同口径）。
+- 走势：
+  - 双色球：红球 33 列 × 6 行 + 蓝球 16 列 + 右栏红球指标（和值/跨度/奇偶/大小/三区/蓝球）；
+  - 快乐 8：80 列 × 20 行 + 右栏指标（和值/跨度/奇偶/大小/四区/连号）；
+  - 大乐透保持前后区矩阵 + 前区指标。
+- 推演卡：大乐透沿用 `DltRecommendationPanel`；新增 `SsqRecommendationPanel` / `Kl8RecommendationPanel`。
+- 移动端：每种彩种卡片各自显示号码、指标与推荐命中摘要；快乐 8 的 20 个球缩小一档。
+- 骨架屏：`HistoryPageSkeleton` 按 family 铺 5 列 / 前后区 / 红蓝球 / 80 列四种形态。
+- 选号投注覆盖全部 5 个彩种：双色球红球 33 + 蓝球 16、快乐8 1–80 选十；推荐卡增加主推单式一键投注。
+- 「我的投注」按彩种 + 开奖批次合并，双色球/快乐8 同样支持整卡截图。
+
+### 14.5 已知取舍
+
+- 双色球 / 快乐 8 推荐是**号码池**，命中统计按“覆盖几个开奖号”而非“一注是否中奖”；
+  页面同时给出主推单注/选十的奖级，避免把复式注数误读成单注。
+- 快乐 8 的 80 列走势在 1200px 以下会明显拥挤，桌面端保留完整矩阵，移动端仍以卡片为主。
+- 快乐8 目前只支持「选十」投注；双色球 / 大乐透支持复式，但单张仍受 1000 注上限约束。
 

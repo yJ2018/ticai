@@ -42,6 +42,30 @@ const DLT = {
   extra_count: 2,
 }
 
+const SSQ = {
+  game_no: 'ssq',
+  game_key: 'ssq',
+  name: '双色球',
+  is_positional: false,
+  digit_count: null,
+  main_count: 6,
+  main_max: 33,
+  extra_count: 1,
+  extra_max: 16,
+}
+
+const KL8 = {
+  game_no: 'kl8',
+  game_key: 'kl8',
+  name: '快乐8',
+  is_positional: false,
+  digit_count: null,
+  main_count: 20,
+  main_max: 80,
+  extra_count: 0,
+  extra_max: null,
+}
+
 /** 稳定伪随机，避免测试因为随机号码而时好时坏 */
 function lcg(seed) {
   let state = seed
@@ -70,6 +94,39 @@ function makeDraws(count, { positional = true, seed = 7 } = {}) {
       extra_numbers: positional ? [] : numbers.slice(5),
     }
   })
+}
+
+/** 双色球 / 快乐8 的合成开奖（号码不重复、范围正确，和真实结构一致） */
+function makePoolDraws(count, { kind, seed = 7 } = {}) {
+  const random = lcg(seed)
+  return Array.from({ length: count }, (_, index) => {
+    const seq = 2026000 - index
+    if (kind === 'ssq') {
+      const red = uniqueNumbers(random, 6, 1, 33)
+      return {
+        issue: String(seq),
+        issue_seq: String(seq),
+        draw_date: new Date(Date.UTC(2026, 9, 26 - index)).toISOString().slice(0, 10),
+        main_numbers: red,
+        extra_numbers: [1 + Math.floor(random() * 16)],
+      }
+    }
+    return {
+      issue: String(seq),
+      issue_seq: String(seq),
+      draw_date: new Date(Date.UTC(2026, 9, 26 - index)).toISOString().slice(0, 10),
+      main_numbers: uniqueNumbers(random, 20, 1, 80),
+      extra_numbers: [],
+    }
+  })
+}
+
+function uniqueNumbers(random, count, min, max) {
+  const set = new Set()
+  while (set.size < count) {
+    set.add(min + Math.floor(random() * (max - min + 1)))
+  }
+  return [...set].sort((left, right) => left - right)
 }
 
 /** 把库里的一行变成 compute.mjs 里 loadDraws 的返回形状 */
@@ -171,6 +228,17 @@ test('presets: 位置型彩种预算 5 个阶数 + 数学走势，大乐透只�
   const dlt = presetsForGame(DLT)
   assert.equal(dlt.length, 1)
   assert.equal(dlt[0].kind, 'dlt')
+
+  const ssq = presetsForGame(SSQ)
+  assert.deepEqual(
+    ssq.map((item) => [item.kind, item.configKey]),
+    [['ssq', 'window=300']],
+  )
+  const kl8 = presetsForGame(KL8)
+  assert.deepEqual(
+    kl8.map((item) => [item.kind, item.configKey]),
+    [['kl8', 'window=300']],
+  )
 })
 
 /* ── 纯计算 + 溯源 ────────────────────────────────────── */
@@ -222,6 +290,33 @@ test('computeAnalysis: 大乐透推演只取最近 300 期', () => {
   assert.equal(payload.picks.back.length, 2)
   assert.equal(payload.windows.long, 300)
   assert.equal(sample.drawCount, 300)
+})
+
+test('computeAnalysis: 双色球给出 12 红 + 4 蓝，样本窗口 300 期', () => {
+  const draws = makePoolDraws(420, { kind: 'ssq' }).map(toDraw)
+  const { payload, sample } = computeAnalysis('ssq', SSQ, draws, 'window=300')
+
+  assert.ok(payload)
+  assert.equal(payload.red.picks.length, 12)
+  assert.equal(payload.red.primary.length, 6)
+  assert.equal(payload.blue.picks.length, 4)
+  assert.equal(payload.blue.primary.length, 1)
+  assert.equal(payload.sampleSize, 300)
+  assert.equal(sample.drawCount, 300)
+  assert.ok(payload.reasons.length >= 3)
+})
+
+test('computeAnalysis: 快乐8 给出选十 10 码 + 20 码池', () => {
+  const draws = makePoolDraws(420, { kind: 'kl8' }).map(toDraw)
+  const { payload, sample } = computeAnalysis('kl8', KL8, draws, 'window=300')
+
+  assert.ok(payload)
+  assert.equal(payload.picks.primary.length, 10)
+  assert.equal(payload.picks.pool.length, 20)
+  assert.equal(payload.allocation.reduce((sum, value) => sum + value, 0), 10)
+  assert.equal(payload.sampleSize, 300)
+  assert.equal(sample.drawCount, 300)
+  assert.ok(payload.reasons.length >= 3)
 })
 
 test('computeAnalysis: 样本不足时返回 null，而不是写入半截结果', () => {

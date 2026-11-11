@@ -3,7 +3,7 @@
 独立爬虫进程。**与主应用完全隔离**：有自己的 `package.json`、自己的进程，不 import `src/` 或 `apps/api/`，只通过数据库交汇。
 
 ```
-体彩 webapi ──▶ 本进程 ──写──▶ PostgreSQL ──读──▶ apps/api ──▶ 前端
+体彩 webapi + 福彩公告 ──▶ 本进程 ──写──▶ PostgreSQL ──读──▶ apps/api ──▶ 前端
 ```
 
 ## 快速开始
@@ -16,7 +16,7 @@ node apps/crawler/src/index.mjs matches       # 抓一次在售赛程
 node apps/crawler/src/index.mjs results       # 抓最近 3 天赛果开奖
 node apps/crawler/src/index.mjs results --days=30        # 回灌最近 30 天
 node apps/crawler/src/index.mjs results --from=2026-09-01 --to=2026-09-30
-node apps/crawler/src/index.mjs history       # 抓四个彩种最新一页
+node apps/crawler/src/index.mjs history       # 抓六个彩种最新一页
 node apps/crawler/src/index.mjs history --backfill   # 逐页回灌历史
 node apps/crawler/src/index.mjs history --backfill --game=qxc,dlt --delay=4500   # 只补某几个彩种并放慢
 node apps/crawler/src/index.mjs all --every=60       # 循环跑
@@ -33,8 +33,9 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 | --- | --- | --- |
 | `matches` | 在售赛程 + 赔率，按内容 hash 去重写快照 | 30 min |
 | `results` | 赛果开奖：比分 + 五个玩法结果，回写 `match` 与 `match_result`；已开奖场次固化最后一份总进球赔率与全玩法收盘赔率（`closing_odds`） | 30 min（无待开奖比赛时跳过） |
-| `history` | 四个彩种各抓最新一页（100 期） | 3 h |
-| `history --backfill` | 从第 1 页翻到最后一页 | 一次性 |
+| `history` | 六个彩种各抓最新一页（100 期）：体彩排列3/5、七星彩、大乐透走 sporttery；福彩双色球、快乐8 走 cwl 公告 | 3 h |
+| `history --backfill` | 从第 1 页翻到最后一页（福彩约 21 页/彩种） | 一次性 |
+| `history --game=ssq,kl8` | 只处理指定彩种（game_key） | 按需 |
 | `details` | 伤停 + 积分/交锋/近况/射手（全部 7 个源）；`--injury-only` 只抓伤停 | 3 h |
 | `lineups` | 导入阵容 JSON（`--dry` 预演不落库） | 有数据时手动跑 |
 | `lineups-espn` | 从 ESPN 抓赛前首发（`--window` / `--limit` / `--dry`） | 20 min |
@@ -57,7 +58,7 @@ node apps/crawler/src/index.mjs all --every=60       # 循环跑
 
 ## 抓什么、不抓什么
 
-**已实现**：在售赛程、五个玩法赔率、四彩种开奖（含奖级）、**伤停名单**、**赛果（全场 + 半场比分）**、**积分/交锋/近况/射手（体彩 7 源）**、**阵容**（ESPN 官方首发 + 替补 + 阵型，见下文「阵容抓取」）。
+**已实现**：在售赛程、五个玩法赔率、六彩种开奖（体彩四彩种 + 福彩双色球/快乐8，含奖级）、**伤停名单**、**赛果（全场 + 半场比分）**、**积分/交锋/近况/射手（体彩 7 源）**、**阵容**（ESPN 官方首发 + 替补 + 阵型，见下文「阵容抓取」）。
 
 **不抓**：体彩官方阵容（体彩公开接口里没有，`getMatchPlayerV1` 实际是射手榜，不是首发名单）。
 
@@ -102,6 +103,24 @@ accept-language: zh-CN,zh;q=0.9
 
 如果有一天真的 567（通常是出口 IP 被判定），错误信息会明确提示；那时再考虑换出口或加浏览器，而不是现在就背这个包袱。
 
+## 福彩公告接口（双色球 / 快乐8）
+
+福彩与体彩是两套独立上游，`lottery_game.source = 'cwl'` 的彩种走 `src/cwl.mjs`：
+
+```
+GET https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice
+  ?name=ssq&pageNo=1&pageSize=100&systemType=PC
+```
+
+- `name=ssq`（双色球）/ `name=kl8`（快乐8），`game_no` 同时就是这里的 `name`；
+- `pageSize` 最大 100，返回 `pageNum` 是总页数、`total` 是总期数；
+- 号码在 `red` / `blue` 两个逗号分隔字段：双色球 6 红 + 1 蓝，快乐8 只有 20 个红号；
+- 奖级在 `prizegrades`：双色球 `type=1..6`，快乐8 是 `x10z10` 这种「选十中十」编码；
+- 请求带浏览器 UA + `Referer: https://www.cwl.gov.cn/`，不需要登录或签名。
+
+爬虫把号码统一成空格分隔的两位数字串（`03 09 16 20 25 30 05`）写库，
+`/api/history` 与走势页不需要感知两个上游的格式差异。
+
 ## 写入规则
 
 1. **幂等**：全部 `on conflict`，重跑不产生重复。实测连跑两次，赔率快照 `changed=0`、开奖总数不变。
@@ -116,7 +135,9 @@ accept-language: zh-CN,zh;q=0.9
 | --- | --- | --- |
 | `DATABASE_URL` | — | 必填 |
 | `DATABASE_SSL` | 关 | 云数据库设 `1` |
-| `CRAWL_GAMES` | `350133,35,85,04` | 要抓的彩种 `gameNo` |
+| `CRAWL_GAMES` | `350133,35,85,04,ssq,kl8` | 要抓的彩种 `gameNo` |
+| `SPORTTERY_BASE` | `https://webapi.sporttery.cn` | 体彩上游 |
+| `CWL_BASE` | `https://www.cwl.gov.cn` | 福彩公告上游 |
 | `CRAWL_DELAY_MS` | 1200 | 请求间隔 |
 | `CRAWL_TIMEOUT_MS` | 20000 | 单请求超时 |
 | `CRAWL_RETRIES` | 2 | 5xx/429 重试次数（567 不重试） |
@@ -177,7 +198,7 @@ npm run crawl:daemon       # 裸跑：调试时用，挂掉不会自己起来
 | `expire` | 每 30 分钟（同上，纯本地） | 已开赛的比赛标为停售，不发请求 |
 | `results` | 每 30 分钟（同上，无待开奖时跳过） | 赛果开奖：官网接口按日期区间一次拿一批，回写比分与各玩法结果 |
 | `lineups` | 每 20 分钟（`CRAWL_LINEUPS_MINUTES`） | 赛前 2.5 小时内、还没有官方名单的比赛，从 ESPN 抓首发 |
-| `history` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 四彩种各 100 期，约 3 分钟 |
+| `history` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 六个彩种各 100 期，体彩 + 福彩两套上游，约 4–5 分钟 |
 | `details` | 每 3 小时（`CRAWL_INTERVAL_MINUTES`） | 伤停 + 积分/交锋/近况/射手（7 个源），约 5 分钟 |
 
 > 2026-10 起「赛果」不再逐场抓：官网赛果开奖接口
@@ -241,19 +262,19 @@ ExecStart=/usr/bin/node apps/crawler/src/index.mjs matches
 
 配一个 `OnUnitActiveSec=60s` 的 timer 即可；开奖用单独的 timer，晚 21:30 之后每 10 分钟跑一次。
 
-回灌的耗时参考：4 个彩种 × 100 期/页，单页约 1–2 s，全量 78 页大约几分钟，中途断了直接重跑即可（幂等）。
+回灌的耗时参考：6 个彩种 × 100 期/页（福彩约 21 页/彩种），单页约 1–2 s，全量约 100 页、几分钟；中途断了直接重跑即可（幂等）。
 
-## 已验证（2026-10-22，真实接口 + 真实库）
+## 已验证（2026-10-22 体彩 / 2026-11-11 福彩，真实接口 + 真实库）
 
 | 项 | 结果 |
 | --- | --- |
 | `matches` | 25 场在售、50 支球队、15 个联赛、25 条赔率快照，0.2 s |
 | 重复抓取 | `changed=0`，快照数不变 |
-| `history` | 四个彩种各 100 期，共 1985 条奖级 |
-| 号码拆分 | 大乐透 `01 06 10 15 32 03 04` → 前区 5 + 后区 2；排列五保留 `0` |
-| 重复抓取 | 400 期 / 1985 条奖级，总数不变 |
+| `history` | 六个彩种各 100 期（福彩另有一套公告接口） |
+| 号码拆分 | 大乐透 `01 06 10 15 32 03 04` → 前区 5 + 后区 2；排列五保留 `0`；双色球 6 红 + 1 蓝；快乐8 20 个 |
+| 福彩回填 | 双色球 2 087 期 / 快乐8 2 121 期，各 21–22 页，累计写入 4 208 期 |
 | `details` | 26 场 × 2 源 = 52 次请求，17.8 秒，0 失败 |
 | 比分回填 | 昂热 2:5 马赛、半场 1:2 → `htft = aa`，`result_source = sporttery` |
 | 伤停 | 89 名球员 / 89 条伤停，球队映射正确（AC米兰、亚特兰大等真实球员） |
 | 原始订阅源 | 52 条 `match_feed`（26 场 × injury + result） |
-| 单测 | 40/40（`node --test test`） |
+| 单测 | 63/63（`node --test test`） |

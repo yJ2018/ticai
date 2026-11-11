@@ -1,13 +1,19 @@
 import { analyzeDltRecommendation } from './dlt-recommendation.mjs'
 import { analyzeHistoryPrediction, analyzeMathTrendPrediction } from './history-prediction.mjs'
+import { analyzeKl8Recommendation } from './kl8-recommendation.mjs'
+import { analyzeSsqRecommendation } from './ssq-recommendation.mjs'
 import {
   DLT_WINDOW,
   ENGINE_VERSION,
+  KL8_WINDOW,
+  SSQ_WINDOW,
   analysisOptions,
   dltConfigKey,
+  kl8ConfigKey,
   mathTrendConfigKey,
   predictionConfigKey,
   presetsForGame,
+  ssqConfigKey,
 } from './configs.mjs'
 import { ENGINE_DIGEST } from './generated.mjs'
 
@@ -31,7 +37,8 @@ import { ENGINE_DIGEST } from './generated.mjs'
  */
 
 const GAME_SQL = `
-  select game_no, game_key, name, is_positional, digit_count, main_count, extra_count
+  select game_no, game_key, name, is_positional, digit_count, main_count, main_max,
+         extra_count, extra_max, source, category
   from lottery_game
   where game_no = $1 or game_key = $1
   limit 1
@@ -218,13 +225,19 @@ function toIso(value) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString()
 }
 
-/** 每种分析实际吃进去了多少期：预测用全量，另两个有固定窗口 */
+/** 每种分析实际吃进去了多少期：预测用全量，其余有固定窗口 */
 function usedDrawCount(kind, draws, options) {
   if (kind === 'math_trend') {
     return Math.min(options.sampleWindow, draws.length)
   }
   if (kind === 'dlt') {
     return Math.min(DLT_WINDOW, draws.length)
+  }
+  if (kind === 'ssq') {
+    return Math.min(SSQ_WINDOW, draws.length)
+  }
+  if (kind === 'kl8') {
+    return Math.min(KL8_WINDOW, draws.length)
   }
   return draws.length
 }
@@ -254,6 +267,10 @@ export function computeAnalysis(kind, game, draws, configKey) {
   } else if (kind === 'dlt') {
     // 大乐透推演只认「最近 300 期、最新在前」，函数内部按窗口截断
     payload = analyzeDltRecommendation(draws.map((draw) => ({ numbers: draw.numbers })))
+  } else if (kind === 'ssq') {
+    payload = analyzeSsqRecommendation(draws.map((draw) => ({ numbers: draw.numbers })))
+  } else if (kind === 'kl8') {
+    payload = analyzeKl8Recommendation(draws.map((draw) => ({ numbers: draw.numbers })))
   } else {
     throw new Error(`未知分析种类：${kind}`)
   }
@@ -538,6 +555,12 @@ export function defaultConfigKey(kind) {
   }
   if (kind === 'math_trend') {
     return mathTrendConfigKey()
+  }
+  if (kind === 'ssq') {
+    return ssqConfigKey()
+  }
+  if (kind === 'kl8') {
+    return kl8ConfigKey()
   }
   return dltConfigKey()
 }

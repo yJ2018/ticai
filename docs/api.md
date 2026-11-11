@@ -1,6 +1,6 @@
 # ticai API 接口文档
 
-> 版本：2026-10-30 · Node 服务端在 `apps/api/`；分析类接口（推荐 / 开奖分析 / 天气 / AI）由
+> 版本：2026-11-11 · Node 服务端在 `apps/api/`；分析类接口（推荐 / 开奖分析 / 天气 / AI）由
 > `apps/analysis/`（Python + FastAPI）实现，Node 反向代理并保留同口径回退。
 > 实现细节见 [apps/api/README.md](../apps/api/README.md) 与 [apps/analysis/README.md](../apps/analysis/README.md)。
 
@@ -138,7 +138,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 | 参数 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `gameNo` | string | 必填 | 彩种编号或键：`350133`/`pl5`、`35`/`pl3`、`85`/`dlt`、`04`/`qxc` |
+| `gameNo` | string | 必填 | 彩种编号或键：`350133`/`pl5`、`35`/`pl3`、`85`/`dlt`、`04`/`qxc`、`ssq`（双色球）、`kl8`（快乐8） |
 | `pageNo` | int | 1 | 1–10000 |
 | `pageSize` | int | 30 | 1–100 |
 
@@ -186,7 +186,7 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 | 参数 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `gameNo`（或 `game`） | string | 必填 | `350133`/`pl5`、`35`/`pl3`、`85`/`dlt`、`04`/`qxc` |
+| `gameNo`（或 `game`） | string | 必填 | `350133`/`pl5`、`35`/`pl3`、`85`/`dlt`、`04`/`qxc`、`ssq`、`kl8` |
 
 **响应**
 
@@ -211,11 +211,11 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 ### 2.2.1 `GET /api/analysis/lottery`
 
-> 实现位置：`kind=prediction` / `kind=math_trend` 由 Python 分析服务计算并代理返回（响应头
-> `x-analysis-via: python`）；`kind=dlt` 与未配置 `ANALYSIS_API_BASE` 时仍由 Node 计算。
-> 两种情况的 payload 与 `x-analysis-*` 响应头完全一致（对拍见 `npm run analysis:test`）。
+> 实现位置：`kind=prediction` / `kind=math_trend` / `kind=dlt` / `kind=ssq` / `kind=kl8`
+> 由 Python 分析服务计算并代理返回（响应头 `x-analysis-via: python`）；
+> 未配置 `ANALYSIS_API_BASE` 时回退 Node 内联实现。
 
-开奖分析快照（频次/遗漏/马尔可夫/滚动回测、数学走势、大乐透 5+2 推演）。
+开奖分析快照（频次/遗漏/马尔可夫/滚动回测、数学走势、大乐透 5+2、双色球 12+4、快乐8 选十）。
 分析用**全量**开奖（排列五 7760 期），在爬虫抓到新开奖后就地算一次并落库
 （`lottery_analysis_snapshot`），本接口只读最新一条快照。
 
@@ -223,8 +223,8 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 
 | 参数 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `game` | string | `pl5` | `pl5` / `pl3` / `qxc` / `dlt`，或体彩 `gameNo`（`350133` / `35` / `04` / `85`） |
-| `kind` | string | 位置型 `prediction`、大乐透 `dlt` | `prediction` / `math_trend` / `dlt` |
+| `game` | string | `pl5` | `pl5` / `pl3` / `qxc` / `dlt` / `ssq` / `kl8`，或彩种编号（`350133` / `35` / `04` / `85` / `ssq` / `kl8`） |
+| `kind` | string | 位置型 `prediction`、大乐透 `dlt`、双色球 `ssq`、快乐8 `kl8` | `prediction` / `math_trend` / `dlt` / `ssq` / `kl8` |
 | `order` | int | 由 `config_key` 默认 | 仅 `prediction` 生效：马尔可夫阶数 1–5（开奖时已预算好 5 档） |
 | `w` | string | 空 | 仅 `prediction` 生效：自定义权重百分比，5 项用 `-` 连接，如 `34-20-22-14-10`（近期频次/长期频次/遗漏/单步转移/双步转移）。参数会进 `config_key`（`markov=3;w=34-20-22-14-10`），同一组合重复请求直接命中快照 |
 
@@ -390,6 +390,76 @@ data: {"model":"deepseek-flash","finishReason":"stop","truncated":false,"usage":
 **缓存**：归档已到最新 → `public, max-age=60, s-maxage=300, stale-while-revalidate=120`；落后于最新开奖 → 降到 30/60s；本次触发补算 → `private, no-store`。
 
 **错误**：彩种未知 `404`；大乐透等非位次彩种 `400`；`issues` 含非法期号 `400`。
+
+### 2.2.4 `GET /api/analysis/lottery/hits`
+
+号码池型彩种的逐期推荐命中：大乐透（5+2）、双色球（红球 12 码 + 蓝球 4 码）、
+快乐8（选十 10 码）。每期记录开奖前给出的推荐、实际开奖、命中个数与奖级，
+同时返回累计命中率、30/100/300/1000 期窗口、命中分布与奖级分布。
+
+> 与 `2.2.3` 的位次型归档互补：排列五 / 七星彩用逐位 Top1/Top3，号码池彩种用本接口。
+> 归档同样是 **walk-forward**：第 N 期只用第 1..N-1 期数据（`throughIssue` 可自证）；
+> 数据来源 `lottery_recommendation_track`，由爬虫开奖入库后增量补，
+> 首次回填执行 `npm run track:hits`。
+
+**查询参数**
+
+| 参数 | 类型 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `game` | string | `dlt` | `dlt` / `ssq` / `kl8`；位次型彩种请用 `/api/analysis/lottery/track` |
+| `issues` | string | 空 | 指定期号，逗号分隔（最多 60 个）；不传则返回最近 `limit` 期 |
+| `limit` | int | `30` | 不传 `issues` 时返回的期数，1–200 |
+| `refresh` | string | 空 | `1` = 强制重算并覆盖归档（排障用） |
+
+**响应（节选）**
+
+```json
+{
+  "success": true,
+  "data": {
+    "game": { "gameKey": "ssq", "gameNo": "ssq", "name": "双色球", "positional": false, "mainCount": 6, "mainMax": 33, "extraCount": 1, "extraMax": 16, "category": "welfare" },
+    "kind": "ssq",
+    "configKey": "window=300",
+    "ready": true,
+    "sample": { "fromIssue": "2024132", "toIssue": "2026129", "drawCount": 300 },
+    "summary": {
+      "shape": { "actualMain": 6, "actualExtra": 1, "pickMain": 12, "pickExtra": 4, "mainPickRate": 0.3636 },
+      "baseline": { "expectedMainHits": 2.1818, "expectedExtraHits": 0.25 },
+      "overall": { "samples": 300, "avgMainHits": 2.23, "avgExtraHits": 0.29, "captureRate": 0.372, "lift": 1.022, "winningIssues": 111, "bestTier": "一等奖" },
+      "windows": [{ "window": 30, "captureRate": 0.417, "winningIssues": 12 }],
+      "distribution": { "main": [{ "hits": 2, "count": 81, "rate": 0.27 }] },
+      "tiers": [{ "tier": "六等奖", "count": 55, "rate": 0.183 }]
+    },
+    "items": [
+      {
+        "issue": "2026129",
+        "throughIssue": "2026128",
+        "prediction": { "main": [2, 4, 8, 10, 13, 14, 20, 22, 24, 26, 30, 31], "extra": [4, 9, 11, 12], "primaryMain": [4, 10, 13, 22, 24, 30], "primaryExtra": [12] },
+        "actual": { "main": [3, 9, 16, 20, 25, 30], "extra": [5] },
+        "hits": { "main": 2, "extra": 0, "total": 2 },
+        "ticket": { "tier": null, "tiers": [], "winningUnits": 0 }
+      }
+    ],
+    "missing": [],
+    "stale": false,
+    "triggered": false
+  }
+}
+```
+
+**统计口径**
+
+- `overall.captureRate`：命中的开奖号 / 全部开奖号；双色球 12 码池的理论覆盖率是 12/33=36.4%，快乐8 选十是 10/80=12.5%，大乐透主推 5 个是 5/35=14.3%。
+- `overall.lift`：实际覆盖率 ÷ 理论覆盖率；大于 1 说明推荐略强于随机撒号。
+- `distribution.main[hits]`：命中 h 个开奖号的期数；`tiers` 按每期最好成绩统计。
+- 双色球 `ticket.tiers` 是复式各奖级注数：红球池命中 r 个、池 n 个时，恰好含 k 个开奖号的 6 码组合数为 `C(r,k)×C(n-r,6-k)`，再乘蓝球命中/未命中的组合数。
+- 大乐透按官方九个奖级、快乐8 按选十奖级定档；浮动奖金不代算。
+
+**响应头**：`x-hits-source`（`stored` / `computed-on-read`）、`x-hits-stale`、`x-hits-through-issue`、`x-hits-samples`、`server-timing`。
+
+**缓存**：归档已到最新 → `public, max-age=60, s-maxage=300`；落后 → 30/60s；本次补算 → `private, no-store`。
+
+**错误**：彩种未知 `404`；位次型彩种 `400`；`issues` 含非法期号 `400`。
 
 ### 2.3 `GET /api/match-detail`
 
@@ -1028,27 +1098,33 @@ Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，�
 
 响应 `201`，body 与列表中的单条结构一致（已带实时结算）。
 
-#### 3.10.1 彩票选号（排列五 / 七星彩 / 大乐透，支持复式）
+#### 3.10.1 彩票选号（排列五 / 七星彩 / 大乐透 / 双色球 / 快乐8，支持复式）
 
 同一个 `POST /api/bets`，用 `kind: "lottery"` 区分（不传 `kind` 仍是足球）：
 
 ```json
 { "kind": "lottery", "game": "dlt", "numbers": { "main": [1, 6, 10, 15, 32, 33], "extra": [3, 8, 9] }, "multiple": 1 }
+{ "kind": "lottery", "game": "ssq", "numbers": { "main": [3, 9, 16, 20, 25, 30], "extra": [5] }, "multiple": 1 }
+{ "kind": "lottery", "game": "kl8", "numbers": { "main": [1, 8, 12, 20, 25, 33, 41, 55, 66, 78], "extra": [] }, "multiple": 1 }
 ```
 
 | 字段 | 说明 |
 | --- | --- |
-| `game` | `pl5` / `qxc` / `dlt`，也接受 gameNo `350133` / `04` / `85` |
-| `numbers.main` | 排列五：5 个位次（每位 0–9）；七星彩：7 个位次，前六位 0–9、**末位 0–14**；大乐透：前区号码池（≥5 个，1–35） |
-| `numbers.extra` | 只有大乐透使用：后区号码池（≥2 个，1–12） |
+| `game` | `pl5` / `qxc` / `dlt` / `ssq` / `kl8`，也接受 gameNo `350133` / `04` / `85` / `ssq` / `kl8` |
+| `numbers.main` | 排列五：5 个位次（每位 0–9）；七星彩：7 个位次，前六位 0–9、**末位 0–14**；大乐透：前区号码池（≥5 个，1–35）；双色球：红球号码池（≥6 个，1–33）；快乐8：**正好 10 个**选十号码（1–80） |
+| `numbers.extra` | 大乐透：后区号码池（≥2 个，1–12）；双色球：蓝球号码池（≥1 个，1–16）；其他彩种传 `[]` |
 
-- **注数**：排列五/七星彩 = 各位数字个数的乘积；大乐透 = `C(前区个数,5) × C(后区个数,2)`。
+- **注数**：排列五/七星彩 = 各位数字个数的乘积；大乐透 = `C(前区个数,5) × C(后区个数,2)`；
+  双色球 = `C(红球个数,6) × C(蓝球个数,1)`；快乐8 选十固定 10 个号码 = 1 注。
   `multiple` 1–50；`units = 注数 × 倍数`，`amount = 2 × units`；单张最多 **1000 注（2000 元）**，超出 `400`。
-- 号码由服务端再校验（位次非空、范围、大乐透排序去重），前端选号器只是输入辅助。
+- 号码由服务端再校验（位次非空、范围、池内排重；快乐8 必须正好 10 个），前端选号器只是输入辅助。
 - 返回的单条结构：`kind: "lottery"`，`passTypes` / `legs` 为空，另带
   `lottery: { gameKey, gameNo, name, positional, mode, numbers, tier, tiers, winningUnits, hits, matchedMain, matchedExtra, draw }`。
 - 判定：取 `placedAt` 之后该彩种第一场开奖（`lottery_draw`）。排列五 / 七星彩按位全中记一等奖；
-  大乐透按官方九个奖级并用组合数算出中奖注数与各奖级注数。浮动奖金不代算，`payout` 恒为 `0`，以官方公告为准。
+  大乐透按官方九个奖级、双色球按六个奖级（复式用组合数算各奖级注数）、快乐8 按选十奖级；
+  浮动奖金不代算，`payout` 恒为 `0`，以官方公告为准。
+- `/history` 推荐卡的「一键投注」只提交主推单式（大乐透 5+2 / 双色球 6+1 / 快乐8 选十 10 码），
+  复式与更多号码在工具栏「选号投注」里手动选。
 
 ### 3.11 `GET /api/bets/:id`、`DELETE /api/bets/:id`
 
@@ -1057,7 +1133,7 @@ Node 回退 [engine.mjs](../apps/api/src/recommend/engine.mjs) 与之对拍，�
 ### 3.12 结算规则
 
 - 赛果来自 `match_result`；缺失即 `pending`，不提前判负。
-- 彩票单：取 `placedAt` 之后第一场开奖判定（排列五 / 七星彩全中；大乐透按九个奖级），
+- 彩票单：取 `placedAt` 之后第一场开奖判定（排列五 / 七星彩全中；大乐透九奖级；双色球六奖级；快乐8选十奖级），
   浮动奖金不代算，`payout` 恒为 `0`。
 - 每注 2 元，奖金 = 命中组合的赔率连乘 × 2 × 倍数。
 - 让球胜平负按**下注时**的 `goalLine` 重算（2:1、让一球 → 1:1 → 让球平）。
@@ -1403,6 +1479,7 @@ NEXT_PUBLIC_API_BASE=https://ticai-api.vercel.app
 
 | 日期 | 变更 |
 | --- | --- |
+| 2026-11-11 | 接入福彩双色球 / 快乐8：`/api/history` 支持 `gameNo=ssq|kl8`；`/api/analysis/lottery` 新增 `kind=ssq|kl8`（红球 12+4、快乐8 选十 10 码），Python 与 Node 逐字段对拍；新增 `GET /api/analysis/lottery/hits` 与表 `lottery_recommendation_track` / `_stat`（迁移 `0014`/`0015`），记录大乐透 / 双色球 / 快乐8 的逐期推荐命中与奖级；`POST /api/bets` 的 `kind=lottery` 扩展到双色球、快乐8，推荐卡支持主推单式一键投注，我的投注合并卡可截图；爬虫新增福彩公告链路（`cwl.history:ssq|kl8`），首次回填 `npm run track:hits` |
 | 2026-11-02 | `/api/bets` 彩票单的 `lottery.draw.drawDate` 统一为 `YYYY-MM-DD`（原 Date 字符串 slice 会变成 `Sat Oct 31`）；读单改为一次批量取「涉及彩种、最早投注之后」的开奖再在内存找下一期，10 来张彩票单 ~9.5s → ~3s；前端按彩种 + 开奖批次合并展示，合并卡可整卡截图 |
 | 2026-11-02 | 新增 `GET /api/analysis/lottery/track`：逐期参考归档（walk-forward）+ 命中率 / 分位偏差 / 号码偏差 / 滚动命中，走势页据此显示顺位角标与逐期命中；新增表 `lottery_prediction_track` / `lottery_prediction_track_stat`（迁移 `0013`），爬虫开奖后增量补，首次执行 `npm run track:backfill` |
 | 2026-11-01 | `/api/results` 改为按**期（销售日）**取：`?period=YYYY-MM-DD`（不传取最近一期），响应带 `period` / `label` / `periods`；跨零点场次归前一天，`matchDate` 与 `period` 可能相差一天 |

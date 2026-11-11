@@ -1,11 +1,11 @@
-# ticai · 体彩助手
+# ticai · 彩票助手
 
-> 竞彩足球赔率投注 + 体彩开奖分析（排列5 / 七星彩 / 超级大乐透）+ 可选账号与投注记录。
+> 竞彩足球赔率投注 + 中国体育彩票 / 福利彩票开奖分析（排列5 / 七星彩 / 超级大乐透 / 双色球 / 快乐8）+ 可选账号与投注记录。
 >
 > 前端 **Next.js 16**（App Router，公开页按请求 SSR），服务端拆成三个独立项目：
 > **`apps/api`**（Node）只读数据库、对外 REST + SSE，并把分析类接口反向代理到 Python；
-> **`apps/analysis`**（Python / FastAPI）计算全部分析（推荐 / 开奖 / 走势 / 大乐透 / 天气 / AI）；
-> **`apps/crawler`** 在本机抓体彩（赛程/赔率/赛果/开奖/伤停）与 ESPN 阵容写入数据库。
+> **`apps/analysis`**（Python / FastAPI）计算全部分析（推荐 / 开奖 / 走势 / 大乐透 / 双色球 / 快乐8 / 天气 / AI）；
+> **`apps/crawler`** 在本机抓体彩与福彩（赛程/赔率/赛果/开奖/伤停）及 ESPN 阵容写入数据库。
 > 浏览器只与自有 API 通信（同源 `/api` rewrite），第三方密钥、提示词与上游访问全部留在服务端。
 
 🔗 在线预览 <https://yujun426.online> ｜ 接口健康检查 <https://ticai-service.vercel.app/healthz>
@@ -16,7 +16,7 @@
 ![Node](https://img.shields.io/badge/Node-%E2%89%A520-5fa04e?logo=nodedotjs&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.12-3776ab?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-24%20%E5%BC%A0%E8%A1%A8%20%2B%203%20%E8%A7%86%E5%9B%BE-4169e1?logo=postgresql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-28%20%E5%BC%A0%E8%A1%A8%20%2B%205%20%E8%A7%86%E5%9B%BE-4169e1?logo=postgresql&logoColor=white)
 
 ![架构图](docs/architecture.png)
 
@@ -30,7 +30,7 @@
 | --- | --- | --- |
 | `/` | 赛事投注 | 5 种玩法池、赔率勾选、**赔率接近标注**（最低两档 ≤8% 时标 ≈，蓝框为分析偏向）、**一键串关**（赔率→λ→泊松→EV）、奖金按体彩单注限额封顶、方案截图、单场与方案两级 AI 分析（SSE）、登录后可保存投注 |
 | `/match/:matchId` | 对战详情 | 交锋 / 伤停 / 近况 / 积分 / 阵容 / 射手 / 未来赛程 / 比赛地天气；PC 弹框与 H5 页面共用正文 |
-| `/history` | 开奖历史 | 三种彩种走势；每期参考以 1/2/3 顺位角标显示在走势格 + 隔行底色（跨五列连续）+ 逐期命中栏 + 分位/号码/漂移偏差面板；大乐透号码矩阵 + 逐期指标 + 下期 5+2 号码参考；工具栏「选号投注」可手动选号，「组合参考」旁「一键加注」一次把这 6 组单式存进我的投注 |
+| `/history` | 开奖历史 | 体彩 / 福彩五种彩种走势；排列五、七星彩逐位参考与命中，大乐透 / 双色球 / 快乐8 号码矩阵、逐期指标和号码推演；每期推荐开奖后自动核对命中与奖级（推荐命中记录 + 命中分布/奖级分布）；工具栏「选号投注」可直接选号，「组合参考」旁「一键加注」一次把这 6 组单式存进我的投注 |
 | `/history-analysis` | 分析页面 | 频次 / 遗漏 / 马尔可夫 / 滚动回测 / 组合推荐，权重与阶数可调 |
 | `/math-trend-analysis` | 数学走势 | 线性回归趋势、预测中心、波动率、大样本回测 |
 | `/results` | 赛果开奖 | 按期（销售日）翻看比分与五个玩法的开奖结果，跨零点场次归前一天 |
@@ -55,7 +55,7 @@
 | 服务端 | Node ≥ 20 原生 ESM，唯一运行时依赖 `pg`；REST + SSE |
 | 分析服务 | Python 3.12 + FastAPI（Vercel Python 运行时），psycopg 连接池；与 Node 版逐字段对拍（概率差 < 5e-3） |
 | 爬虫 | Node 原生 ESM；全部走 `fetch`（体彩官方 JSON + ESPN 公开接口），不再依赖浏览器 |
-| 数据 | PostgreSQL（生产 Prisma Postgres），26 张表 + 4 个视图 |
+| 数据 | PostgreSQL（生产 Prisma Postgres），28 张表 + 5 个视图 |
 | 统计 | Vercel Web Analytics（`@vercel/analytics` 2.x）：生产构建自动上报 PV / 访客 / 来源 |
 
 ## 快速开始
@@ -76,7 +76,7 @@ ANALYSIS_API_BASE=http://127.0.0.1:3012 npm run api:dev
 
 ```bash
 npm run crawl:matches     # 抓一次在售赛程与赔率
-npm run crawl:history     # 抓四个彩种最新一页
+npm run crawl:history     # 抓全部彩种（体彩 + 福彩）最新一页
 ```
 
 > 改 `apps/api` 需要重启 `npm run dev`（API 无热重载）；前端改动由 Next 热更新。
@@ -92,7 +92,7 @@ npm run crawl:history     # 抓四个彩种最新一页
 | `npm run analysis:dev` / `analysis:test` | 本地起 Python 分析服务（:3012）/ 跑 Python 单测与对拍 |
 | `npm run analysis:fixtures` | 重新导出对拍夹具（推荐 / 开奖 / AI 提示词） |
 | `npm run db:migrate` / `db:status` / `db:verify` | 迁移、状态、结构与约束自检 |
-| `npm run track:backfill` | 回填 / 巡检逐期参考归档（首次上线跑一次，之后爬虫开奖后增量补） |
+| `npm run track:backfill` / `track:hits` | 回填 / 巡检逐期参考归档（位次型 / 号码池型）；首次上线各跑一次，之后爬虫开奖后增量补 |
 | `npm run crawl` / `crawl:daemon` / `crawl:supervised` | 爬虫入口 / 裸跑常驻 / 带守护的常驻（进程退出自动重启，无人值守用这个） |
 | `npm run deploy` | 前端 + API 一起发（`deploy:local` / `deploy:api` 可单发） |
 | `npm run deploy:analysis` | 发布 Python 分析服务（Vercel 项目 `ticai-analysis`） |
@@ -129,7 +129,7 @@ npm run deploy:analysis  # 只发 Python 分析服务（首次需先 link 项目
 | 文档 | 内容 |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | 分层、路由、数据流、设计取舍、技术债 |
-| [docs/api.md](docs/api.md) | 35 个接口的契约、SSE 协议、错误码 |
+| [docs/api.md](docs/api.md) | 36 个接口的契约、SSE 协议、错误码 |
 | [docs/SEO.md](docs/SEO.md) | 收录现状、meta / robots / sitemap、上线清单 |
 | [apps/api/README.md](apps/api/README.md) | 服务端结构、配置、部署 |
 | [apps/analysis/README.md](apps/analysis/README.md) | Python 分析服务：目录、对拍、部署与路径还原 |
@@ -142,7 +142,8 @@ npm run deploy:analysis  # 只发 Python 分析服务（首次需先 link 项目
 - 爬虫是**本机常驻进程**，机器关机就没有新数据；可用系统计划任务在 09:00 跑 `npm run crawl -- official` 兜底。
 - 阵容来自 ESPN 公开接口（未公开文档、无 SLA），联赛映射不全的场次会跳过；球员名是英文。
 - 只读接口无鉴权；登录接口有频次限制、AI 接口有 IP 限流，公网暴露前建议加网关。
-- 除首页外，页面数据仍是客户端拉取；`node:test` 88 个 + Python 38 个用例，但没有 ESLint / CI。
+- 快乐8 目前只支持「选十」投注，选一~选九暂未开放；双色球 / 大乐透支持复式，但单张仍受 1000 注上限约束。
+- 除首页外，页面数据仍是客户端拉取；`node:test` 201 个 + Python 48 个用例，但没有 ESLint / CI。
 
 ## 声明
 

@@ -18,6 +18,7 @@
     "architecture:update": "node scripts/update-architecture.mjs",
     "analyze:snapshot": "node scripts/analyze-snapshot.mjs",
     "track:backfill": "node scripts/backfill-prediction-track.mjs",
+    "track:hits": "node scripts/backfill-recommendation-track.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:seed": "node scripts/db-migrate.mjs seed",
     "db:status": "node scripts/db-migrate.mjs status",

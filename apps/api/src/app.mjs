@@ -12,6 +12,7 @@ import { createMatchSignalHandlers } from './handlers/match-signals.mjs'
 import { createOddsDistributionHandlers } from './handlers/odds-distribution.mjs'
 import { createParlayHandler } from './handlers/parlay.mjs'
 import { createPredictionTrackHandlers } from './handlers/prediction-track.mjs'
+import { createRecommendationHitHandlers } from './handlers/recommendation-hits.mjs'
 import { createRecommendationHandlers } from './handlers/recommendations.mjs'
 import { createResultsHandlers } from './handlers/results.mjs'
 import { createSportteryHandlers } from './handlers/sporttery.mjs'
@@ -45,7 +46,8 @@ function buildCorsHeaders(req, config) {
         'x-analysis-through-issue,x-analysis-through-date,x-analysis-draw-count,' +
         'x-analysis-computed-at,x-analysis-stale,x-analysis-source,' +
         'x-analysis-game,x-analysis-kind,x-analysis-config,x-analysis-via,x-ttg-samples,' +
-        'x-track-source,x-track-stale,x-track-through-issue,x-track-samples',
+        'x-track-source,x-track-stale,x-track-through-issue,x-track-samples,' +
+        'x-hits-source,x-hits-stale,x-hits-through-issue,x-hits-samples',
       'access-control-max-age': '86400',
       vary: 'Origin',
     }
@@ -77,6 +79,7 @@ export function createApp(config) {
   const health = createHealthHandlers(config)
   const lotteryAnalysis = createLotteryAnalysisHandlers(config)
   const predictionTrack = createPredictionTrackHandlers(config)
+  const recommendationHits = createRecommendationHitHandlers(config)
   const matchDetail = createMatchDetailHandler(config)
   const analysis = createAnalysisHandler(config)
   const parlay = createParlayHandler(config)
@@ -98,6 +101,8 @@ export function createApp(config) {
     ['/api/analysis/lottery/snapshots', ['GET'], lotteryAnalysis.snapshots],
     // 逐期参考归档：每期开奖前给出的参考 + 逐位命中 + 偏差统计
     ['/api/analysis/lottery/track', ['GET'], predictionTrack.track],
+    // 号码池型推荐命中：大乐透 / 双色球 / 快乐8（每期推荐 vs 实际开奖）
+    ['/api/analysis/lottery/hits', ['GET'], recommendationHits.hits],
     ['/api/results', ['GET'], results.results],
     // 开奖记录 × 总进球赔率：不限时间的最低 / 第二低 / 第三低 / 中奖赔率分布
     ['/api/odds-distribution', ['GET'], oddsDistribution.ttg],

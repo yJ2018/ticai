@@ -40,6 +40,8 @@ function combinationCount(n: number, k: number) {
 export function LotteryBetPanel({ game, onClose }: { game: LotteryGameKey; onClose: () => void }) {
   const meta = GAMES[game]
   const positions = POSITIONS.find((item) => item.key === game)?.labels ?? []
+  const mainLabel = meta.mainLabel || '前区'
+  const extraLabel = meta.extraLabel || '后区'
   const token = useAuthStore((state) => state.token)
   const ready = useAuthStore((state) => state.ready)
   const navigate = useNavigate()
@@ -94,7 +96,11 @@ export function LotteryBetPanel({ game, onClose }: { game: LotteryGameKey; onClo
 
   const numberText = meta.positional
     ? groups.map((digits) => digits.join(',')).join(' | ')
-    : `${front.map(pad2).join(' ')} + ${back.map(pad2).join(' ')}`
+    : meta.extraCount > 0
+      ? `${front.map(pad2).join(' ')}${
+          front.length > 0 && back.length > 0 ? ' + ' : ''
+        }${back.map(pad2).join(' ')}`
+      : front.map(pad2).join(' ')
 
   function toggleDigit(index: number, digit: number) {
     setGroups((previous) =>
@@ -108,9 +114,17 @@ export function LotteryBetPanel({ game, onClose }: { game: LotteryGameKey; onClo
   }
 
   function toggleNumber(value: number, side: 'front' | 'back') {
-    const list = side === 'front' ? front : back
-    const setter = side === 'front' ? setFront : setBack
-    setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value].sort((a, b) => a - b))
+    if (side === 'front') {
+      if (!front.includes(value) && meta.fixedMain && front.length >= meta.mainCount) {
+        setError(`${meta.name}选十只能选 ${meta.mainCount} 个号码，请先取消一个`)
+        return
+      }
+      setFront(front.includes(value) ? front.filter((item) => item !== value) : [...front, value].sort((a, b) => a - b))
+      setError('')
+      return
+    }
+    setBack(back.includes(value) ? back.filter((item) => item !== value) : [...back, value].sort((a, b) => a - b))
+    setError('')
   }
 
   function resetForm() {
@@ -131,7 +145,13 @@ export function LotteryBetPanel({ game, onClose }: { game: LotteryGameKey; onClo
       return
     }
     if (!complete) {
-      setError(meta.positional ? '每一位至少选 1 个数字' : `前区至少选 ${meta.mainCount} 个、后区至少选 ${meta.extraCount} 个`)
+      setError(
+        meta.positional
+          ? '每一位至少选 1 个数字'
+          : meta.fixedMain
+            ? `${meta.name}选十必须正好选 ${meta.mainCount} 个号码`
+            : `${mainLabel}至少选 ${meta.mainCount} 个、${extraLabel}至少选 ${meta.extraCount} 个`,
+      )
       return
     }
     if (overLimit) {
@@ -175,7 +195,9 @@ export function LotteryBetPanel({ game, onClose }: { game: LotteryGameKey; onClo
               {meta.name} ·{' '}
               {meta.positional
                 ? `${meta.mainCount} 位数字（每位可多选）`
-                : `前区 ${meta.mainCount}+ / 后区 ${meta.extraCount}+`}
+                : meta.extraCount > 0
+                  ? `${mainLabel} ${meta.mainCount}+ / ${extraLabel} ${meta.extraCount}+`
+                  : `${mainLabel} ${meta.mainCount} 个（1–${meta.mainMax}）`}
             </h2>
           </div>
           <button type="button" className="lottery-pick__close" onClick={onClose} aria-label="关闭">
@@ -242,15 +264,18 @@ export function LotteryBetPanel({ game, onClose }: { game: LotteryGameKey; onClo
               <>
                 <section className="lottery-pick__section">
                   <h3>
-                    前区 · 至少 {meta.mainCount} 个（1–{meta.mainMax}）
+                    {mainLabel} · {meta.fixedMain ? `正好 ${meta.mainCount} 个` : `至少 ${meta.mainCount} 个`}
+                    （1–{meta.mainMax}）
                     {front.length > meta.mainCount ? ` · 已选 ${front.length} 个` : ''}
                   </h3>
-                  <div className="lottery-pick__grid">
+                  <div className="lottery-pick__grid" style={{ gridTemplateColumns: `repeat(${Math.min(10, Math.max(7, Math.ceil(meta.mainMax / 8)))}, minmax(0, 1fr))` }}>
                     {Array.from({ length: meta.mainMax }, (_, index) => index + 1).map((value) => (
                       <button
                         key={value}
                         type="button"
-                        className={`lottery-pick__ball${front.includes(value) ? ' is-active' : ''}`}
+                        className={`lottery-pick__ball is-main${
+                          game === 'kl8' ? ' is-kl8' : ''
+                        }${front.includes(value) ? ' is-active' : ''}`}
                         onClick={() => toggleNumber(value, 'front')}
                         aria-pressed={front.includes(value)}
                       >
@@ -259,25 +284,27 @@ export function LotteryBetPanel({ game, onClose }: { game: LotteryGameKey; onClo
                     ))}
                   </div>
                 </section>
-                <section className="lottery-pick__section">
-                  <h3>
-                    后区 · 至少 {meta.extraCount} 个（1–{meta.extraMax}）
-                    {back.length > meta.extraCount ? ` · 已选 ${back.length} 个` : ''}
-                  </h3>
-                  <div className="lottery-pick__grid">
-                    {Array.from({ length: meta.extraMax }, (_, index) => index + 1).map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={`lottery-pick__ball${back.includes(value) ? ' is-active' : ''}`}
-                        onClick={() => toggleNumber(value, 'back')}
-                        aria-pressed={back.includes(value)}
-                      >
-                        {pad2(value)}
-                      </button>
-                    ))}
-                  </div>
-                </section>
+                {meta.extraCount > 0 && (
+                  <section className="lottery-pick__section">
+                    <h3>
+                      {extraLabel} · 至少 {meta.extraCount} 个（1–{meta.extraMax}）
+                      {back.length > meta.extraCount ? ` · 已选 ${back.length} 个` : ''}
+                    </h3>
+                    <div className="lottery-pick__grid">
+                      {Array.from({ length: meta.extraMax }, (_, index) => index + 1).map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`lottery-pick__ball is-back${back.includes(value) ? ' is-active' : ''}`}
+                          onClick={() => toggleNumber(value, 'back')}
+                          aria-pressed={back.includes(value)}
+                        >
+                          {pad2(value)}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </>
             )}
 

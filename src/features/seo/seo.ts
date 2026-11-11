@@ -1,8 +1,8 @@
 export const SITE_URL = 'https://yujun426.online'
-export const SITE_NAME = '体彩助手'
+export const SITE_NAME = '彩票助手'
 
 export const DEFAULT_DESCRIPTION =
-  '体彩助手提供竞彩足球每日赛程、胜平负 / 让球 / 总进球 / 比分 / 半全场实时赔率、开奖结果与历史数据分析，支持保存投注方案并自动结算中奖。'
+  '彩票助手提供竞彩足球每日赛程与赔率，以及排列五、七星彩、大乐透、双色球、快乐8 开奖走势、遗漏、冷热分析与推荐命中记录，支持保存投注方案并自动结算中奖。'
 
 export type PageMeta = {
   title: string
@@ -32,8 +32,9 @@ const PAGE_META: Record<string, PageMeta> = {
       '把已开奖比赛的总进球赔率从低到高排序，统计最低赔率、倒数第二低、第三低与最终中奖赔率的分布，不限时间回看赔率与赛果的关系。',
   },
   '/history': {
-    title: '体彩开奖历史',
-    description: '体彩开奖历史查询，按日期查看竞彩足球等玩法的开奖结果与派奖信息。',
+    title: '彩票开奖历史与走势',
+    description:
+      '中国体育彩票与福利彩票开奖历史：排列五、七星彩、大乐透、双色球、快乐8 的号码走势、遗漏、冷热与逐期推荐命中，数据来自官方接口。',
   },
   '/history-analysis': {
     title: '竞彩历史数据分析',
@@ -48,10 +49,10 @@ const PAGE_META: Record<string, PageMeta> = {
     description: '每日星座运势与竞彩趣味参考，仅供娱乐。',
   },
   '/about': {
-    title: '关于体彩助手',
-    description: '体彩助手的产品说明、数据来源、使用方式与免责声明。',
+    title: '关于彩票助手',
+    description: '彩票助手的产品说明、数据来源、使用方式与免责声明。',
   },
-  '/login': { title: '登录', description: '登录体彩助手，保存投注方案、查看中奖记录。', noindex: true },
+  '/login': { title: '登录', description: '登录彩票助手，保存投注方案、查看中奖记录。', noindex: true },
   '/account': { title: '我的账号', description: '账号信息、登录方式与微信绑定。', noindex: true },
   '/my-bets': { title: '我的投注', description: '查看保存的投注方案与中奖结算。', noindex: true },
   '/profile': { title: '个人资料', description: '个人资料设置。', noindex: true },

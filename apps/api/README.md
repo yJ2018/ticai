@@ -42,14 +42,16 @@ node --test apps/api/test        # 或 npm run api:test（105 个用例）
 | `POST /api/ai-analysis` | **数据库 + DeepSeek** | 只收 `matchId` + `pool`；提示词/官方数据/天气全部服务端装配，SSE 返回 |
 | `GET /api/recommendations?pool=&scope=` | **数据库** | 推荐：幂法去水 → 伤停/近况有界修正 → 单关/2串1/3串1 风控 → 同口径回测（前端不再算概率） |
 | `POST /api/ai-parlay` | **数据库 + DeepSeek** | 只收选中的场次与选项，服务端补赔率/伤停并复用单场缓存 |
-| `GET /api/analysis/lottery/track?game=&issues=` | **数据库** | 逐期参考归档：每期开奖前的 3 个候选 / 逐位命中 / 组合命中 + 全量命中率与偏差 summary（不走 Python 代理） |
+| `GET /api/analysis/lottery/track?game=&issues=` | **数据库** | 位次型逐期参考归档：每期开奖前的 3 个候选 / 逐位命中 / 组合命中 + 全量命中率与偏差 summary（不走 Python 代理） |
+| `GET /api/analysis/lottery/hits?game=&issues=` | **数据库** | 号码池型推荐命中：大乐透 / 双色球 / 快乐8 每期推荐、实际、命中与奖级 + 累计/窗口/分布（不走 Python 代理） |
 
 > **分析服务代理**：配置 `ANALYSIS_API_BASE` 后，`/api/recommendations`、
-> `/api/analysis/lottery`（prediction / math_trend / dlt）、`/api/venue-weather`、
+> `/api/analysis/lottery`（prediction / math_trend / dlt / ssq / kl8）、`/api/venue-weather`、
 > `/api/ai-analysis` 与 `/api/ai-parlay`（含 SSE 流式）会转发给 Python 分析服务
 > （[apps/analysis](../analysis/README.md)），响应头带 `x-analysis-via: python`；
-> 分析服务不可达时自动回退本目录的内联实现（`x-analysis-via` 不出现）。两套实现接口形状完全一致，
-> 删除该环境变量即可回滚。`x-analysis-source` 仍保留原含义（快照来源：crawler / api / computed-on-read）。
+> 分析服务不可达时自动回退本目录的内联实现（`x-analysis-via` 不出现）；`/api/analysis/lottery`
+> 在 Python 返回 400/404（例如 Python 还没发布新 `kind`）时也会回退 Node 重算，避免版本错位把 400 抛给用户。
+> 两套实现接口形状完全一致，删除该环境变量即可回滚。`x-analysis-source` 仍保留原含义（快照来源：crawler / api / computed-on-read）。
 | `GET /api/horoscope` | 聚合数据 | 代理 + 10 min 缓存 |
 | `GET /api/weather` | 聚合数据 | 代理 + 10 min 缓存 |
 | `GET /api/ip` | 聚合数据 | 按连接 IP 查询 + 30 min 缓存 |
@@ -61,7 +63,7 @@ node --test apps/api/test        # 或 npm run api:test（105 个用例）
 ## 与旧实现的行为差异
 
 1. **`/api/matches` 忽略 `poolType`**：库里存了全部玩法，一次返回即可。前端仍按 `poolType` 取自己那份，请求数从 5 次降到 1 次。
-2. **`/api/history` 的 `gameNo` 支持两种写法**：`350133`（game_no）或 `pl5`（game_key）。
+2. **`/api/history` 的 `gameNo` 支持两种写法**：`350133`（game_no）或 `pl5`（game_key）；福彩为 `ssq` / `kl8`。
 3. **金额字段双写**：同时输出 `totalSaleAmount`/`poolBalance`（上游真名）和 `lotterySaleAmount`/`poolAmount`（历史前端误用的名字）。这样不改前端也能把「销售额/奖池」显示出来。
 4. **多了响应头**：`x-data-as-of`（库数据的最后更新时间）、`x-cache`、`x-request-id`。
 5. **投注金额服务端重算**：`POST /api/bets` 只信客户端传来的场次 / 选项 / 赔率快照，注数、金额、最高奖金与封顶由 `settlement.mjs` 重算。

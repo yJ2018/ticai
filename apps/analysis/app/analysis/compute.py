@@ -13,13 +13,19 @@ from ..errors import AnalysisError
 from .configs import (
     DLT_WINDOW,
     ENGINE_VERSION,
+    KL8_WINDOW,
+    SSQ_WINDOW,
     analysis_options,
     dlt_config_key,
+    kl8_config_key,
     math_trend_config_key,
     prediction_config_key,
+    ssq_config_key,
 )
 from .dlt import analyze_dlt_recommendation
+from .kl8 import analyze_kl8_recommendation
 from .prediction import analyze_history_prediction, analyze_math_trend_prediction
+from .ssq import analyze_ssq_recommendation
 
 # 算法版本写进快照 meta：事后能判断某条快照是哪一版代码算的
 ENGINE_DIGEST = "python-port-1"
@@ -30,7 +36,8 @@ ANALYSIS_ENGINE = {
 }
 
 GAME_SQL = """
-  select game_no, game_key, name, is_positional, digit_count, main_count, extra_count
+  select game_no, game_key, name, is_positional, digit_count, main_count, main_max,
+         extra_count, extra_max, source, category
   from lottery_game
   where game_no = %s or game_key = %s
   limit 1
@@ -224,6 +231,10 @@ def _used_draw_count(kind: str, draws: list[dict], options: dict) -> int:
         return min(options.get("sampleWindow", 0), len(draws))
     if kind == "dlt":
         return min(DLT_WINDOW, len(draws))
+    if kind == "ssq":
+        return min(SSQ_WINDOW, len(draws))
+    if kind == "kl8":
+        return min(KL8_WINDOW, len(draws))
     return len(draws)
 
 
@@ -241,6 +252,10 @@ def compute_analysis(kind: str, game: dict, draws: list[dict], config_key: str) 
     elif kind == "dlt":
         # 大乐透推演只认「最近 300 期、最新在前」，函数内部按窗口截断
         payload = analyze_dlt_recommendation([{"numbers": draw["numbers"]} for draw in draws])
+    elif kind == "ssq":
+        payload = analyze_ssq_recommendation([{"numbers": draw["numbers"]} for draw in draws])
+    elif kind == "kl8":
+        payload = analyze_kl8_recommendation([{"numbers": draw["numbers"]} for draw in draws])
     else:
         raise AnalysisError(400, f"未知分析种类：{kind}")
 
@@ -340,4 +355,8 @@ def default_config_key(kind: str) -> str:
         return prediction_config_key()
     if kind == "math_trend":
         return math_trend_config_key()
+    if kind == "ssq":
+        return ssq_config_key()
+    if kind == "kl8":
+        return kl8_config_key()
     return dlt_config_key()

@@ -189,7 +189,7 @@ function pad2(value) {
 export function buildLotteryBet(body) {
   const game = resolveLotteryGame(body?.game ?? body?.gameNo)
   if (!game) {
-    throw new HttpError(400, '不支持的彩种（排列五 / 七星彩 / 大乐透）')
+    throw new HttpError(400, '不支持的彩种（排列五 / 七星彩 / 大乐透 / 双色球 / 快乐8）')
   }
 
   const normalized = normalizeLotteryNumbers(game.key, body?.numbers)
@@ -208,9 +208,11 @@ export function buildLotteryBet(body) {
   }
 
   const numbers = normalized.numbers
-  const numberText = game.extraCount
-    ? `${numbers.main.map(pad2).join(' ')} + ${numbers.extra.map(pad2).join(' ')}`
-    : numbers.main.map((group) => group.join(',')).join(' | ')
+  const numberText = game.positional
+    ? numbers.main.map((group) => group.join(',')).join(' | ')
+    : game.extraCount > 0
+      ? `${numbers.main.map(pad2).join(' ')} + ${numbers.extra.map(pad2).join(' ')}`
+      : numbers.main.map(pad2).join(' ')
   const title =
     normalized.mode === 'multiple'
       ? `${game.name} 复式 ${normalized.units} 注`.slice(0, 64)
@@ -410,7 +412,8 @@ async function hydrate(config, betRows, legsByBet, { withClosing = true } = {}) 
             ? info?.numbers.main.some((group) => group.length > 1)
               ? 'multiple'
               : 'single'
-            : (info?.numbers.main.length ?? 0) > 5 || (info?.numbers.extra.length ?? 0) > 2
+            : (info?.numbers.main.length ?? 0) > (info?.game.singleMain ?? 5) ||
+                (info?.numbers.extra.length ?? 0) > (info?.game.singleExtra ?? 2)
               ? 'multiple'
               : 'single',
           numbers: info?.numbers ?? { main: [], extra: [] },

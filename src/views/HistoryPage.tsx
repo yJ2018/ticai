@@ -6,25 +6,41 @@ import {
   formatDltZones,
   getDltFrontIndicators,
 } from '../domain/dltIndicators'
+import {
+  formatBigSmall as formatWelfareBigSmall,
+  formatOddEven as formatWelfareOddEven,
+  formatZones as formatWelfareZones,
+  getKl8Indicators,
+  getSsqRedIndicators,
+} from '../domain/welfareIndicators'
 import { useAnalysisSnapshot } from '../features/analysis/useAnalysisSnapshot'
+import { useRecommendationHits } from '../features/analysis/useRecommendationHits'
 import { LotteryAutoBetButton } from '../features/bets/LotteryAutoBetButton'
 import { LotteryBetPanel } from '../features/bets/LotteryBetPanel'
+import { LotteryQuickBetButton } from '../features/bets/LotteryQuickBetButton'
 import { historyService, type LotteryHistoryEntry, type LotteryHistoryGameType } from '../service/historyService'
 import { type LotteryGameKey } from '../api/betApi'
 import { DltIndicatorRail } from '../components/DltIndicatorRail'
 import { DltRecommendationPanel } from '../components/DltRecommendationPanel'
 import { HistoryPageSkeleton } from '../components/HistoryPageSkeleton'
+import { Kl8IndicatorRail } from '../components/Kl8IndicatorRail'
+import { Kl8RecommendationPanel } from '../components/Kl8RecommendationPanel'
 import { PredictionDeviationPanel } from '../components/PredictionDeviationPanel'
+import { RecommendationHitPanel } from '../components/RecommendationHitPanel'
+import { SsqIndicatorRail } from '../components/SsqIndicatorRail'
+import { SsqRecommendationPanel } from '../components/SsqRecommendationPanel'
 import { usePredictionTrack } from '../features/analysis/usePredictionTrack'
 import { type PredictionTrackItem, type PredictionTrackPositionStat, type PredictionTrackSummary } from '../domain/predictionTrack'
 
 /** 服务端快照到达前先渲染空分析，避免布局跳动 */
 const EMPTY_PREDICTION: HistoryPredictionAnalysis = EMPTY_PREDICTION_ANALYSIS
 
-const historyTabs: Array<{ key: LotteryHistoryGameType; label: string }> = [
-  { key: 'pl5', label: '排列五' },
-  { key: 'qxc', label: '七星彩' },
-  { key: 'dlt', label: '大乐透' },
+const historyTabs: Array<{ key: LotteryHistoryGameType; label: string; category: string }> = [
+  { key: 'pl5', label: '排列五', category: '体彩' },
+  { key: 'qxc', label: '七星彩', category: '体彩' },
+  { key: 'dlt', label: '大乐透', category: '体彩' },
+  { key: 'ssq', label: '双色球', category: '福彩' },
+  { key: 'kl8', label: '快乐8', category: '福彩' },
 ]
 const TREND_DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 const POSITION_LABELS = ['第一位', '第二位', '第三位', '第四位', '第五位', '第六位', '第七位']
@@ -33,25 +49,96 @@ const DIGIT_AXIS = TREND_DIGITS
 const LAST_AXIS = Array.from({ length: 15 }, (_, index) => index)
 const FRONT_AXIS = Array.from({ length: 35 }, (_, index) => index + 1)
 const BACK_AXIS = Array.from({ length: 12 }, (_, index) => index + 1)
+const SSQ_RED_AXIS = Array.from({ length: 33 }, (_, index) => index + 1)
+const SSQ_BLUE_AXIS = Array.from({ length: 16 }, (_, index) => index + 1)
+const KL8_AXIS = Array.from({ length: 80 }, (_, index) => index + 1)
 /** 大乐透前区 5 条线、后区 2 条线，各自一种颜色 */
 const FRONT_COLORS = ['#ea580c', '#db2777', '#7c3aed', '#0891b2', '#65a30d']
 const BACK_COLORS = ['#2563eb', '#0ea5e9']
+const SSQ_RED_COLORS = ['#dc2626', '#ea580c', '#d97706', '#65a30d', '#0891b2', '#7c3aed']
+const KL8_COLORS = Array.from(
+  { length: 20 },
+  (_, index) => `hsl(${Math.round((index * 360) / 20)} 68% 52%)`,
+)
+
+type GameFamily = 'positional' | 'dlt' | 'ssq' | 'kl8'
 
 type GameMeta = {
   label: string
-  /** 是否是按位次计数的彩种（排列五 / 七星彩），大乐透不是 */
+  family: GameFamily
+  /** 是否是按位次计数的彩种（排列五 / 七星彩） */
   positional: boolean
   mainCount: number
   extraCount: number
   /** 最后一位是特殊号（七星彩的第七位） */
   specialLast: boolean
   unit: string
+  /** 分析方法说明（每个玩法不同的口径） */
+  methodTitle: string
+  methodTags: string[]
+  methodNote: string
 }
 
-const GAME_META: Record<LotteryHistoryGameType, GameMeta> = {
-  pl5: { label: '排列五', positional: true, mainCount: 5, extraCount: 0, specialLast: false, unit: '位' },
-  qxc: { label: '七星彩', positional: true, mainCount: 7, extraCount: 0, specialLast: true, unit: '位' },
-  dlt: { label: '大乐透', positional: false, mainCount: 5, extraCount: 2, specialLast: false, unit: '个' },
+const GAME_META: Record<LotteryHistoryGameType, GameMeta> = {  pl5: {
+    label: '排列五',
+    family: 'positional',
+    positional: true,
+    mainCount: 5,
+    extraCount: 0,
+    specialLast: false,
+    unit: '位',
+    methodTitle: '按位频次 + 遗漏 + 马尔可夫',
+    methodTags: ['逐位 Top1/Top3', '马尔可夫阶数', '滚动回测', '数学走势'],
+    methodNote: '5 位数字分别统计近 12 / 60 期频次、遗漏与相邻转移，逐期归档命中并按位回看。',
+  },
+  qxc: {
+    label: '七星彩',
+    family: 'positional',
+    positional: true,
+    mainCount: 7,
+    extraCount: 0,
+    specialLast: true,
+    unit: '位',
+    methodTitle: '按位频次 + 遗漏 + 马尔可夫',
+    methodTags: ['逐位 Top1/Top3', '末位 0–14', '滚动回测', '数学走势'],
+    methodNote: '前六位 0–9、末位 0–14 分别统计；开奖后逐位核对推荐命中，末位两位数按未命中计。',
+  },
+  dlt: {
+    label: '大乐透',
+    family: 'dlt',
+    positional: false,
+    mainCount: 5,
+    extraCount: 2,
+    specialLast: false,
+    unit: '个',
+    methodTitle: '前后区频次 + 形态软约束',
+    methodTags: ['前区 5+后区 2', '和值/跨度/奇偶/大小/三区', '5+2 推演', '九奖级命中'],
+    methodNote: '前区按三区各取 4 码、后区取 5 码，枚举组合并用近 30 期形态筛选；每期命中按九个奖级归档。',
+  },
+  ssq: {
+    label: '双色球',
+    family: 'ssq',
+    positional: false,
+    mainCount: 6,
+    extraCount: 1,
+    specialLast: false,
+    unit: '个',
+    methodTitle: '红球三区 + 蓝球独立冷热',
+    methodTags: ['红球 12 码 + 蓝球 4 码', '重号/邻号', '和值/跨度/奇偶/大小/三区', '复式中奖注数'],
+    methodNote: '红球按一区 1–11、二区 12–22、三区 23–33 各取 4 码；蓝球单独按频次与遗漏排序，开奖后按复式核对奖级。',
+  },
+  kl8: {
+    label: '快乐8',
+    family: 'kl8',
+    positional: false,
+    mainCount: 20,
+    extraCount: 0,
+    specialLast: false,
+    unit: '个',
+    methodTitle: '80 码频次 + 四区配额',
+    methodTags: ['20 码参考池', '选十 10 码', '四区/奇偶/大小/连号', '选十奖级命中'],
+    methodNote: '80 个号码按近 10 / 30 / 100 期频次与遗漏评分，四区各取 5 码；选十主推按四区均值分配名额。',
+  },
 }
 /**
  * 请求锁窗口：既保证按钮转圈"看得见"，也把连点吸收掉。
@@ -91,6 +178,19 @@ const initialState: HistoryState = {
 type PageDirection = 'next' | 'prev'
 type PagerAction = PageDirection | 'refresh'
 
+const GAME_KEYS: LotteryHistoryGameType[] = ['pl5', 'qxc', 'dlt', 'ssq', 'kl8']
+
+/** 支持 /history?game=ssq 直接打开某个彩种（分享链接、SEO 落地都能用） */
+function readGameFromLocation(): LotteryHistoryGameType | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  const value = new URLSearchParams(window.location.search).get('game')
+  return value && (GAME_KEYS as string[]).includes(value)
+    ? (value as LotteryHistoryGameType)
+    : null
+}
+
 export function HistoryPage() {
   const [activeGame, setActiveGame] = useState<LotteryHistoryGameType>('pl5')
   const [pickGame, setPickGame] = useState<LotteryGameKey | null>(null)
@@ -109,18 +209,31 @@ export function HistoryPage() {
   const predictionSnapshot = useAnalysisSnapshot(activeGame, 'prediction', 2, {
     enabled: meta.positional,
   })
-  const dltSnapshot = useAnalysisSnapshot('dlt', 'dlt', undefined, { enabled: !meta.positional })
+  const dltSnapshot = useAnalysisSnapshot('dlt', 'dlt', undefined, {
+    enabled: meta.family === 'dlt',
+  })
+  const ssqSnapshot = useAnalysisSnapshot('ssq', 'ssq', undefined, {
+    enabled: meta.family === 'ssq',
+  })
+  const kl8Snapshot = useAnalysisSnapshot('kl8', 'kl8', undefined, {
+    enabled: meta.family === 'kl8',
+  })
 
   const prediction = predictionSnapshot.snapshot?.analysis ?? EMPTY_PREDICTION
   const predictionLoading = meta.positional && predictionSnapshot.loading
+  const dltRecommendation = dltSnapshot.snapshot?.analysis ?? null
+  const ssqRecommendation = ssqSnapshot.snapshot?.analysis ?? null
+  const kl8Recommendation = kl8Snapshot.snapshot?.analysis ?? null
 
-  // 逐期归档：按当前页的 30 个期号取参考与命中，只用于走势叠加与偏差分析
+  // 逐期归档：位次彩种按当前页的 30 个期号取参考与命中
   const trackIssues = useMemo(() => state.items.map((item) => item.issue), [state.items])
   const trackState = usePredictionTrack(
     activeGame,
     trackIssues,
     meta.positional && state.items.length > 0,
   )
+  // 号码池彩种：大乐透 / 双色球 / 快乐8 的推荐命中记录
+  const hitsState = useRecommendationHits(activeGame, !meta.positional, 20)
   const trackSummary: PredictionTrackSummary | null =
     trackState.data?.ready && trackState.data.game.gameKey === activeGame
       ? trackState.data.summary
@@ -209,6 +322,28 @@ export function HistoryPage() {
     void loadHistory(1)
   }, [loadHistory])
 
+  // 首次挂载时读 ?game= 深链；放在 effect 里避免 SSR / hydration 首屏不一致
+  useEffect(() => {
+    const fromUrl = readGameFromLocation()
+    if (fromUrl) {
+      setActiveGame((current) => (current === fromUrl ? current : fromUrl))
+    }
+  }, [])
+
+  const selectGame = useCallback((game: LotteryHistoryGameType) => {
+    setActiveGame(game)
+    if (typeof window === 'undefined') {
+      return
+    }
+    const url = new URL(window.location.href)
+    if (game === 'pl5') {
+      url.searchParams.delete('game')
+    } else {
+      url.searchParams.set('game', game)
+    }
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
+
   const pageSummary = useMemo(() => {
     const pageText =
       state.total > 0
@@ -247,6 +382,14 @@ export function HistoryPage() {
     (state.loading && state.items.length === 0) ||
     (state.items.length > 0 && meta.positional && predictionLoading)
   const pageAnimClass = pageDirection === 'prev' ? 'is-prev-page' : 'is-next-page'
+  const desktopModifier = meta.positional ? '' : ` is-${meta.family}`
+  const desktopColumns = meta.positional
+    ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr)) 3.9rem`
+    : meta.family === 'kl8'
+      ? '5.1rem minmax(0, 80fr) 20rem'
+      : meta.family === 'ssq'
+        ? '5.1rem minmax(0, 33fr) minmax(0, 16fr) 16rem'
+        : '5.1rem minmax(0, 35fr) minmax(0, 12fr) 12.8rem'
 
   // 点击即进入 busy：只在按钮上转圈，内容保持原样，避免整块明暗变化被感知成闪烁
   const busyAction = pendingAction
@@ -256,12 +399,20 @@ export function HistoryPage() {
       <header className="history-page__header">
         <div>
           <p className="history-page__eyebrow">开奖历史</p>
-          <h2>体彩开奖查询</h2>
+          <h2>彩票开奖查询</h2>
         </div>
-        <p className="history-page__desc">
-          排列五、七星彩按位次看走势；大乐透结合前后区矩阵与逐期指标，按全量历史数据给出下期号码参考和理由；数据来自体彩官方接口。
-        </p>
+        <p className="history-page__desc">{meta.methodNote}</p>
       </header>
+
+      <div className="history-page__method" aria-label="当前玩法分析方法">
+        <span className="history-page__method-label">分析方法</span>
+        <strong>{meta.methodTitle}</strong>
+        {meta.methodTags.map((tag) => (
+          <span key={tag} className="history-page__method-tag">
+            {tag}
+          </span>
+        ))}
+      </div>
 
       <div className="history-page__toolbar">
         <nav className="history-page__tabs" aria-label="开奖彩种切换">
@@ -270,9 +421,10 @@ export function HistoryPage() {
               key={tab.key}
               type="button"
               className={tab.key === activeGame ? 'is-active' : ''}
-              onClick={() => setActiveGame(tab.key)}
+              onClick={() => selectGame(tab.key)}
             >
               {tab.label}
+              <small>{tab.category}</small>
             </button>
           ))}
         </nav>
@@ -291,7 +443,7 @@ export function HistoryPage() {
           <button
             type="button"
             className="history-page__pick"
-            onClick={() => setPickGame(activeGame)}
+            onClick={() => setPickGame(activeGame as LotteryGameKey)}
           >
             选号投注
           </button>
@@ -318,7 +470,7 @@ export function HistoryPage() {
             <section className="history-insight">
               <div className="history-insight__header">
                 <div>
-                  <p className="history-insight__eyebrow">全量数据预测</p>
+                  <p className="history-insight__eyebrow">推荐分析 · 开奖前参考</p>
                   <h3>基于全量 {prediction.sampleSize} 期开奖数据</h3>
                 </div>
                 <p className="history-insight__desc">
@@ -379,7 +531,7 @@ export function HistoryPage() {
                 </div>
                 <span className="history-hit__meta">
                   {trackSummary
-                    ? `每期已归档 · ${formatCount(trackSummary.overall.samples)} 期 · ${trackSummary.sample.fromIssue ?? '--'} → ${trackSummary.sample.toIssue ?? '--'} · 走势角标=开奖前参考`
+                    ? `推荐命中已归档 · ${formatCount(trackSummary.overall.samples)} 期 · ${trackSummary.sample.fromIssue ?? '--'} → ${trackSummary.sample.toIssue ?? '--'} · 走势角标=开奖前参考`
                     : trackState.loading
                       ? '逐期归档加载中…'
                       : trackState.error
@@ -413,22 +565,66 @@ export function HistoryPage() {
                 </div>
                 <LotteryAutoBetButton
                   key={activeGame}
-                  game={activeGame}
+                  game={activeGame as LotteryGameKey}
                   combinations={prediction.combinations}
                 />
               </div>
             </section>
             )}
 
-            {!meta.positional && <DltRecommendationPanel recommendation={dltSnapshot.snapshot?.analysis ?? null} />}
+            {meta.family === 'dlt' && (
+              <DltRecommendationPanel
+                recommendation={dltRecommendation}
+                quickBet={
+                  dltRecommendation ? (
+                    <LotteryQuickBetButton
+                      key={`dlt-${dltRecommendation.picks.front.join(',')}-${dltRecommendation.picks.back.join(',')}`}
+                      game="dlt"
+                      main={dltRecommendation.picks.front}
+                      extra={dltRecommendation.picks.back}
+                      label="主推 5+2"
+                    />
+                  ) : null
+                }
+              />
+            )}
+            {meta.family === 'ssq' && (
+              <SsqRecommendationPanel
+                recommendation={ssqRecommendation}
+                quickBet={
+                  ssqRecommendation ? (
+                    <LotteryQuickBetButton
+                      key={`ssq-${ssqRecommendation.red.primary.join(',')}-${ssqRecommendation.blue.primary.join(',')}`}
+                      game="ssq"
+                      main={ssqRecommendation.red.primary}
+                      extra={ssqRecommendation.blue.primary}
+                      label="主推 6+1"
+                    />
+                  ) : null
+                }
+              />
+            )}
+            {meta.family === 'kl8' && (
+              <Kl8RecommendationPanel
+                recommendation={kl8Recommendation}
+                quickBet={
+                  kl8Recommendation ? (
+                    <LotteryQuickBetButton
+                      key={`kl8-${kl8Recommendation.picks.primary.join(',')}`}
+                      game="kl8"
+                      main={kl8Recommendation.picks.primary}
+                      label="选十 10 码"
+                    />
+                  ) : null
+                }
+              />
+            )}
 
             <div
               key={`desktop-${activeGame}-${state.pageNo}`}
-              className={`history-page__desktop ${pageAnimClass}${meta.positional ? '' : ' is-dlt'}`}
+              className={`history-page__desktop ${pageAnimClass}${desktopModifier}`}
               style={{
-                gridTemplateColumns: meta.positional
-                  ? `5.1rem repeat(${meta.mainCount}, minmax(0, 1fr)) 3.9rem`
-                  : '5.1rem minmax(0, 35fr) minmax(0, 12fr) 12.8rem',
+                gridTemplateColumns: desktopColumns,
               }}
             >
               <section className="trend-axis">
@@ -495,7 +691,7 @@ export function HistoryPage() {
                     positionCount={meta.mainCount}
                   />
                 </>
-              ) : (
+              ) : meta.family === 'dlt' ? (
                 <>
                   {[
                     {
@@ -540,6 +736,63 @@ export function HistoryPage() {
                   ))}
                   <DltIndicatorRail rows={state.items} />
                 </>
+              ) : meta.family === 'ssq' ? (
+                <>
+                  <TrendPanel
+                    label="红球"
+                    axis={SSQ_RED_AXIS}
+                    rows={state.items}
+                    series={SSQ_RED_COLORS.map((color, index) => ({
+                      key: `ssq-red-${index}`,
+                      label: `第 ${index + 1} 球`,
+                      color,
+                      tone: 'front' as const,
+                      values: state.items.map((item) => toBallValue(item.numbers[index])),
+                    }))}
+                    caption="红球 1–33 选 6"
+                    showLines={false}
+                    showStats
+                  />
+                  <TrendPanel
+                    label="蓝球"
+                    axis={SSQ_BLUE_AXIS}
+                    rows={state.items}
+                    series={[
+                      {
+                        key: 'ssq-blue',
+                        label: '蓝球',
+                        color: '#2563eb',
+                        tone: 'back' as const,
+                        values: state.items.map((item) =>
+                          toBallValue(item.numbers[meta.mainCount]),
+                        ),
+                      },
+                    ]}
+                    caption="蓝球 1–16 选 1"
+                    showLines={false}
+                    showStats
+                  />
+                  <SsqIndicatorRail rows={state.items} />
+                </>
+              ) : (
+                <>
+                  <TrendPanel
+                    label="快乐8"
+                    axis={KL8_AXIS}
+                    rows={state.items}
+                    series={KL8_COLORS.map((color, index) => ({
+                      key: `kl8-${index}`,
+                      label: `第 ${index + 1} 球`,
+                      color,
+                      tone: 'front' as const,
+                      values: state.items.map((item) => toBallValue(item.numbers[index])),
+                    }))}
+                    caption="1–80 选 20"
+                    showLines={false}
+                    showStats
+                  />
+                  <Kl8IndicatorRail rows={state.items} />
+                </>
               )}
             </div>
 
@@ -549,7 +802,12 @@ export function HistoryPage() {
             >
               <ul className="history-page__list">
                 {state.items.map((item, rowIndex) => {
-                  const indicators = meta.positional ? null : getDltFrontIndicators(item.numbers)
+                  const dltIndicators =
+                    meta.family === 'dlt' ? getDltFrontIndicators(item.numbers) : null
+                  const ssqIndicators =
+                    meta.family === 'ssq' ? getSsqRedIndicators(item.numbers) : null
+                  const kl8Indicators =
+                    meta.family === 'kl8' ? getKl8Indicators(item.numbers) : null
                   const trackItem = trackItems[rowIndex]
                   return (
                     <li key={item.issue} className="history-card">
@@ -576,7 +834,9 @@ export function HistoryPage() {
                               key={`${item.issue}-${index}-${num}`}
                               className={`history-card__ball${isExtra ? ' is-extra' : ''}${
                                 isSpecial ? ' is-special' : ''
-                              }${isPredictedHit ? ' is-predicted-hit' : ''}`}
+                              }${meta.family === 'kl8' ? ' is-kl8' : ''}${
+                                isPredictedHit ? ' is-predicted-hit' : ''
+                              }`}
                             >
                               {num}
                               {rank > 0 && (
@@ -607,27 +867,85 @@ export function HistoryPage() {
                         </div>
                       )}
 
-                      {indicators && (
+                      {dltIndicators && (
                         <div className="history-card__indicators" aria-label="前区逐期指标">
                           <span className="history-card__indicator">
                             <span className="history-card__indicator-label">和值</span>
-                            <strong>{indicators.sum}</strong>
+                            <strong>{dltIndicators.sum}</strong>
                           </span>
                           <span className="history-card__indicator">
                             <span className="history-card__indicator-label">跨度</span>
-                            <strong>{indicators.span}</strong>
+                            <strong>{dltIndicators.span}</strong>
                           </span>
                           <span className="history-card__indicator">
                             <span className="history-card__indicator-label">奇偶</span>
-                            <strong>{formatDltOddEven(indicators)}</strong>
+                            <strong>{formatDltOddEven(dltIndicators)}</strong>
                           </span>
                           <span className="history-card__indicator">
                             <span className="history-card__indicator-label">大小</span>
-                            <strong>{formatDltBigSmall(indicators)}</strong>
+                            <strong>{formatDltBigSmall(dltIndicators)}</strong>
                           </span>
                           <span className="history-card__indicator">
                             <span className="history-card__indicator-label">三区</span>
-                            <strong>{formatDltZones(indicators)}</strong>
+                            <strong>{formatDltZones(dltIndicators)}</strong>
+                          </span>
+                        </div>
+                      )}
+
+                      {ssqIndicators && (
+                        <div className="history-card__indicators" aria-label="双色球红球逐期指标">
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">和值</span>
+                            <strong>{ssqIndicators.sum}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">跨度</span>
+                            <strong>{ssqIndicators.span}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">奇偶</span>
+                            <strong>{formatWelfareOddEven(ssqIndicators)}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">大小</span>
+                            <strong>{formatWelfareBigSmall(ssqIndicators)}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">三区</span>
+                            <strong>{formatWelfareZones(ssqIndicators)}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">蓝球</span>
+                            <strong>{item.numbers[meta.mainCount] ?? '--'}</strong>
+                          </span>
+                        </div>
+                      )}
+
+                      {kl8Indicators && (
+                        <div className="history-card__indicators" aria-label="快乐8逐期指标">
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">和值</span>
+                            <strong>{kl8Indicators.sum}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">跨度</span>
+                            <strong>{kl8Indicators.span}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">奇偶</span>
+                            <strong>{formatWelfareOddEven(kl8Indicators)}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">大小</span>
+                            <strong>{formatWelfareBigSmall(kl8Indicators)}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">四区</span>
+                            <strong>{formatWelfareZones(kl8Indicators)}</strong>
+                          </span>
+                          <span className="history-card__indicator">
+                            <span className="history-card__indicator-label">连号</span>
+                            <strong>{kl8Indicators.consecutive}</strong>
                           </span>
                         </div>
                       )}
@@ -638,11 +956,11 @@ export function HistoryPage() {
                           <strong>{item.salesAmount}</strong>
                         </div>
                         <div className="history-card__meta-item">
-                          <span>一等奖注数</span>
+                          <span>{meta.positional ? '一等奖注数' : '最高奖注数'}</span>
                           <strong>{item.firstPrizeCount}</strong>
                         </div>
                         <div className="history-card__meta-item">
-                          <span>一等奖奖金</span>
+                          <span>{meta.positional ? '一等奖奖金' : '最高奖奖金'}</span>
                           <strong>{item.firstPrizeAmount}</strong>
                         </div>
                         <div className="history-card__meta-item">
@@ -664,6 +982,17 @@ export function HistoryPage() {
                   summary={trackSummary}
                   loading={trackState.loading}
                   error={trackState.error}
+                />
+              </div>
+            )}
+
+            {!meta.positional && (
+              <div className="history-page__hits">
+                <RecommendationHitPanel
+                  gameLabel={meta.label}
+                  data={hitsState.data}
+                  loading={hitsState.loading}
+                  error={hitsState.error}
                 />
               </div>
             )}
@@ -749,7 +1078,7 @@ const TrendPanel = memo(function TrendPanel({
 }: TrendPanelProps) {
   return (
     <section
-      className={`trend-panel${badge ? ' is-special' : ''}${axis.length > 12 ? ' is-wide' : ''}`}
+      className={`trend-panel${badge ? ' is-special' : ''}${axis.length > 50 ? ' is-ultra' : axis.length > 12 ? ' is-wide' : ''}`}
     >
       <div className="trend-panel__header">
         <div>

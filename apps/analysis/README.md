@@ -7,6 +7,8 @@ ticai 的**分析服务**（Python + FastAPI）。所有"分析"类 API 都往�
 | 投注推荐（`GET /api/recommendations`） | ✅ 已迁移，与 Node 版对拍通过 |
 | 开奖分析 / 数学走势（`/api/analysis/lottery?kind=prediction\|math_trend`） | ✅ 已迁移，全量与夹具对拍 0 差异 |
 | 大乐透推演（`kind=dlt`） | ✅ 已迁移，夹具对拍 0 差异 |
+| 双色球推演（`kind=ssq`） | ✅ 已迁移：红球 12 码 + 蓝球 4 码，夹具对拍 0 差异 |
+| 快乐8推演（`kind=kl8`） | ✅ 已迁移：选十 10 码 + 20 码池，夹具对拍 0 差异 |
 | 场馆天气（`/api/venue-weather`） | ✅ 已迁移（DeepSeek 城市解析 + Open-Meteo），本地冒烟通过 |
 | 单场 / 串关 AI（`/api/ai-analysis`、`/api/ai-parlay`，SSE） | ✅ 已迁移：提示词逐字节对拍 + 真实 SSE 冒烟通过（`/api/ai-chat` 遗留接口仍在 Node） |
 
@@ -31,6 +33,9 @@ app/
   analysis/
     prediction.py    位置型预测（频次/遗漏/转移/马尔可夫/滚动回测）+ 数学走势（增量流式，全量 7762 期 1.6s）
     dlt.py           大乐透 5+2 推演（评分池 + 组合打分 + 可解释理由）
+    ssq.py           双色球推演（红球三区 12 码 + 蓝球 4 码 + 主推 6+1）
+    kl8.py           快乐8推演（80 码评分 + 四区 20 码池 + 选十 10 码）
+    pool_utils.py    号码池公共统计（频次/遗漏评分、分区池、形态指标、区间配额）
     dlt_indicators.py 和值/跨度/奇偶/大小/三区指标
     configs.py       config_key 指纹与预设组合（与 Node 字符串完全一致）
     compute.py       读开奖 → 算 → 写快照（与 Node 同一张表）
@@ -78,7 +83,7 @@ npm run analysis:fixtures
   `x-analysis-source` 仍是开奖快照来源，不被覆盖）。
 - **对拍**：`npm run analysis:fixtures` 用 Node 引擎导出同一批盘口/开奖的期望结果，
   `npm run analysis:test` 里 Python 必须给出同样的方案与选腿，概率差 < 5e-3。
-  开奖分析实测全量 7762 期逐字段 **0 差异**；推荐最大差 5e-4（来自 λ 粗网格的浮点求和顺序）。
+  开奖分析实测全量 7762 期逐字段 **0 差异**；双色球 / 快乐8 使用真实 320 期夹具，逐字段 0 差异；推荐最大差 5e-4（来自 λ 粗网格的浮点求和顺序）。
 - **回滚**：线上把 `ANALYSIS_API_BASE` 删掉就回到 Node 内联实现，不需要回滚代码。
 
 ## 部署
@@ -95,6 +100,8 @@ npm run deploy:analysis
   本地 `.env` 不会上传，`npm run deploy:analysis` 只上传 `api/ app/ requirements.txt vercel.json`。
 - 发布后在 **Node API 项目**（`ticai-service`）设置 `ANALYSIS_API_BASE=https://ticai-analysis.vercel.app`，
   分析接口才会走 Python。
+- **双色球 / 快乐8 的分析 kind 也在 Python 侧**：发布前端与 API 后，必须同步 `npm run deploy:analysis`，
+  否则旧版 Python 会对 `kind=ssq|kl8` 返回 400，Node 代理不会把 400 当成“不可达”回退。
 - **必须关掉 Deployment Protection**（Vercel 项目 → Settings → Deployment Protection → Vercel Authentication 关），
   否则 Node 代理请求会被 401 挡住、只能回退内联实现。
 

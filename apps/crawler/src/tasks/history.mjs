@@ -1,16 +1,18 @@
 import { predictionConfigKey } from '../../../api/src/analysis/configs.mjs'
 import { ensurePredictionTrack } from '../../../api/src/repos/prediction-track.mjs'
-import { refreshSnapshots } from '../../../api/src/analysis/compute.mjs'
+import { ensureRecommendationTrack } from '../../../api/src/repos/recommendation-track.mjs'
+import { defaultConfigKey, refreshSnapshots } from '../../../api/src/analysis/compute.mjs'
 import { finishRun, loadGames, startRun, withTransaction } from '../db.mjs'
 import { sleep } from '../http.mjs'
-import { normalizeDraw } from '../normalize.mjs'
+import { normalizeDraw, normalizeWelfareDraw } from '../normalize.mjs'
 import { fetchHistoryPage } from '../sporttery.mjs'
+import { fetchWelfareHistoryPage } from '../cwl.mjs'
 
 /**
  * 开奖抓取。默认只抓最新一页；--backfill 时逐页回灌历史。
  *
  * 每个彩种一条 crawl_run（source = sporttery.history:pl5），
- * 这样 /api/health 能分别显示四个彩种的新鲜度。
+ * 这样 /api/health 能分别显示六个彩种的新鲜度（体彩 sporttery.history:*，福彩 cwl.history:*）。
  *
  * 写完开奖后立刻重算分析快照（见 refreshAnalysis）：分析要全量样本，
  * 放在浏览器里算要先翻 78 页（约 140s），而且结果只在多了一期时才变——
@@ -51,10 +53,13 @@ async function savePage(pool, game, list, log) {
 
   for (const item of list) {
     try {
-      rows.push(normalizeDraw(item, game))
+      rows.push(
+        game.source === 'cwl' ? normalizeWelfareDraw(item, game) : normalizeDraw(item, game),
+      )
     } catch (error) {
       skipped += 1
-      log(`  ! ${game.name} 跳过异常开奖 ${item?.lotteryDrawNum ?? '?'}: ${error.message}`)
+      const issue = item?.lotteryDrawNum ?? item?.code ?? '?'
+      log(`  ! ${game.name} 跳过异常开奖 ${issue}: ${error.message}`)
     }
   }
 
@@ -174,15 +179,29 @@ export async function refreshAnalysis({ pool, game, saved, runId, log }) {
     // 逐期归档跟着开奖一起补：只会算「还没归档的那几期」，失败不影响开奖与分析快照
     let track = null
     try {
-      track = await ensurePredictionTrack({
-        runQuery: (text, params) => pool.query(text, params),
-        game: result.game,
-        configKey: predictionConfigKey({ markovOrder: 2 }),
-        source: 'crawler',
-        log,
-      })
-      if (track.status === 'empty') {
-        log(`  ${game.gameKey} 逐期参考归档：样本不足，暂不生成`)
+      if (result.game.is_positional) {
+        track = await ensurePredictionTrack({
+          runQuery: (text, params) => pool.query(text, params),
+          game: result.game,
+          configKey: predictionConfigKey({ markovOrder: 2 }),
+          source: 'crawler',
+          log,
+        })
+        if (track.status === 'empty') {
+          log(`  ${game.gameKey} 逐期参考归档：样本不足，暂不生成`)
+        }
+      } else if (['dlt', 'ssq', 'kl8'].includes(game.gameKey)) {
+        const kind = game.gameKey
+        track = await ensureRecommendationTrack({
+          runQuery: (text, params) => pool.query(text, params),
+          game: result.game,
+          configKey: defaultConfigKey(kind),
+          source: 'crawler',
+          log,
+        })
+        if (track.status === 'empty') {
+          log(`  ${game.gameKey} 推荐命中归档：样本不足，暂不生成`)
+        }
       }
     } catch (error) {
       log(`  ! ${game.gameKey} 逐期参考归档失败：${error.message}（不影响开奖入库）`)
@@ -225,8 +244,10 @@ export async function crawlHistory({
   const summary = []
 
   for (const game of games) {
+    // 体彩与福彩是两套官方接口：game.source 决定用哪一条链路
+    const welfare = game.source === 'cwl'
     const runId = await startRun(pool, {
-      source: `sporttery.history:${game.gameKey}`,
+      source: `${welfare ? 'cwl' : 'sporttery'}.history:${game.gameKey}`,
       meta: { gameNo: game.gameNo, backfill },
     })
 
@@ -237,11 +258,18 @@ export async function crawlHistory({
 
     try {
       do {
-        const result = await fetchHistoryPage(config, {
-          gameNo: game.gameNo,
-          pageNo: page,
-          pageSize: config.historyPageSize,
-        })
+        const result = welfare
+          ? await fetchWelfareHistoryPage(config, {
+              // 福彩接口的彩种参数就是 game_no（ssq / kl8）
+              name: game.gameNo,
+              pageNo: page,
+              pageSize: config.historyPageSize,
+            })
+          : await fetchHistoryPage(config, {
+              gameNo: game.gameNo,
+              pageNo: page,
+              pageSize: config.historyPageSize,
+            })
 
         pages = Math.max(1, Math.min(result.pages, pageLimit))
 

@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const matched = matchAppRoute(pathname)
 
   if (!matched) {
-    return { title: '页面不存在 · 体彩助手', robots: { index: false, follow: false } }
+    return { title: '页面不存在 · 彩票助手', robots: { index: false, follow: false } }
   }
 
   const meta = resolvePageMeta(pathname)
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: meta.title,
       description: meta.description,
       url: meta.canonical,
-      images: [{ url: '/og-cover.png', width: 1200, height: 630, alt: '体彩助手 · 竞彩赛程与开奖结果' }],
+      images: [{ url: '/og-cover.png', width: 1200, height: 630, alt: '彩票助手 · 竞彩赛程与开奖结果' }],
     },
     twitter: {
       card: 'summary_large_image',

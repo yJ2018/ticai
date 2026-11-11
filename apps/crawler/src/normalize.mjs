@@ -166,7 +166,8 @@ export function normalizeMatch(item, businessDate) {
   }
 }
 
-/** 开奖列表的一条 → 可入库的行（含奖级）。 */export function normalizeDraw(item, game) {
+/** 开奖列表的一条 → 可入库的行（含奖级）。 */
+export function normalizeDraw(item, game) {
   const issue = String(item?.lotteryDrawNum ?? '').trim()
   if (!/^\d+$/.test(issue)) {
     throw new Error(`期号非法：${item?.lotteryDrawNum}`)
@@ -206,6 +207,168 @@ export function normalizeMatch(item, businessDate) {
     poolBalanceAfter: parseMoney(item?.poolBalanceAfterdraw),
     raw: item,
     prizes,
+  }
+}
+
+// ============================================================================
+// 福彩（双色球 / 快乐8）开奖
+// ============================================================================
+
+/** 双色球 1–6 等奖的官方名称；上游 prizegrades.type 就是 1–6。 */
+const SSQ_PRIZE_NAMES = {
+  1: '一等奖',
+  2: '二等奖',
+  3: '三等奖',
+  4: '四等奖',
+  5: '五等奖',
+  6: '六等奖',
+}
+
+/**
+ * 福彩号码拆分。
+ *
+ * 双色球：red = "03,09,16,20,25,30"（6 个），blue = "05"（1 个）；
+ * 快乐8：red = 20 个逗号分隔号码，blue 为空。
+ * 与体彩不同，这里必须按逗号拆，不能按单个字符拆（号码是两位的）。
+ */
+export function parseWelfareNumbers(red, blue, { mainCount, extraCount = 0, mainMax, extraMax } = {}) {
+  const split = (value) =>
+    String(value ?? '')
+      .trim()
+      .split(/[\s,]+/)
+      .filter(Boolean)
+
+  const mainTokens = split(red)
+  if (mainTokens.length !== Number(mainCount)) {
+    throw new Error(`红球/主号码个数不符：期望 ${mainCount}，实际 ${mainTokens.length}`)
+  }
+
+  const main = mainTokens.map(Number)
+  if (
+    main.some(
+      (value) =>
+        !Number.isInteger(value) || value < 1 || (Number.isFinite(Number(mainMax)) && value > Number(mainMax)),
+    )
+  ) {
+    throw new Error(`主号码超出范围 1–${mainMax}：${red}`)
+  }
+
+  let extra = []
+  if (Number(extraCount) > 0) {
+    const extraTokens = split(blue)
+    if (extraTokens.length !== Number(extraCount)) {
+      throw new Error(`蓝球/特别号码个数不符：期望 ${extraCount}，实际 ${extraTokens.length}`)
+    }
+    extra = extraTokens.map(Number)
+    if (
+      extra.some(
+        (value) =>
+          !Number.isInteger(value) ||
+          value < 1 ||
+          (Number.isFinite(Number(extraMax)) && value > Number(extraMax)),
+      )
+    ) {
+      throw new Error(`特别号码超出范围 1–${extraMax}：${blue}`)
+    }
+  }
+
+  return { main, extra }
+}
+
+function welfarePrizeRows(item, game) {
+  const levels = Array.isArray(item?.prizegrades) ? item.prizegrades : []
+
+  if (game.gameKey === 'ssq') {
+    return levels
+      .map((level) => {
+        const type = Number(level?.type)
+        const name = SSQ_PRIZE_NAMES[type]
+        if (!name) {
+          return null
+        }
+        return {
+          prizeKey: name,
+          sortNo: type,
+          stakeCount: parseMoney(level.typenum),
+          prizeAmount: parseMoney(level.typemoney),
+          totalAmount: null,
+          raw: level,
+        }
+      })
+      .filter(Boolean)
+  }
+
+  if (game.gameKey === 'kl8') {
+    return levels
+      .map((level) => {
+        // 快乐8 的奖级 key 是 "x10z10"：选十中十。x=选号个数，z=命中个数。
+        const match = /^x(\d+)z(\d+)$/.exec(String(level?.type ?? ''))
+        if (!match) {
+          return null
+        }
+        const pick = Number(match[1])
+        const hit = Number(match[2])
+        return {
+          prizeKey: `选${chineseCount(pick)}中${chineseCount(hit)}`,
+          // 选十在最前，同一选号内命中越多越靠前
+          sortNo: (10 - pick) * 100 + (10 - hit),
+          stakeCount: parseMoney(level.typenum),
+          prizeAmount: parseMoney(level.typemoney),
+          totalAmount: null,
+          raw: level,
+        }
+      })
+      .filter(Boolean)
+      .sort((left, right) => left.sortNo - right.sortNo)
+  }
+
+  return []
+}
+
+const CHINESE_DIGITS = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+
+/** 0–10 → 中文数字；快乐8 奖级名用「选十中零」这种写法。 */
+function chineseCount(value) {
+  return CHINESE_DIGITS[value] ?? String(value)
+}
+
+/** 福彩开奖列表的一条 → 可入库的行（含奖级）。 */
+export function normalizeWelfareDraw(item, game) {
+  const issue = String(item?.code ?? '').trim()
+  if (!/^\d+$/.test(issue)) {
+    throw new Error(`期号非法：${item?.code}`)
+  }
+
+  const drawDate = String(item?.date ?? '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(drawDate)) {
+    throw new Error(`开奖日期非法：${item?.date}（期号 ${issue}）`)
+  }
+
+  const { main, extra } = parseWelfareNumbers(item?.red, item?.blue, {
+    mainCount: game.mainCount,
+    extraCount: game.extraCount,
+    mainMax: game.mainMax,
+    extraMax: game.extraMax,
+  })
+
+  // 统一成体彩的两位数字 + 空格串，/history 前端按空格拆
+  const numbersText = [...main, ...extra]
+    .map((value) => String(value).padStart(2, '0'))
+    .join(' ')
+
+  return {
+    gameNo: game.gameNo,
+    issue,
+    issueSeq: Number(issue),
+    drawDate,
+    mainNumbers: main,
+    extraNumbers: extra,
+    numbersText,
+    salesAmount: parseMoney(item?.sales),
+    poolBalance: parseMoney(item?.poolmoney),
+    poolBalanceAfter: null,
+    raw: item,
+    prizes: welfarePrizeRows(item, game),
   }
 }
 

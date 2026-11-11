@@ -8,8 +8,8 @@
 import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-import { computeAnalysis, loadDraws, loadGameRow } from '../apps/api/src/analysis/compute.mjs'
-import { dltConfigKey, mathTrendConfigKey, predictionConfigKey } from '../apps/api/src/analysis/configs.mjs'
+import { computeAnalysis, defaultConfigKey, loadDraws, loadGameRow } from '../apps/api/src/analysis/compute.mjs'
+import { mathTrendConfigKey, predictionConfigKey } from '../apps/api/src/analysis/configs.mjs'
 import { createConfig, loadEnv } from '../apps/api/src/config.mjs'
 import { closePool, query } from '../apps/api/src/db.mjs'
 
@@ -23,7 +23,9 @@ const PLAN = [
   { game: 'pl5', draws: 320, predictionOrders: [1, 2, 3, 5], mathTrend: true },
   { game: 'pl3', draws: 260, predictionOrders: [2], mathTrend: false },
   { game: 'qxc', draws: 200, predictionOrders: [2], mathTrend: false },
-  { game: 'dlt', draws: 320, predictionOrders: [], mathTrend: false, dlt: true },
+  { game: 'dlt', draws: 320, predictionOrders: [], mathTrend: false, pool: 'dlt' },
+  { game: 'ssq', draws: 320, predictionOrders: [], mathTrend: false, pool: 'ssq' },
+  { game: 'kl8', draws: 320, predictionOrders: [], mathTrend: false, pool: 'kl8' },
 ]
 
 const fixture = {
@@ -68,14 +70,18 @@ for (const item of PLAN) {
     )
   }
 
-  if (item.dlt) {
-    const configKey = dltConfigKey()
+  if (item.pool) {
+    const configKey = defaultConfigKey(item.pool)
     const startedAt = performance.now()
-    const { payload } = computeAnalysis('dlt', game, draws, configKey)
-    expected[`dlt:${configKey}`] = payload
+    const { payload } = computeAnalysis(item.pool, game, draws, configKey)
+    expected[`${item.pool}:${configKey}`] = payload
     console.log(
-      `  ${item.game} dlt ${configKey} → ${Math.round(performance.now() - startedAt)}ms · ` +
-        `前区 ${payload?.picks?.front?.length ?? 0} 个 / 后区 ${payload?.picks?.back?.length ?? 0} 个`,
+      `  ${item.game} ${item.pool} ${configKey} → ${Math.round(performance.now() - startedAt)}ms · ` +
+        (item.pool === 'dlt'
+          ? `前区 ${payload?.picks?.front?.length ?? 0} 个 / 后区 ${payload?.picks?.back?.length ?? 0} 个`
+          : item.pool === 'ssq'
+            ? `红球 ${payload?.red?.picks?.length ?? 0} 码 / 蓝球 ${payload?.blue?.picks?.length ?? 0} 码`
+            : `选十 ${payload?.picks?.primary?.length ?? 0} 码 / 池 ${payload?.picks?.pool?.length ?? 0} 码`),
     )
   }
 

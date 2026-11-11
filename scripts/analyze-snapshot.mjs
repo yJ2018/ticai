@@ -20,7 +20,7 @@ import { closePool, query } from '../apps/api/src/db.mjs'
  *   node scripts/analyze-snapshot.mjs --status           # 只读巡检
  */
 
-const DEFAULT_GAMES = ['pl5', 'qxc', 'dlt']
+const DEFAULT_GAMES = ['pl5', 'qxc', 'dlt', 'ssq', 'kl8']
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 loadEnv(root)
@@ -50,8 +50,16 @@ function formatTime(value) {
 }
 
 async function status() {
-  const gameNo = flagValue('game', '')
-  const versions = await listLatestVersions(runQuery, { gameNo: gameNo || null })
+  const gameFilter = flagValue('game', '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const versions = (await listLatestVersions(runQuery, { gameNo: null })).filter(
+    (item) =>
+      gameFilter.length === 0 ||
+      gameFilter.includes(item.gameKey) ||
+      gameFilter.includes(item.gameNo),
+  )
 
   if (versions.length === 0) {
     console.log('[analysis] 还没有任何快照，先跑一次 node scripts/analyze-snapshot.mjs')

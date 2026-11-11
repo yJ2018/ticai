@@ -12,6 +12,8 @@ test('彩种解析支持 gameKey 与 gameNo', () => {
   assert.equal(resolveLotteryGame('pl5')?.gameNo, '350133')
   assert.equal(resolveLotteryGame('350133')?.key, 'pl5')
   assert.equal(resolveLotteryGame('dlt')?.name, '超级大乐透')
+  assert.equal(resolveLotteryGame('ssq')?.name, '双色球')
+  assert.equal(resolveLotteryGame('kl8')?.name, '快乐8')
   assert.equal(resolveLotteryGame('nope'), null)
 })
 
@@ -157,6 +159,127 @@ test('大乐透：单式 1 注、复式 C(n,5)×C(k,2)、九个奖级', () => {
   )
   assert.throws(() => normalizeLotteryNumbers('dlt', { main: [1, 6, 10, 15, 36], extra: [3, 8] }), /1–35/)
   assert.throws(() => normalizeLotteryNumbers('dlt', { main: [1, 6, 10, 15], extra: [3, 8] }), /至少选 5 个/)
+})
+
+test('双色球：单式 6+1、复式注数与六个奖级', () => {
+  const single = normalizeLotteryNumbers('ssq', {
+    main: [30, 3, 9, 16, 20, 25],
+    extra: [5],
+  })
+  assert.deepEqual(single.numbers, {
+    main: [3, 9, 16, 20, 25, 30],
+    extra: [5],
+  })
+  assert.equal(single.units, 1)
+  assert.equal(single.mode, 'single')
+
+  const blueComplex = normalizeLotteryNumbers('ssq', {
+    main: [3, 9, 16, 20, 25, 30],
+    extra: [5, 11],
+  })
+  assert.equal(blueComplex.units, 2)
+  assert.equal(blueComplex.mode, 'multiple')
+
+  const redComplex = normalizeLotteryNumbers('ssq', {
+    main: [3, 9, 16, 20, 25, 30, 31],
+    extra: [5],
+  })
+  assert.equal(redComplex.units, 7)
+
+  const draw = {
+    issue: '2026129',
+    draw_date: '2026-11-10',
+    main_numbers: [3, 9, 16, 20, 25, 30],
+    extra_numbers: [5],
+  }
+
+  const first = judgeLotteryBet('ssq', single.numbers, draw)
+  assert.equal(first.status, 'won')
+  assert.equal(first.tier, '一等奖')
+  assert.equal(first.winningUnits, 1)
+  assert.deepEqual(first.hits, { main: 6, extra: 1 })
+
+  const blueTwo = judgeLotteryBet('ssq', blueComplex.numbers, draw)
+  assert.equal(blueTwo.status, 'won')
+  assert.equal(blueTwo.winningUnits, 2)
+  assert.deepEqual(
+    Object.fromEntries(blueTwo.tiers.map((item) => [item.tier, item.units])),
+    { 一等奖: 1, 二等奖: 1 },
+  )
+
+  const redSeven = judgeLotteryBet('ssq', redComplex.numbers, draw)
+  assert.equal(redSeven.status, 'won')
+  assert.equal(redSeven.winningUnits, 7)
+  assert.deepEqual(
+    Object.fromEntries(redSeven.tiers.map((item) => [item.tier, item.units])),
+    { 一等奖: 1, 三等奖: 6 },
+  )
+
+  const fivePlusBlue = judgeLotteryBet('ssq', { main: [3, 9, 16, 20, 25, 31], extra: [5] }, draw)
+  assert.equal(fivePlusBlue.tier, '三等奖')
+  assert.equal(fivePlusBlue.winningUnits, 1)
+
+  assert.throws(
+    () => normalizeLotteryNumbers('ssq', { main: [1, 2, 3, 4, 5], extra: [1] }),
+    /至少选 6 个/,
+  )
+  assert.throws(
+    () => normalizeLotteryNumbers('ssq', { main: [1, 2, 3, 4, 5, 6], extra: [] }),
+    /至少选 1 个/,
+  )
+  assert.throws(
+    () => normalizeLotteryNumbers('ssq', { main: [1, 2, 3, 4, 5, 34], extra: [1] }),
+    /1–33/,
+  )
+  assert.throws(
+    () => normalizeLotteryNumbers('ssq', { main: [1, 2, 3, 4, 5, 5], extra: [1] }),
+    /不能重复/,
+  )
+})
+
+test('快乐8：选十固定 10 个号码，按选十奖级判定', () => {
+  const single = normalizeLotteryNumbers('kl8', {
+    main: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  })
+  assert.equal(single.units, 1)
+  assert.equal(single.mode, 'single')
+
+  const draw = {
+    issue: '2026300',
+    draw_date: '2026-11-10',
+    main_numbers: Array.from({ length: 20 }, (_, index) => index + 1),
+    extra_numbers: [],
+  }
+
+  const top = judgeLotteryBet('kl8', single.numbers, draw)
+  assert.equal(top.status, 'won')
+  assert.equal(top.tier, '选十中十')
+  assert.equal(top.hits.main, 10)
+
+  const zero = judgeLotteryBet(
+    'kl8',
+    { main: [61, 62, 63, 64, 65, 66, 67, 68, 69, 70] },
+    draw,
+  )
+  assert.equal(zero.status, 'won')
+  assert.equal(zero.tier, '选十中零')
+
+  const miss = judgeLotteryBet(
+    'kl8',
+    { main: [1, 2, 3, 4, 21, 22, 23, 24, 25, 26] },
+    draw,
+  )
+  assert.equal(miss.status, 'lost')
+  assert.equal(miss.hits.main, 4)
+
+  assert.throws(
+    () => normalizeLotteryNumbers('kl8', { main: [1, 2, 3, 4, 5, 6, 7, 8, 9] }),
+    /正好选 10 个/,
+  )
+  assert.throws(
+    () => normalizeLotteryNumbers('kl8', { main: [1, 2, 3, 4, 5, 6, 7, 8, 9, 81] }),
+    /1–80/,
+  )
 })
 
 test('没有开奖时一律 pending', () => {
