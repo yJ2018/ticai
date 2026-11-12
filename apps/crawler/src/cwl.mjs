@@ -39,13 +39,19 @@ export async function fetchWelfareHistoryPage(
     pageSize: String(Math.min(Math.max(Number(pageSize) || 100, 1), 100)),
     week: '',
     systemType: 'PC',
+    // 福彩公告走 CDN，开奖后短时间内可能仍返回上一期；带时间戳强制回源
+    _t: String(Date.now()),
   })
 
   const json = await fetchJson(`${config.cwlBase}${CWL_HISTORY_PATH}?${query.toString()}`, {
     timeoutMs: config.timeoutMs,
     retries: config.retries,
     fetchImpl,
-    headers: CWL_HEADERS,
+    headers: {
+      ...CWL_HEADERS,
+      'cache-control': 'no-cache',
+      pragma: 'no-cache',
+    },
   })
 
   if (!json || typeof json !== 'object') {
